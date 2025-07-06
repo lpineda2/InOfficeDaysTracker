@@ -177,32 +177,6 @@ For detailed technical information about bug fixes and Apple guidelines complian
 - `BUG_FIXES_SUMMARY.md`
 - `APPLE_GUIDELINES_IMPLEMENTATION.md`
 
-## 🏗️ Architecture
-
-The app follows modern iOS development patterns with SwiftUI and the MVVM architecture:
-
-```
-InOfficeDaysTracker/
-├── 📱 App/
-│   ├── InOfficeDaysTrackerApp.swift     # App entry point
-│   └── ContentView.swift                # Root view controller
-├── 📊 Models/
-│   ├── AppData.swift                    # Main data model (ObservableObject)
-│   ├── AppSettings.swift               # User preferences
-│   └── OfficeVisit.swift               # Visit data structure
-├── 🔧 Services/
-│   ├── LocationService.swift           # Core Location & geofencing
-│   └── NotificationService.swift       # Local notifications
-├── 🎨 Views/
-│   ├── SetupView.swift                 # Onboarding flow
-│   ├── MainProgressView.swift          # Dashboard
-│   ├── HistoryView.swift               # Visit history
-│   └── SettingsView.swift              # Configuration
-└── 📋 Resources/
-    ├── Info.plist                      # App configuration
-    └── Assets.xcassets                  # Images and colors
-```
-
 ## 🧪 Testing
 
 ### Device Testing Required
