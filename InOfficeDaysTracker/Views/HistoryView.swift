@@ -1,0 +1,242 @@
+//
+//  HistoryView.swift
+//  InOfficeDaysTracker
+//
+//  Created by Luis Pineda on 7/6/25.
+//
+
+import SwiftUI
+
+struct HistoryView: View {
+    @ObservedObject var appData: AppData
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var selectedMonth = Date()
+    @State private var showingDeleteAlert = false
+    @State private var visitToDelete: OfficeVisit?
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Month selector
+                monthSelector
+                
+                // Visit list
+                visitList
+            }
+            .navigationTitle("Visit History")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .alert("Delete Visit", isPresented: $showingDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    if let visit = visitToDelete {
+                        appData.deleteVisit(visit)
+                        visitToDelete = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    visitToDelete = nil
+                }
+            } message: {
+                Text("Are you sure you want to delete this visit? This action cannot be undone.")
+            }
+        }
+    }
+    
+    private var monthSelector: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Button {
+                    withAnimation {
+                        selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                }
+                
+                Spacer()
+                
+                Text(monthName(for: selectedMonth))
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button {
+                    withAnimation {
+                        selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                }
+                .disabled(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month))
+            }
+            
+            // Month stats
+            let monthVisits = appData.getValidVisits(for: selectedMonth)
+            let monthGoal = appData.settings.monthlyGoal
+            let monthProgress = monthVisits.count
+            
+            HStack(spacing: 24) {
+                StatView(title: "Visits", value: "\(monthProgress)")
+                StatView(title: "Goal", value: "\(monthGoal)")
+                StatView(title: "Progress", value: "\(Int(Double(monthProgress) / Double(monthGoal) * 100))%")
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+    }
+    
+    private var visitList: some View {
+        let visits = appData.getValidVisits(for: selectedMonth)
+            .sorted { $0.date > $1.date }
+        
+        return Group {
+            if visits.isEmpty {
+                emptyState
+            } else {
+                List {
+                    ForEach(visits) { visit in
+                        VisitDetailRow(visit: visit) {
+                            visitToDelete = visit
+                            showingDeleteAlert = true
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+            }
+        }
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            
+            Text("No visits recorded")
+                .font(.title2)
+                .fontWeight(.medium)
+            
+            Text("Office visits for \(monthName(for: selectedMonth)) will appear here when you spend time at your office location.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
+    }
+    
+    private func monthName(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: date)
+    }
+}
+
+struct StatView: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.blue)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+struct VisitDetailRow: View {
+    let visit: OfficeVisit
+    let onDelete: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(visit.formattedDate)
+                        .font(.headline)
+                        .fontWeight(.medium)
+                    Text(visit.dayOfWeek)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(visit.formattedDuration)
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                    Text("Duration")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Divider()
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Entry Time")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(formatTime(visit.entryTime))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                
+                Spacer()
+                
+                if let exitTime = visit.exitTime {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("Exit Time")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(formatTime(exitTime))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                } else {
+                    Text("In Progress")
+                        .font(.subheadline)
+                        .foregroundColor(.orange)
+                        .fontWeight(.medium)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Delete", role: .destructive) {
+                onDelete()
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+#Preview {
+    HistoryView(appData: AppData())
+}
