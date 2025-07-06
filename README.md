@@ -13,6 +13,32 @@ In Office Days Tracker is a privacy-first iOS application designed for hybrid wo
 
 Perfect for companies with flexible work policies that require employees to be in the office a certain number of days per month. All data stays local on your device - no cloud sync, no accounts, no external servers.
 
+**Built following Apple's official guidelines for iOS development and location services.**
+
+## 🍎 Apple Guidelines Compliance
+
+This app is built following Apple's official development guidelines and best practices:
+
+### Design Guidelines
+- **[Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/)**: Follows Apple's design principles for intuitive, accessible user experiences
+- **[Designing for iOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-ios)**: Implements iOS-specific design patterns and conventions
+- **Progressive Disclosure**: Setup flow reveals information gradually to avoid overwhelming users
+- **Accessibility**: Full VoiceOver support and proper contrast ratios
+- **Familiar Patterns**: Uses standard iOS navigation and interaction patterns
+
+### Location Services Best Practices
+- **[Location Services Authorization](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)**: Implements Apple's recommended authorization flow
+- **Progressive Permission Requests**: Follows Apple's guidance for requesting "When in Use" before "Always" access
+- **Clear Purpose Descriptions**: Provides transparent explanations for location access requirements
+- **Contextual Permissions**: Requests permissions when users understand the value
+- **Graceful Degradation**: App remains functional even with limited permissions
+
+### Swift Development Standards
+- **[Swift Documentation](https://developer.apple.com/documentation/swift)**: Uses modern Swift patterns and conventions
+- **Swift 6 Concurrency**: Implements the latest concurrency model for thread safety
+- **SwiftUI Best Practices**: Follows Apple's recommended SwiftUI architecture patterns
+- **Modern iOS APIs**: Uses iOS 17+ features and deprecation-safe implementations
+
 ## ✨ Features
 
 ### 🎯 **Automatic Tracking**
@@ -56,7 +82,7 @@ Perfect for companies with flexible work policies that require employees to be i
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/InOfficeDaysTracker.git
+   git clone https://github.com/lpineda2/InOfficeDaysTracker.git
    cd InOfficeDaysTracker
    ```
 
@@ -72,7 +98,7 @@ Perfect for companies with flexible work policies that require employees to be i
 
 ### Required Info.plist Configuration
 
-Add these entries to your Info.plist file:
+Add these entries to your Info.plist file as per Apple's location services guidelines:
 
 ```xml
 <key>NSLocationWhenInUseUsageDescription</key>
@@ -87,14 +113,14 @@ Add these entries to your Info.plist file:
 
 ### First-Time Setup
 
-The app guides you through a 6-step setup process:
+The app guides you through a 6-step setup process following Apple's progressive disclosure principles:
 
 1. **Welcome**: Overview of features and privacy policy
 2. **Office Location**: Enter your office address or use current location
 3. **Tracking Days**: Select which days to monitor (Mon-Fri recommended)
 4. **Office Hours**: Set your typical work schedule
 5. **Monthly Goal**: Choose your target in-office days per month
-6. **Permissions**: Grant location and notification access following Apple's guidelines
+6. **Permissions**: Grant location and notification access following Apple's authorization guidelines
 
 ## 🏗️ Architecture
 
@@ -125,7 +151,9 @@ InOfficeDaysTracker/
 ## 🔧 Technical Implementation
 
 ### Location Services - Following Apple's Best Practices
-- **Progressive Permissions**: Follows Apple's official guidelines for location authorization
+Following Apple's [Location Services Authorization Guide](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services):
+
+- **Progressive Permissions**: Implements Apple's recommended authorization flow
 - **"When in Use" First**: Initially requests basic location access for setup
 - **"Always" Permission**: Contextually requests background access with clear rationale
 - **Geofencing**: Uses `CLCircularRegion` for office boundary detection
@@ -141,11 +169,14 @@ InOfficeDaysTracker/
 - **NaN Protection**: Robust calculations that prevent division by zero and invalid values
 
 ### User Interface
+Following Apple's [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/):
+
 - **SwiftUI**: Native iOS 17+ design patterns
 - **Accessibility**: Full VoiceOver support and proper contrast
 - **Responsive Design**: Optimized for all iPhone and iPad screen sizes
 - **Animations**: Smooth transitions and delightful micro-interactions
 - **Real-time Updates**: Live permission status and progress updates
+- **iOS Design Language**: Uses system fonts, colors, and spacing
 
 ## 📱 Screenshots
 
@@ -153,7 +184,7 @@ InOfficeDaysTracker/
 
 ## 🛡️ Privacy & Security
 
-This app is built with privacy as a fundamental principle:
+This app is built with privacy as a fundamental principle, following Apple's privacy guidelines:
 
 - **📍 Location Data**: Only used for geofencing, never transmitted anywhere
 - **💾 Local Storage**: All data remains on your device using iOS secure storage
@@ -208,7 +239,20 @@ This is a personal productivity app designed to be simple and reliable. If you'd
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## � Additional Resources
+
+### Apple Documentation References
+- **[Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/)**: Official Apple design guidelines
+- **[Designing for iOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-ios)**: iOS-specific design patterns
+- **[Location Services Authorization](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)**: Core Location authorization guide
+- **[Swift Documentation](https://developer.apple.com/documentation/swift)**: Swift language reference
+
+### Development Resources
+- **Xcode**: Latest version available on the Mac App Store
+- **iOS Developer Documentation**: Apple's comprehensive development guides
+- **WWDC Sessions**: Apple's developer conference sessions on location services and privacy
+
+## �📄 License
 
 Copyright (c) 2025 Luis Pineda. All rights reserved.
 
