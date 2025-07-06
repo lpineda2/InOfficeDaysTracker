@@ -29,9 +29,22 @@
 		0A807BBB2E1AF8450014A212 /* InOfficeDaysTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InOfficeDaysTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0A749ACD2E1B298700E3C5F7 /* Exceptions for "InOfficeDaysTracker" folder in "InOfficeDaysTracker" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0A807BA32E1AF8440014A212 /* InOfficeDaysTracker */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0A807BA62E1AF8440014A212 /* InOfficeDaysTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0A749ACD2E1B298700E3C5F7 /* Exceptions for "InOfficeDaysTracker" folder in "InOfficeDaysTracker" target */,
+			);
 			path = InOfficeDaysTracker;
 			sourceTree = "<group>";
 		};
