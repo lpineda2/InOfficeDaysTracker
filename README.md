@@ -205,8 +205,9 @@ This app has been thoroughly tested and debugged. Key fixes include:
 - **Permission Flow**: Real-time permission status updates and proper error handling
 
 For detailed technical information about bug fixes and Apple guidelines compliance, see:
-- `BUG_FIXES_SUMMARY.md`
-- `APPLE_GUIDELINES_IMPLEMENTATION.md`
+- [`BUG_FIXES_SUMMARY.md`](BUG_FIXES_SUMMARY.md)
+- [`APPLE_GUIDELINES_IMPLEMENTATION.md`](APPLE_GUIDELINES_IMPLEMENTATION.md)
+- [`PRD.md`](PRD.md) - Complete Product Requirements Document
 
 ## 🧪 Testing
 
