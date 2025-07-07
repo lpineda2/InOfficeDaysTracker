@@ -116,9 +116,20 @@ class LocationService: NSObject, ObservableObject {
         
         hasRequestedAlwaysPermission = true
         
-        // Use background task to avoid blocking main thread
+        // Use background task to avoid blocking main thread and check location services
         Task.detached { [weak self] in
-            await self?.performAlwaysRequest()
+            guard let self = self else { return }
+            
+            // Check if location services are enabled globally (non-blocking)
+            let locationEnabled = await self.checkLocationServicesEnabled()
+            guard locationEnabled else {
+                await MainActor.run {
+                    self.locationError = "Location services are disabled on this device"
+                }
+                return
+            }
+            
+            await self.performAlwaysRequest()
         }
     }
     
@@ -150,15 +161,10 @@ class LocationService: NSObject, ObservableObject {
         }
     }
     
-    /// Check if device supports background location and region monitoring
+    /// Check if device supports background location and region monitoring (non-blocking)
     var isBackgroundLocationSupported: Bool {
         // Check for region monitoring support and that location services aren't restricted
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
-            return false
-        }
-        
-        // Check that location services are enabled globally
-        guard CLLocationManager.locationServicesEnabled() else {
             return false
         }
         
@@ -168,6 +174,16 @@ class LocationService: NSObject, ObservableObject {
         }
         
         return true
+    }
+    
+    /// Async check if location services are enabled globally (avoids main thread blocking)
+    private func checkLocationServicesEnabled() async -> Bool {
+        return await withCheckedContinuation { continuation in
+            Task.detached {
+                let enabled = CLLocationManager.locationServicesEnabled()
+                continuation.resume(returning: enabled)
+            }
+        }
     }
     
     private func openAppSettings() {
@@ -201,8 +217,26 @@ class LocationService: NSObject, ObservableObject {
             return
         }
         
-        // Clear any existing location error
-        locationError = nil
+        // Perform location services check asynchronously to avoid main thread blocking
+        Task {
+            let locationEnabled = await checkLocationServicesEnabled()
+            await MainActor.run {
+                guard locationEnabled else {
+                    self.locationError = "Location services are disabled on this device"
+                    return
+                }
+                
+                // Clear any existing location error
+                self.locationError = nil
+                
+                // Continue with geofencing setup
+                self.configureGeofencing(for: appData, at: officeLocation)
+            }
+        }
+    }
+    
+    /// Configure geofencing with the provided parameters (called from main thread)
+    private func configureGeofencing(for appData: AppData, at officeLocation: CLLocationCoordinate2D) {
         
         // Clear existing geofences
         locationManager.monitoredRegions.forEach { region in
