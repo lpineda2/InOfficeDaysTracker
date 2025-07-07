@@ -68,7 +68,10 @@ class LocationService: NSObject, ObservableObject {
         switch authorizationStatus {
         case .notDetermined:
             // Always start with "When in Use" permission per Apple guidelines
-            locationManager.requestWhenInUseAuthorization()
+            // Use background task to avoid blocking main thread
+            Task.detached { [weak self] in
+                await self?.performWhenInUseRequest()
+            }
             
         case .denied:
             locationError = "Location access is required for automatic office tracking. Please enable in Settings."
@@ -112,7 +115,39 @@ class LocationService: NSObject, ObservableObject {
         }
         
         hasRequestedAlwaysPermission = true
-        locationManager.requestAlwaysAuthorization()
+        
+        // Use background task to avoid blocking main thread
+        Task.detached { [weak self] in
+            await self?.performAlwaysRequest()
+        }
+    }
+    
+    /// Perform "When in Use" permission request off main thread
+    @MainActor
+    private func performWhenInUseRequest() async {
+        // Request permission on background queue to avoid UI blocking
+        await withCheckedContinuation { continuation in
+            Task.detached { [weak self] in
+                await self?.locationManager.requestWhenInUseAuthorization()
+                // Give time for system to process the request
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                continuation.resume()
+            }
+        }
+    }
+    
+    /// Perform "Always" permission request off main thread
+    @MainActor
+    private func performAlwaysRequest() async {
+        // Request permission on background queue to avoid UI blocking
+        await withCheckedContinuation { continuation in
+            Task.detached { [weak self] in
+                await self?.locationManager.requestAlwaysAuthorization()
+                // Give time for system to process the request
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                continuation.resume()
+            }
+        }
     }
     
     /// Check if device supports background location and region monitoring
