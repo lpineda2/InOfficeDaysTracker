@@ -126,8 +126,13 @@ class AppData: ObservableObject {
     
     func getCurrentMonthProgress() -> (current: Int, goal: Int, percentage: Double) {
         let currentMonth = Date()
-        let validVisits = getValidVisits(for: currentMonth)
-        let current = validVisits.count
+        let allVisits = getVisits(for: currentMonth)
+        
+        // Count both valid visits (completed with 1+ hour) and visits in progress
+        let validVisits = allVisits.filter { $0.isValidVisit }
+        let visitsInProgress = allVisits.filter { $0.duration == nil } // Currently in office
+        
+        let current = validVisits.count + visitsInProgress.count
         let goal = settings.monthlyGoal
         let percentage = goal > 0 ? Double(current) / Double(goal) : 0.0
         return (current, goal, min(percentage, 1.0))
