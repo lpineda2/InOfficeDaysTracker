@@ -59,6 +59,9 @@ class AppData: ObservableObject {
         )
         currentVisit = visit
         isCurrentlyInOffice = true
+        
+        // Count the day immediately when entering office
+        addTodayAsOfficeDay(at: location)
     }
     
     func endVisit() {
@@ -75,6 +78,12 @@ class AppData: ObservableObject {
             coordinate: visit.coordinate
         )
         
+        // Replace any existing visit for today with the completed one
+        let calendar = Calendar.current
+        visits.removeAll { existingVisit in
+            calendar.isDate(existingVisit.date, inSameDayAs: visit.date)
+        }
+        
         // Only save valid visits (at least 1 hour)
         if completedVisit.isValidVisit {
             visits.append(completedVisit)
@@ -83,6 +92,25 @@ class AppData: ObservableObject {
         
         currentVisit = nil
         isCurrentlyInOffice = false
+    }
+    
+    private func addTodayAsOfficeDay(at location: CLLocationCoordinate2D) {
+        let today = Date()
+        let calendar = Calendar.current
+        
+        // Check if we already have a visit for today
+        let todayVisits = visits.filter { calendar.isDate($0.date, inSameDayAs: today) }
+        
+        if todayVisits.isEmpty {
+            // Add a placeholder visit for today that will be updated when we leave
+            let placeholderVisit = OfficeVisit(
+                date: today,
+                entryTime: today,
+                coordinate: location
+            )
+            visits.append(placeholderVisit)
+            saveVisits()
+        }
     }
     
     func getVisits(for month: Date) -> [OfficeVisit] {
