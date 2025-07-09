@@ -12,6 +12,9 @@ struct MainProgressView: View {
     
     @State private var showingHistory = false
     @State private var showingSettings = false
+    @State private var currentTime = Date()
+    
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var body: some View {
         NavigationView {
@@ -110,6 +113,14 @@ struct MainProgressView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView(appData: appData)
             }
+            .onAppear {
+                currentTime = Date()
+            }
+            .onReceive(timer) { _ in
+                if appData.isCurrentlyInOffice {
+                    currentTime = Date()
+                }
+            }
         }
     }
     
@@ -124,7 +135,7 @@ struct MainProgressView: View {
     }
     
     private func formatCurrentVisitDuration(_ visit: OfficeVisit) -> String {
-        let duration = Date().timeIntervalSince(visit.entryTime)
+        let duration = currentTime.timeIntervalSince(visit.entryTime)
         guard !duration.isNaN && !duration.isInfinite && duration >= 0 else { return "Invalid duration" }
         let hours = Int(duration / 3600)
         let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
@@ -136,9 +147,15 @@ struct MainProgressView: View {
         let now = Date()
         let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
         
-        return appData.visits.filter { visit in
+        let validVisits = appData.visits.filter { visit in
             visit.isValidVisit && visit.date >= weekStart
-        }.count
+        }
+        
+        let visitsInProgress = appData.visits.filter { visit in
+            visit.duration == nil && visit.date >= weekStart
+        }
+        
+        return validVisits.count + visitsInProgress.count
     }
     
     private func getAverageDuration() -> Double {
