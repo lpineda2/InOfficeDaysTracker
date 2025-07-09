@@ -18,7 +18,7 @@ struct MainProgressView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
+            ScrollView(.vertical) {
                 VStack(spacing: 24) {
                     // Header
                     VStack(spacing: 8) {
@@ -138,8 +138,15 @@ struct MainProgressView: View {
         let now = Date()
         let duration = now.timeIntervalSince(visit.entryTime)
         guard !duration.isNaN && !duration.isInfinite && duration >= 0 else { return "Invalid duration" }
+        
         let hours = Int(duration / 3600)
         let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
+        
+        // Show at least 1 minute if user is in office for less than a minute
+        if hours == 0 && minutes == 0 && duration > 0 {
+            return "< 1 minute"
+        }
+        
         return String(format: "%dh %dm", hours, minutes)
     }
     
