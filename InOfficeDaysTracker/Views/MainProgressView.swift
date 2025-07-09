@@ -118,7 +118,7 @@ struct MainProgressView: View {
             }
             .onReceive(timer) { _ in
                 if appData.isCurrentlyInOffice {
-                    currentTime = Date()
+                    currentTime = Date() // Just trigger UI update
                 }
             }
         }
@@ -135,7 +135,8 @@ struct MainProgressView: View {
     }
     
     private func formatCurrentVisitDuration(_ visit: OfficeVisit) -> String {
-        let duration = currentTime.timeIntervalSince(visit.entryTime)
+        let now = Date()
+        let duration = now.timeIntervalSince(visit.entryTime)
         guard !duration.isNaN && !duration.isInfinite && duration >= 0 else { return "Invalid duration" }
         let hours = Int(duration / 3600)
         let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
