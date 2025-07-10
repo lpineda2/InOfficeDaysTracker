@@ -369,8 +369,21 @@ struct DataExportView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingShareSheet) {
-                ShareSheet(items: exportFileURL != nil ? [exportFileURL!] : [exportedData])
+            .sheet(isPresented: $showingShareSheet, onDismiss: {
+                // Reset state when ShareSheet is dismissed
+                exportFileURL = nil
+                exportedData = ""
+            }) {
+                ShareSheet(
+                    fileURL: exportFileURL,
+                    csvContent: exportedData
+                )
+            }
+            .onChange(of: exportFileURL) { _, _ in
+                // Only present if file/data is ready and not already showing
+                if (exportFileURL != nil || !exportedData.isEmpty) && !showingShareSheet {
+                    showingShareSheet = true
+                }
             }
         }
     }
@@ -390,7 +403,7 @@ struct DataExportView: View {
         var csvContent = header
         
         if allVisits.isEmpty {
-            csvContent += "No visits recorded yet,,,0.00,\n"
+            csvContent += "No visits recorded yet,,,0.00\n"
         } else {
             var rows: [String] = []
             
@@ -418,19 +431,31 @@ struct DataExportView: View {
         }
         
         // Create a file for sharing
-        if let fileURL = createCSVFile(content: csvContent) {
+        let finalCSVContent = csvContent
+        
+        if let fileURL = createCSVFile(content: finalCSVContent) {
             exportFileURL = fileURL
-            exportedData = csvContent
-            showingShareSheet = true
+            exportedData = finalCSVContent
         } else {
-            // Fallback to text sharing if file creation fails
-            exportFileURL = nil
-            exportedData = csvContent
-            showingShareSheet = true
+            // Create a temporary file with proper CSV content for fallback
+            if let fallbackFileURL = createFallbackCSVFile(content: finalCSVContent) {
+                exportFileURL = fallbackFileURL
+                exportedData = finalCSVContent
+            } else {
+                // Final fallback to text sharing
+                exportFileURL = nil
+                exportedData = finalCSVContent
+            }
         }
+        // Sheet will be presented by .onChange of exportFileURL
     }
     
     private func createCSVFile(content: String) -> URL? {
+        // Ensure we have valid content to write
+        guard !content.isEmpty && content.count > 10 else {
+            return nil
+        }
+        
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let fileName = "office_visits_\(dateFormatter.string(from: Date())).csv"
@@ -480,13 +505,67 @@ struct DataExportView: View {
         
         return nil
     }
+    
+    private func createFallbackCSVFile(content: String) -> URL? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let fileName = "office_visits_fallback_\(dateFormatter.string(from: Date())).csv"
+        
+        // Try creating in the app's cache directory
+        guard let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        
+        let cacheFileURL = cachesDir.appendingPathComponent(fileName)
+        
+        do {
+            try content.write(to: cacheFileURL, atomically: true, encoding: .utf8)
+            
+            // Verify file exists and has content
+            if FileManager.default.fileExists(atPath: cacheFileURL.path) {
+                let attributes = try FileManager.default.attributesOfItem(atPath: cacheFileURL.path)
+                let fileSize = attributes[.size] as? Int64 ?? 0
+                
+                if fileSize > 0 {
+                    return cacheFileURL
+                }
+            }
+        } catch {
+            // File creation failed
+        }
+        
+        return nil
+    }
 }
 
 struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
+    let fileURL: URL?
+    let csvContent: String
     
     func makeUIViewController(context: Context) -> UIActivityViewController {
+        // Determine items to share based on current state
+        let items: [Any]
+        
+        // Always prioritize file sharing if we have a valid file URL
+        if let fileURL = fileURL {
+            items = [fileURL]
+        } else if !csvContent.isEmpty && csvContent.count > 50 { // Ensure we have substantial content
+            items = [csvContent]
+        } else {
+            // Provide a meaningful fallback message
+            let fallbackMessage = "No visit data available to export. Start tracking your office visits to generate exportable data."
+            items = [fallbackMessage]
+        }
+        
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        
+        // For files, ensure we're setting the proper content type
+        if let fileURL = fileURL {
+            controller.setValue(fileURL.lastPathComponent, forKey: "subject")
+        } else {
+            controller.setValue("Office Visits Data", forKey: "subject")
+        }
+        
         return controller
     }
     
