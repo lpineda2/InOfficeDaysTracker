@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreLocation
+import UIKit
 
 struct SettingsView: View {
     @ObservedObject var appData: AppData
@@ -329,6 +330,7 @@ struct DataExportView: View {
     
     @State private var exportedData = ""
     @State private var showingShareSheet = false
+    @State private var exportFileURL: URL?
     
     var body: some View {
         NavigationView {
@@ -347,9 +349,9 @@ struct DataExportView: View {
                     exportData()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(appData.visits.isEmpty)
+                .disabled(appData.visits.isEmpty && appData.currentVisit == nil)
                 
-                if appData.visits.isEmpty {
+                if appData.visits.isEmpty && appData.currentVisit == nil {
                     Text("No visit history to export")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -368,29 +370,115 @@ struct DataExportView: View {
                 }
             }
             .sheet(isPresented: $showingShareSheet) {
-                ShareSheet(items: [exportedData])
+                ShareSheet(items: exportFileURL != nil ? [exportFileURL!] : [exportedData])
             }
         }
     }
     
     private func exportData() {
-        let header = "Date,Day,Entry Time,Exit Time,Duration (hours)\n"
-        let rows = appData.visits.map { visit in
-            let formatter = DateFormatter()
-            formatter.dateStyle = .short
-            formatter.timeStyle = .short
-            
-            let date = formatter.string(from: visit.date)
-            let day = visit.dayOfWeek
-            let entryTime = formatter.string(from: visit.entryTime)
-            let exitTime = visit.exitTime != nil ? formatter.string(from: visit.exitTime!) : "In Progress"
-            let duration = visit.duration != nil ? String(format: "%.2f", visit.duration! / 3600) : "N/A"
-            
-            return "\(date),\(day),\(entryTime),\(exitTime),\(duration)"
-        }.joined(separator: "\n")
+        // Include both saved visits and current visit
+        var allVisits = appData.visits
+        if let currentVisit = appData.currentVisit {
+            allVisits.append(currentVisit)
+        }
         
-        exportedData = header + rows
-        showingShareSheet = true
+        // Sort visits by date (most recent first)
+        allVisits.sort { $0.date > $1.date }
+        
+        // Create CSV content
+        let header = "Date,Day,Entry Time,Exit Time,Duration (hours)\n"
+        var csvContent = header
+        
+        if allVisits.isEmpty {
+            csvContent += "No visits recorded yet,,,0.00,\n"
+        } else {
+            var rows: [String] = []
+            
+            for visit in allVisits {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateStyle = .short
+                
+                let timeFormatter = DateFormatter()
+                timeFormatter.timeStyle = .short
+                
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateFormat = "EEEE"
+                
+                let date = dateFormatter.string(from: visit.date)
+                let day = dayFormatter.string(from: visit.date)
+                let entryTime = timeFormatter.string(from: visit.entryTime)
+                let exitTime = visit.exitTime != nil ? timeFormatter.string(from: visit.exitTime!) : "In Progress"
+                let duration = visit.duration != nil ? String(format: "%.2f", visit.duration! / 3600) : "N/A"
+                
+                let row = "\(date),\(day),\(entryTime),\(exitTime),\(duration)"
+                rows.append(row)
+            }
+            
+            csvContent += rows.joined(separator: "\n")
+        }
+        
+        // Create a file for sharing
+        if let fileURL = createCSVFile(content: csvContent) {
+            exportFileURL = fileURL
+            exportedData = csvContent
+            showingShareSheet = true
+        } else {
+            // Fallback to text sharing if file creation fails
+            exportFileURL = nil
+            exportedData = csvContent
+            showingShareSheet = true
+        }
+    }
+    
+    private func createCSVFile(content: String) -> URL? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let fileName = "office_visits_\(dateFormatter.string(from: Date())).csv"
+        
+        // Strategy 1: Try temporary directory (often works better for sharing)
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+        let tempFileURL = tempDir.appendingPathComponent(fileName)
+        
+        do {
+            try content.write(to: tempFileURL, atomically: true, encoding: .utf8)
+            
+            // Verify file was written correctly
+            if FileManager.default.fileExists(atPath: tempFileURL.path) {
+                let attributes = try FileManager.default.attributesOfItem(atPath: tempFileURL.path)
+                let fileSize = attributes[.size] as? Int64 ?? 0
+                
+                if fileSize > 0 {
+                    return tempFileURL
+                }
+            }
+        } catch {
+            // Continue to next strategy
+        }
+        
+        // Strategy 2: Try documents directory
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        
+        let docFileURL = documentsPath.appendingPathComponent(fileName)
+        
+        do {
+            try content.write(to: docFileURL, atomically: true, encoding: .utf8)
+            
+            // Verify file was written correctly
+            if FileManager.default.fileExists(atPath: docFileURL.path) {
+                let attributes = try FileManager.default.attributesOfItem(atPath: docFileURL.path)
+                let fileSize = attributes[.size] as? Int64 ?? 0
+                
+                if fileSize > 0 {
+                    return docFileURL
+                }
+            }
+        } catch {
+            // File creation failed
+        }
+        
+        return nil
     }
 }
 

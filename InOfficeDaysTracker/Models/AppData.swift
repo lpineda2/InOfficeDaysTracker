@@ -21,6 +21,11 @@ class AppData: ObservableObject {
     init() {
         loadSettings()
         loadVisits()
+        
+        // Debug: Add test data if no visits exist
+        #if DEBUG
+        addTestDataIfNeeded()
+        #endif
     }
     
     // MARK: - Settings Management
@@ -166,4 +171,46 @@ class AppData: ObservableObject {
         saveVisits()
         saveSettings()
     }
+    
+    #if DEBUG
+    private func addTestDataIfNeeded() {
+        // Only add test data if no visits exist
+        if visits.isEmpty {
+            print("[DEBUG] Adding test visits for debugging export functionality")
+            
+            let calendar = Calendar.current
+            let now = Date()
+            
+            // Create a few test visits from the past week
+            for i in 1...5 {
+                if let pastDate = calendar.date(byAdding: .day, value: -i, to: now),
+                   let entryTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: pastDate),
+                   let exitTime = calendar.date(bySettingHour: 17, minute: 30, second: 0, of: pastDate) {
+                    
+                    let duration = exitTime.timeIntervalSince(entryTime)
+                    let visit = OfficeVisit(
+                        date: pastDate,
+                        entryTime: entryTime,
+                        exitTime: exitTime,
+                        duration: duration,
+                        coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194) // Sample SF coordinates
+                    )
+                    visits.append(visit)
+                }
+            }
+            
+            // Add a current visit in progress
+            let todayEntry = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: now) ?? now
+            currentVisit = OfficeVisit(
+                date: now,
+                entryTime: todayEntry,
+                coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+            )
+            isCurrentlyInOffice = true
+            
+            print("[DEBUG] Added \(visits.count) completed visits and current visit: \(currentVisit != nil)")
+            saveVisits()
+        }
+    }
+    #endif
 }
