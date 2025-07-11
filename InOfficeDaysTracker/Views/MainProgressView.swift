@@ -187,10 +187,21 @@ struct MainProgressView: View {
     }
     
     private func getDaysRemainingInMonth() -> Int {
-        let calendar = Calendar.current
-        let now = Date()
-        let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end ?? now
-        return calendar.dateComponents([.day], from: now, to: endOfMonth).day ?? 0
+    let calendar = Calendar.current
+    let now = Date()
+    guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
+    var count = 0
+    var date = now
+
+    while date < endOfMonth {
+        let weekday = calendar.component(.weekday, from: date)
+        // Weekdays: 2 = Monday, ..., 6 = Friday
+        if weekday >= 2 && weekday <= 6 {
+            count += 1
+        }
+        date = calendar.date(byAdding: .day, value: 1, to: date)!
+    }
+    return count
     }
 }
 
