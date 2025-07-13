@@ -29,6 +29,24 @@ struct SetupView: View {
     @State private var errorMessage = ""
     
     private let totalSteps = 6
+
+    private var usesImperial: Bool {
+        if #available(iOS 16.0, *) {
+            return Locale.current.measurementSystem != .metric
+        } else {
+            return !Locale.current.usesMetricSystem
+        }
+    }
+
+    private var regionSpecificRadius: String {
+        if usesImperial {
+            let miles = detectionRadius / 1609.34
+            return String(format: "%.2f miles", miles)
+        } else {
+            let km = detectionRadius / 1000.0
+            return String(format: "%.2f km", km)
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -163,20 +181,30 @@ struct SetupView: View {
                     .submitLabel(.done)
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Detection Radius")
-                        .font(.headline)
-                    
                     HStack {
-                        Text("500m")
-                            .font(.caption)
-                        Slider(value: $detectionRadius, in: 500...5000, step: 100)
-                        Text("5km")
-                            .font(.caption)
+                        Text("Detection Radius")
+                            .font(.headline)
+                        Spacer()
+                        Text(regionSpecificRadius)
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
                     }
-                    
-                    Text("Current: \(String(format: "%.0f", detectionRadius))m")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    // Slider always stores meters, but endpoints are region-specific
+                    // Step is .25 miles (402.335 meters) or .25 km (250 meters)
+                    // Range: 0.25 to 1 mile (402.335m to 1609.34m) or 0.25 to 1 km (250m to 1000m)
+                    Slider(value: $detectionRadius,
+                           in: usesImperial ? 402.335...1609.34 : 250...1000,
+                           step: usesImperial ? 402.335 : 250)
+                        .tint(.blue)
+                    HStack {
+                        Text(usesImperial ? "0.25 mile" : "0.25 km")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(usesImperial ? "1 mile" : "1 km")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 .padding(.top)
             }

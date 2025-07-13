@@ -10,6 +10,23 @@ import CoreLocation
 import UIKit
 
 struct SettingsView: View {
+    private var usesImperial: Bool {
+        if #available(iOS 16.0, *) {
+            return Locale.current.measurementSystem != .metric
+        } else {
+            return !Locale.current.usesMetricSystem
+        }
+    }
+
+    private var regionSpecificRadius: String {
+        if usesImperial {
+            let miles = detectionRadius / 1609.34
+            return String(format: "%.2f miles", miles)
+        } else {
+            let km = detectionRadius / 1000.0
+            return String(format: "%.2f km", km)
+        }
+    }
     @ObservedObject var appData: AppData
     @Environment(\.dismiss) private var dismiss
     
@@ -89,23 +106,31 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("\(String(format: "%.0f", detectionRadius))m")
+                    Text(regionSpecificRadius)
                         .font(.subheadline)
                         .foregroundColor(.blue)
                 }
-                
-                Slider(value: $detectionRadius, in: 500...5000, step: 100)
+
+                // Slider always stores meters, but endpoints are region-specific
+                // Step is .25 miles (402.335 meters) or .25 km (250 meters)
+                // Range: 0.25 to 1 mile (402.335m to 1609.34m) or 0.25 to 1 km (250m to 1000m)
+                Slider(value: $detectionRadius,
+                       in: usesImperial ? 402.335...1609.34 : 250...1000,
+                       step: usesImperial ? 402.335 : 250)
                     .tint(.blue)
-                
+
+                // Only show min/max labels matching slider range
                 HStack {
-                    Text("500m")
+                    Text(usesImperial ? "0.25 mile" : "0.25 km")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("5km")
+                    Text(usesImperial ? "1 mile" : "1 km")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+                // Removed outdated '1 mile'/'10 miles' labels
             }
             .padding(.vertical, 4)
         } header: {
