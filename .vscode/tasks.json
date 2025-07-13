@@ -4,11 +4,11 @@
 		{
 			"label": "Build and Run iOS App",
 			"type": "shell",
-			"command": "xcodebuild -project InOfficeDaysTracker.xcodeproj -scheme InOfficeDaysTracker -destination 'platform=iOS Simulator,name=iPhone 15 Pro' build",
+			"command": "xcodebuild -project InOfficeDaysTracker.xcodeproj -scheme InOfficeDaysTracker -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build",
 			"group": "build",
 			"isBackground": false,
 			"problemMatcher": [
-				"$gcc"
+				"$swiftc"
 			]
 		}
 	]
