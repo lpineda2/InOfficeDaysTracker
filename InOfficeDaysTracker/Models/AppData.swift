@@ -10,6 +10,17 @@ import CoreLocation
 
 @MainActor
 class AppData: ObservableObject {
+    /// Add a visit, preventing duplicates for the same day
+    func addVisit(_ visit: OfficeVisit) -> Bool {
+        let calendar = Calendar.current
+        // Check if a visit for this day already exists
+        if visits.contains(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
+            return false // Duplicate found, do not add
+        }
+        visits.append(visit)
+        saveVisits()
+        return true
+    }
     @Published var settings = AppSettings()
     @Published var visits: [OfficeVisit] = []
     @Published var currentVisit: OfficeVisit?
@@ -57,6 +68,11 @@ class AppData: ObservableObject {
     
     func startVisit(at location: CLLocationCoordinate2D) {
         let now = Date()
+        let calendar = Calendar.current
+        // Prevent duplicate visits for today
+        if visits.contains(where: { calendar.isDate($0.date, inSameDayAs: now) }) {
+            return
+        }
         let visit = OfficeVisit(
             date: now,
             entryTime: now,
@@ -64,9 +80,8 @@ class AppData: ObservableObject {
         )
         currentVisit = visit
         isCurrentlyInOffice = true
-        
-        // Count the day immediately when entering office
-        addTodayAsOfficeDay(at: location)
+        // Add the visit using the new method
+        _ = addVisit(visit)
     }
     
     func endVisit() {

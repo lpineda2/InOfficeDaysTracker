@@ -183,7 +183,7 @@ struct AddVisitSheet: View {
                     TextField("Notes", text: $notes)
                 }
                 if showValidationError {
-                    Text("Exit time must be after entry time and duration at least 1 hour.")
+                    Text("Exit time must be after entry time and duration at least 1 hour, and no duplicate visit for this day.")
                         .foregroundColor(.red)
                         .font(.caption)
                 }
@@ -206,8 +206,12 @@ struct AddVisitSheet: View {
                                                     exitTime: exitTime,
                                                     duration: duration,
                                                     coordinate: defaultCoordinate)
-                            appData.visits.append(visit)
-                            isPresented = false
+                            // Use new addVisit method to prevent duplicates
+                            if appData.addVisit(visit) {
+                                isPresented = false
+                            } else {
+                                showValidationError = true
+                            }
                         } else {
                             showValidationError = true
                         }
