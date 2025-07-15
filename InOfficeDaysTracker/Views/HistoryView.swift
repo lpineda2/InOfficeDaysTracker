@@ -6,21 +6,38 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 struct HistoryView: View {
     @ObservedObject var appData: AppData
     @Environment(\.dismiss) private var dismiss
-    
     @State private var selectedMonth = Date()
     @State private var showingDeleteAlert = false
     @State private var visitToDelete: OfficeVisit?
-    
+    @State private var showingAddVisitSheet = false
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // Month selector
                 monthSelector
-                
+                // Add Visit button
+                HStack {
+                    Spacer()
+                    Button {
+                        showingAddVisitSheet = true
+                    } label: {
+                        Label("Add Visit", systemImage: "plus")
+                            .font(.headline)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .background(Color(.systemGray6))
                 // Visit list
                 visitList
             }
@@ -32,6 +49,9 @@ struct HistoryView: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showingAddVisitSheet) {
+                AddVisitSheet(appData: appData, isPresented: $showingAddVisitSheet)
             }
             .alert("Delete Visit", isPresented: $showingDeleteAlert) {
                 Button("Delete", role: .destructive) {
@@ -61,15 +81,11 @@ struct HistoryView: View {
                         .font(.title2)
                         .foregroundColor(.blue)
                 }
-                
                 Spacer()
-                
                 Text(monthName(for: selectedMonth))
                     .font(.title2)
                     .fontWeight(.semibold)
-                
                 Spacer()
-                
                 Button {
                     withAnimation {
                         selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth
@@ -81,16 +97,11 @@ struct HistoryView: View {
                 }
                 .disabled(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month))
             }
-            
             // Month stats
-            let monthVisits = appData.getValidVisits(for: selectedMonth)
-            let monthGoal = appData.settings.monthlyGoal
-            let monthProgress = monthVisits.count
-            
             HStack(spacing: 24) {
-                StatView(title: "Visits", value: "\(monthProgress)")
-                StatView(title: "Goal", value: "\(monthGoal)")
-                StatView(title: "Progress", value: "\(Int(Double(monthProgress) / Double(monthGoal) * 100))%")
+                StatView(title: "Visits", value: "\(appData.getValidVisits(for: selectedMonth).count)")
+                StatView(title: "Goal", value: "\(appData.settings.monthlyGoal)")
+                StatView(title: "Progress", value: "\(Int(Double(appData.getValidVisits(for: selectedMonth).count) / Double(appData.settings.monthlyGoal) * 100))%")
             }
         }
         .padding()
@@ -142,6 +153,68 @@ struct HistoryView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
         return formatter.string(from: date)
+    }
+}
+
+// Manual Visit Entry Sheet
+struct AddVisitSheet: View {
+    @ObservedObject var appData: AppData
+    @Binding var isPresented: Bool
+
+    @State private var visitDate: Date = Date()
+    @State private var entryTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+    @State private var exitTime: Date = Calendar.current.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
+    @State private var notes: String = ""
+    @State private var showValidationError = false
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Date")) {
+                    DatePicker("Visit Date", selection: $visitDate, displayedComponents: .date)
+                }
+                Section(header: Text("Entry Time")) {
+                    DatePicker("Entry Time", selection: $entryTime, displayedComponents: .hourAndMinute)
+                }
+                Section(header: Text("Exit Time")) {
+                    DatePicker("Exit Time", selection: $exitTime, displayedComponents: .hourAndMinute)
+                }
+                Section(header: Text("Notes (optional)")) {
+                    TextField("Notes", text: $notes)
+                }
+                if showValidationError {
+                    Text("Exit time must be after entry time and duration at least 1 hour.")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+            .navigationTitle("Add Visit")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        if exitTime > entryTime && exitTime.timeIntervalSince(entryTime) >= 3600 {
+                            let defaultCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+                            let duration = exitTime.timeIntervalSince(entryTime)
+                            let visit = OfficeVisit(date: visitDate,
+                                                    entryTime: entryTime,
+                                                    exitTime: exitTime,
+                                                    duration: duration,
+                                                    coordinate: defaultCoordinate)
+                            appData.visits.append(visit)
+                            isPresented = false
+                        } else {
+                            showValidationError = true
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
