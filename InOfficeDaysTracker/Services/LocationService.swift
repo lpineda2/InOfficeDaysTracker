@@ -375,34 +375,39 @@ extension LocationService: CLLocationManagerDelegate {
               region.identifier == "office_location" else {
             return
         }
-        
+
         let now = Date()
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: now)
         let hour = calendar.component(.hour, from: now)
-        
+
         // Check if today is a tracking day
         guard appData.settings.trackingDays.contains(weekday) else {
             return
         }
-        
+
         // Check if within office hours (with some flexibility)
         let officeStartHour = calendar.component(.hour, from: appData.settings.officeHours.startTime)
         let officeEndHour = calendar.component(.hour, from: appData.settings.officeHours.endTime)
-        
+
         // Allow 1 hour flexibility before and after office hours
         let flexibleStartHour = max(0, officeStartHour - 1)
         let flexibleEndHour = min(23, officeEndHour + 1)
-        
+
         guard hour >= flexibleStartHour && hour <= flexibleEndHour else {
             return
         }
-        
+
+        // Prevent duplicate notifications if already marked as in office
+        if appData.isCurrentlyInOffice {
+            return
+        }
+
         // Start tracking visit
         if let officeLocation = appData.settings.officeLocation {
             appData.startVisit(at: officeLocation)
         }
-        
+
         // Send notification
         if appData.settings.notificationsEnabled {
             NotificationService.shared.sendVisitNotification(type: .entry)
