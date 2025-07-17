@@ -30,6 +30,12 @@ class AppData: ObservableObject {
         loadVisits()
         loadCurrentStatus()
         
+        // CRITICAL: Clean up any duplicate entries on startup
+        cleanupDuplicateEntries()
+        
+        // Validate current visit consistency
+        validateCurrentVisitConsistency()
+        
         // Debug: Add test data if no visits exist
         #if DEBUG
         addTestDataIfNeeded()
@@ -102,18 +108,40 @@ class AppData: ObservableObject {
     func addVisit(_ visit: OfficeVisit) -> Bool {
         let calendar = Calendar.current
         
+        print("[AppData] addVisit called for date: \(visit.date)")
+        print("[AppData] Current visits array has \(visits.count) items")
+        
         // Remove any existing incomplete visit for today before adding new one
+        let beforeRemovalCount = visits.count
         visits.removeAll { existingVisit in
-            calendar.isDate(existingVisit.date, inSameDayAs: visit.date) && existingVisit.duration == nil
+            let isSameDay = calendar.isDate(existingVisit.date, inSameDayAs: visit.date)
+            let isIncomplete = existingVisit.duration == nil
+            if isSameDay && isIncomplete {
+                print("[AppData] Removing incomplete visit from \(existingVisit.entryTime)")
+            }
+            return isSameDay && isIncomplete
+        }
+        let afterRemovalCount = visits.count
+        
+        if beforeRemovalCount != afterRemovalCount {
+            print("[AppData] Removed \(beforeRemovalCount - afterRemovalCount) incomplete visits")
         }
         
         // Check if a completed visit for this day already exists
-        if visits.contains(where: { calendar.isDate($0.date, inSameDayAs: visit.date) && $0.duration != nil }) {
+        let existingCompletedVisits = visits.filter { 
+            calendar.isDate($0.date, inSameDayAs: visit.date) && $0.duration != nil 
+        }
+        
+        if !existingCompletedVisits.isEmpty {
+            print("[AppData] DUPLICATE PREVENTED: \(existingCompletedVisits.count) completed visit(s) already exist for this day")
             return false // Completed visit already exists for today
         }
         
         visits.append(visit)
+        print("[AppData] Visit added to array. New count: \(visits.count)")
+        
         saveVisits()
+        print("[AppData] Visits saved to UserDefaults")
         return true
     }
     
@@ -121,19 +149,41 @@ class AppData: ObservableObject {
         let now = Date()
         let calendar = Calendar.current
         
-        // Improve duplicate handling - allow re-entry on same day if previous visit was completed
-        let existingTodayVisit = visits.first { calendar.isDate($0.date, inSameDayAs: now) }
+        print("[AppData] startVisit called at \(now)")
+        print("[AppData] Current visits count: \(visits.count)")
+        print("[AppData] Current visit exists: \(currentVisit != nil)")
         
-        // If there's already a completed visit today, don't start a new one
-        // But if there's an incomplete visit, we can update it
-        if let existing = existingTodayVisit, existing.duration != nil {
-            print("[AppData] Already have a completed visit for today")
+        // CRITICAL: Check if we already have an active visit for today
+        if let currentVisit = currentVisit {
+            if calendar.isDate(currentVisit.date, inSameDayAs: now) {
+                print("[AppData] DUPLICATE PREVENTED: Already have active visit for today")
+                return
+            } else {
+                print("[AppData] Current visit is from different day, clearing it")
+                self.currentVisit = nil
+                clearCurrentVisit()
+            }
+        }
+        
+        // Check for existing completed visit today
+        let existingCompletedVisit = visits.first { 
+            calendar.isDate($0.date, inSameDayAs: now) && $0.duration != nil 
+        }
+        
+        if existingCompletedVisit != nil {
+            print("[AppData] DUPLICATE PREVENTED: Already have completed visit for today")
             return
         }
         
-        // Remove any incomplete visits for today
+        // Clean up any incomplete visits for today (defensive cleanup)
+        let beforeCount = visits.count
         visits.removeAll { visit in
             calendar.isDate(visit.date, inSameDayAs: now) && visit.duration == nil
+        }
+        let afterCount = visits.count
+        if beforeCount != afterCount {
+            print("[AppData] Cleaned up \(beforeCount - afterCount) incomplete visits for today")
+            saveVisits()
         }
         
         let visit = OfficeVisit(
@@ -141,11 +191,15 @@ class AppData: ObservableObject {
             entryTime: now,
             coordinate: location
         )
+        
+        // Set current visit BEFORE adding to array to prevent race conditions
         currentVisit = visit
         isCurrentlyInOffice = true
         
         // Add the visit
-        _ = addVisit(visit)
+        let wasAdded = addVisit(visit)
+        print("[AppData] Visit added to array: \(wasAdded)")
+        print("[AppData] Total visits after adding: \(visits.count)")
         print("[AppData] Started office visit at \(now)")
     }
     
@@ -154,6 +208,8 @@ class AppData: ObservableObject {
             print("[AppData] No current visit to end")
             return 
         }
+        
+        print("[AppData] Ending visit that started at \(visit.entryTime)")
         
         let exitTime = Date()
         let duration = exitTime.timeIntervalSince(visit.entryTime)
@@ -168,22 +224,33 @@ class AppData: ObservableObject {
         
         // Replace any existing visit for today with the completed one
         let calendar = Calendar.current
+        let beforeCount = visits.count
         visits.removeAll { existingVisit in
             calendar.isDate(existingVisit.date, inSameDayAs: visit.date)
         }
+        let afterCount = visits.count
         
-        // Only save valid visits (at least 1 hour)
-        if completedVisit.isValidVisit {
-            visits.append(completedVisit)
-            saveVisits()
-            print("[AppData] Completed valid office visit with duration: \(completedVisit.formattedDuration)")
-        } else {
-            print("[AppData] Visit too short (\(completedVisit.formattedDuration)), not saving")
+        if beforeCount != afterCount {
+            print("[AppData] Removed \(beforeCount - afterCount) existing visits for today")
         }
         
+        // Always save visits with exit time, regardless of duration
+        // This ensures we don't lose exit events even for short visits
+        visits.append(completedVisit)
+        saveVisits()
+        
+        if completedVisit.isValidVisit {
+            print("[AppData] Completed valid office visit with duration: \(completedVisit.formattedDuration)")
+        } else {
+            print("[AppData] Completed short visit (\(completedVisit.formattedDuration)), but saving for record")
+        }
+        
+        // Clear current visit state
         currentVisit = nil
         isCurrentlyInOffice = false
         clearCurrentVisit()
+        
+        print("[AppData] Visit ended successfully")
     }
 
     private func addTodayAsOfficeDay(at location: CLLocationCoordinate2D) {
@@ -244,6 +311,103 @@ class AppData: ObservableObject {
     }
     
     // MARK: - Utility Methods
+    
+    /// Clean up duplicate entries that may have been created
+    private func cleanupDuplicateEntries() {
+        print("[AppData] Starting duplicate cleanup...")
+        let _ = visits.count // Suppress warning
+        let _ = Calendar.current // Suppress warning
+        
+        // Group visits by date
+        var visitsByDate: [String: [OfficeVisit]] = [:]
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        for visit in visits {
+            let dateKey = dateFormatter.string(from: visit.date)
+            if visitsByDate[dateKey] == nil {
+                visitsByDate[dateKey] = []
+            }
+            visitsByDate[dateKey]?.append(visit)
+        }
+        
+        var cleanedVisits: [OfficeVisit] = []
+        var duplicatesRemoved = 0
+        
+        for (dateKey, dayVisits) in visitsByDate {
+            if dayVisits.count > 1 {
+                print("[AppData] Found \(dayVisits.count) visits for \(dateKey)")
+                
+                // Prioritize: completed visits over incomplete, then latest entry time
+                let sortedVisits = dayVisits.sorted { visit1, visit2 in
+                    // Completed visits come first
+                    if (visit1.duration != nil) != (visit2.duration != nil) {
+                        return visit1.duration != nil
+                    }
+                    // Then by entry time (latest first)
+                    return visit1.entryTime > visit2.entryTime
+                }
+                
+                // Keep only the best visit for each day
+                if let bestVisit = sortedVisits.first {
+                    cleanedVisits.append(bestVisit)
+                    duplicatesRemoved += dayVisits.count - 1
+                    print("[AppData] Kept visit from \(bestVisit.entryTime), removed \(dayVisits.count - 1) duplicates")
+                }
+            } else {
+                cleanedVisits.append(dayVisits[0])
+            }
+        }
+        
+        if duplicatesRemoved > 0 {
+            visits = cleanedVisits
+            saveVisits()
+            print("[AppData] Cleanup complete: removed \(duplicatesRemoved) duplicates, kept \(cleanedVisits.count) visits")
+        } else {
+            print("[AppData] No duplicates found")
+        }
+    }
+    
+    /// Validate that currentVisit is consistent with visits array
+    private func validateCurrentVisitConsistency() {
+        guard let currentVisit = currentVisit else {
+            print("[AppData] No current visit to validate")
+            return
+        }
+        
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Check if current visit is from today
+        if !calendar.isDate(currentVisit.date, inSameDayAs: today) {
+            print("[AppData] Current visit is from wrong day, clearing it")
+            self.currentVisit = nil
+            isCurrentlyInOffice = false
+            clearCurrentVisit()
+            return
+        }
+        
+        // Check if there's a matching incomplete visit in the array
+        let matchingVisits = visits.filter { visit in
+            calendar.isDate(visit.date, inSameDayAs: currentVisit.date) && 
+            visit.entryTime == currentVisit.entryTime &&
+            visit.duration == nil
+        }
+        
+        if matchingVisits.isEmpty {
+            print("[AppData] Current visit not found in visits array, adding it")
+            _ = addVisit(currentVisit)
+        } else if matchingVisits.count > 1 {
+            print("[AppData] Multiple matching visits found, cleaning up")
+            // Remove duplicates and keep one
+            visits.removeAll { visit in
+                calendar.isDate(visit.date, inSameDayAs: currentVisit.date) && visit.duration == nil
+            }
+            _ = addVisit(currentVisit)
+        } else {
+            print("[AppData] Current visit is properly synced with visits array")
+        }
+    }
     
     func deleteVisit(_ visit: OfficeVisit) {
         visits.removeAll { $0.id == visit.id }

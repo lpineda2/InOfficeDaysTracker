@@ -414,11 +414,9 @@ struct DataExportView: View {
     }
     
     private func exportData() {
-        // Include both saved visits and current visit
+        // Use visits array directly - currentVisit is already synchronized with visits array
+        // by our duplicate prevention system, so no need to add it separately
         var allVisits = appData.visits
-        if let currentVisit = appData.currentVisit {
-            allVisits.append(currentVisit)
-        }
         
         // Sort visits by date (most recent first)
         allVisits.sort { $0.date > $1.date }
