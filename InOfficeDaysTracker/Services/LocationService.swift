@@ -1,8 +1,8 @@
 //
-//  LocationService.swift
+//  LocationService.swift (Updated Version)
 //  InOfficeDaysTracker
 //
-//  Created by Luis Pineda on 7/6/25.
+//  Updated to integrate LocationVerificationService for fixing intermittent status issues
 //
 
 import Foundation
@@ -19,6 +19,9 @@ class LocationService: NSObject, ObservableObject {
     @Published var locationError: String?
     
     weak var appData: AppData?
+    
+    // Add verification service to handle intermittent status issues
+    private let verificationService = LocationVerificationService()
     
     // Track if we've already requested "Always" permission to avoid repeated requests
     private var hasRequestedAlwaysPermission = false
@@ -52,6 +55,8 @@ class LocationService: NSObject, ObservableObject {
     
     func setAppData(_ appData: AppData) {
         self.appData = appData
+        // Connect verification service to handle intermittent status issues
+        verificationService.setServices(appData: appData, locationService: self)
     }
     
     func checkAuthorizationStatus() {
@@ -264,6 +269,9 @@ class LocationService: NSObject, ObservableObject {
         
         locationManager.startMonitoring(for: region)
         
+        // Start periodic verification to handle intermittent status issues
+        verificationService.startPeriodicVerification()
+        
         // Request the current state of the region to handle cases where 
         // the user is already inside the geofence when it's created
         locationManager.requestState(for: region)
@@ -336,13 +344,11 @@ extension LocationService: CLLocationManagerDelegate {
                 // Disable background updates to respect the permission level
                 locationManager.allowsBackgroundLocationUpdates = false
                 
-            case .denied:
-                locationError = "Location access denied. Enable in Settings for automatic tracking."
+            case .denied, .restricted:
+                locationError = status == .denied ? "Location access denied. Enable in Settings for automatic tracking." : "Location access is restricted on this device."
                 locationManager.allowsBackgroundLocationUpdates = false
-                
-            case .restricted:
-                locationError = "Location access is restricted on this device."
-                locationManager.allowsBackgroundLocationUpdates = false
+                // Stop verification service when permission is lost
+                verificationService.stopPeriodicVerification()
                 
             case .notDetermined:
                 // Still waiting for user decision
@@ -383,6 +389,7 @@ extension LocationService: CLLocationManagerDelegate {
 
         // Check if today is a tracking day
         guard appData.settings.trackingDays.contains(weekday) else {
+            print("[LocationService] Not a tracking day, ignoring entry")
             return
         }
 
@@ -395,13 +402,17 @@ extension LocationService: CLLocationManagerDelegate {
         let flexibleEndHour = min(23, officeEndHour + 1)
 
         guard hour >= flexibleStartHour && hour <= flexibleEndHour else {
+            print("[LocationService] Outside office hours, ignoring entry")
             return
         }
 
         // Prevent duplicate notifications if already marked as in office
         if appData.isCurrentlyInOffice {
+            print("[LocationService] Already marked as in office")
             return
         }
+
+        print("[LocationService] Valid office entry detected")
 
         // Start tracking visit
         if let officeLocation = appData.settings.officeLocation {
@@ -420,6 +431,8 @@ extension LocationService: CLLocationManagerDelegate {
                   region.identifier == "office_location" else {
                 return
             }
+            
+            print("[LocationService] Office exit detected")
             
             // End tracking visit
             appData.endVisit()

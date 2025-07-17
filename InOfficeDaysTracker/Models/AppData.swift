@@ -1,8 +1,8 @@
 //
-//  AppData.swift
+//  AppData.swift (Updated Version)
 //  InOfficeDaysTracker
 //
-//  Created by Luis Pineda on 7/6/25.
+//  Updated to add status persistence and improve visit management
 //
 
 import Foundation
@@ -10,28 +10,25 @@ import CoreLocation
 
 @MainActor
 class AppData: ObservableObject {
-    /// Add a visit, preventing duplicates for the same day
-    func addVisit(_ visit: OfficeVisit) -> Bool {
-        let calendar = Calendar.current
-        // Check if a visit for this day already exists
-        if visits.contains(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
-            return false // Duplicate found, do not add
-        }
-        visits.append(visit)
-        saveVisits()
-        return true
-    }
     @Published var settings = AppSettings()
     @Published var visits: [OfficeVisit] = []
     @Published var currentVisit: OfficeVisit?
-    @Published var isCurrentlyInOffice = false
+    @Published var isCurrentlyInOffice = false {
+        didSet {
+            // Persist office status to handle app restarts
+            UserDefaults.standard.set(isCurrentlyInOffice, forKey: "IsCurrentlyInOffice")
+            saveCurrentVisit()
+        }
+    }
     
     private let settingsKey = "AppSettings"
     private let visitsKey = "OfficeVisits"
+    private let currentVisitKey = "CurrentVisit"
     
     init() {
         loadSettings()
         loadVisits()
+        loadCurrentStatus()
         
         // Debug: Add test data if no visits exist
         #if DEBUG
@@ -64,15 +61,81 @@ class AppData: ObservableObject {
         }
     }
     
+    // MARK: - Status Persistence
+    
+    private func loadCurrentStatus() {
+        // Restore office status and current visit from persistent storage
+        isCurrentlyInOffice = UserDefaults.standard.bool(forKey: "IsCurrentlyInOffice")
+        
+        if let data = UserDefaults.standard.data(forKey: currentVisitKey),
+           let visit = try? JSONDecoder().decode(OfficeVisit.self, from: data) {
+            currentVisit = visit
+            
+            // Validate that the current visit is from today
+            let calendar = Calendar.current
+            if !calendar.isDate(visit.date, inSameDayAs: Date()) {
+                // Current visit is from a previous day, clear it
+                currentVisit = nil
+                isCurrentlyInOffice = false
+                clearCurrentVisit()
+                print("[AppData] Cleared stale visit from previous day")
+            } else {
+                print("[AppData] Restored current visit from: \(visit.entryTime)")
+            }
+        }
+    }
+    
+    private func saveCurrentVisit() {
+        if let visit = currentVisit,
+           let encoded = try? JSONEncoder().encode(visit) {
+            UserDefaults.standard.set(encoded, forKey: currentVisitKey)
+        }
+    }
+    
+    private func clearCurrentVisit() {
+        UserDefaults.standard.removeObject(forKey: currentVisitKey)
+    }
+    
     // MARK: - Visit Management
+    
+    /// Add a visit with improved duplicate handling
+    func addVisit(_ visit: OfficeVisit) -> Bool {
+        let calendar = Calendar.current
+        
+        // Remove any existing incomplete visit for today before adding new one
+        visits.removeAll { existingVisit in
+            calendar.isDate(existingVisit.date, inSameDayAs: visit.date) && existingVisit.duration == nil
+        }
+        
+        // Check if a completed visit for this day already exists
+        if visits.contains(where: { calendar.isDate($0.date, inSameDayAs: visit.date) && $0.duration != nil }) {
+            return false // Completed visit already exists for today
+        }
+        
+        visits.append(visit)
+        saveVisits()
+        return true
+    }
     
     func startVisit(at location: CLLocationCoordinate2D) {
         let now = Date()
         let calendar = Calendar.current
-        // Prevent duplicate visits for today
-        if visits.contains(where: { calendar.isDate($0.date, inSameDayAs: now) }) {
+        
+        // Improve duplicate handling - allow re-entry on same day if previous visit was completed
+        let existingTodayVisit = visits.first { calendar.isDate($0.date, inSameDayAs: now) }
+        
+        // If there's already a completed visit today, don't start a new one
+        // But if there's an incomplete visit, we can update it
+        if let existing = existingTodayVisit, existing.duration != nil {
+            print("[AppData] Already have a completed visit for today")
             return
         }
+        
+        // Remove any incomplete visits for today
+        visits.removeAll { visit in
+            calendar.isDate(visit.date, inSameDayAs: now) && visit.duration == nil
+        }
+        
         let visit = OfficeVisit(
             date: now,
             entryTime: now,
@@ -80,12 +143,17 @@ class AppData: ObservableObject {
         )
         currentVisit = visit
         isCurrentlyInOffice = true
-        // Add the visit using the new method
+        
+        // Add the visit
         _ = addVisit(visit)
+        print("[AppData] Started office visit at \(now)")
     }
     
     func endVisit() {
-        guard let visit = currentVisit else { return }
+        guard let visit = currentVisit else { 
+            print("[AppData] No current visit to end")
+            return 
+        }
         
         let exitTime = Date()
         let duration = exitTime.timeIntervalSince(visit.entryTime)
@@ -108,12 +176,16 @@ class AppData: ObservableObject {
         if completedVisit.isValidVisit {
             visits.append(completedVisit)
             saveVisits()
+            print("[AppData] Completed valid office visit with duration: \(completedVisit.formattedDuration)")
+        } else {
+            print("[AppData] Visit too short (\(completedVisit.formattedDuration)), not saving")
         }
         
         currentVisit = nil
         isCurrentlyInOffice = false
+        clearCurrentVisit()
     }
-    
+
     private func addTodayAsOfficeDay(at location: CLLocationCoordinate2D) {
         let today = Date()
         let calendar = Calendar.current
@@ -185,6 +257,7 @@ class AppData: ObservableObject {
         settings = AppSettings()
         saveVisits()
         saveSettings()
+        clearCurrentVisit()
     }
     
     #if DEBUG
@@ -200,30 +273,19 @@ class AppData: ObservableObject {
             for i in 1...5 {
                 if let pastDate = calendar.date(byAdding: .day, value: -i, to: now),
                    let entryTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: pastDate),
-                   let exitTime = calendar.date(bySettingHour: 17, minute: 30, second: 0, of: pastDate) {
+                   let exitTime = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: pastDate) {
                     
                     let duration = exitTime.timeIntervalSince(entryTime)
-                    let visit = OfficeVisit(
+                    let testVisit = OfficeVisit(
                         date: pastDate,
                         entryTime: entryTime,
                         exitTime: exitTime,
                         duration: duration,
-                        coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194) // Sample SF coordinates
+                        coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
                     )
-                    visits.append(visit)
+                    visits.append(testVisit)
                 }
             }
-            
-            // Add a current visit in progress
-            let todayEntry = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: now) ?? now
-            currentVisit = OfficeVisit(
-                date: now,
-                entryTime: todayEntry,
-                coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
-            )
-            isCurrentlyInOffice = true
-            
-            print("[DEBUG] Added \(visits.count) completed visits and current visit: \(currentVisit != nil)")
             saveVisits()
         }
     }
