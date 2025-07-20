@@ -2,26 +2,40 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string>xyz.luistech.InOfficeDaysTracker</string>
-	<key>CFBundleName</key>
-	<string>InOfficeDaysTracker</string>
 	<key>CFBundleDisplayName</key>
 	<string>Office Days Tracker</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>InOfficeDaysTracker</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to automatically detect when you're at your office and track your office visits in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs Always location access to automatically track office visits in the background when the app is not open.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to detect when you're at your office and track your office visits.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>location-services</string>
+	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -34,20 +48,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>location-services</string>
-	</array>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs location access to automatically detect when you're at your office and track your office visits in the background.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs location access to detect when you're at your office and track your office visits.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs Always location access to automatically track office visits in the background when the app is not open.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
 	</array>
 </dict>
 </plist>
