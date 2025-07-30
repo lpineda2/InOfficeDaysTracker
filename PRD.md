@@ -112,6 +112,11 @@ An iOS app that tracks when you're physically in the office to help meet configu
 - [x] Apple guidelines compliance
 - [x] Clean build with no errors
 
+#### Version 1.1 (In Development) - 🔄 **IN PROGRESS**
+- [ ] Address autocomplete functionality
+- [ ] Enhanced address input with real-time suggestions
+- [ ] Improved user experience for location setup
+
 #### Future Enhancements (Planned)
 - [ ] Multiple office locations
 - [ ] Export data functionality

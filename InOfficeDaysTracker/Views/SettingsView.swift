@@ -31,6 +31,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var officeAddress: String = ""
+    @State private var officeCoordinate: CLLocationCoordinate2D?
     @State private var detectionRadius: Double = 1609.34
     @State private var trackingDays: Set<Int> = []
     @State private var startTime = Date()
@@ -89,8 +90,11 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
-                TextField("Enter office address", text: $officeAddress)
-                    .textFieldStyle(.roundedBorder)
+                AddressAutocompleteField(
+                    selectedAddress: $officeAddress,
+                    selectedCoordinate: $officeCoordinate,
+                    placeholder: "Enter office address"
+                )
                 
                 if let error = updateError {
                     Text(error)
@@ -297,11 +301,15 @@ struct SettingsView: View {
         
         Task {
             do {
-                // If address changed, geocode it
+                // Use coordinate from autocomplete if available, otherwise geocode the address
                 var newLocation = appData.settings.officeLocation
                 if officeAddress != appData.settings.officeAddress && !officeAddress.isEmpty {
-                    let locationService = LocationService()
-                    newLocation = try await locationService.geocodeAddress(officeAddress)
+                    if let officeCoordinate = officeCoordinate {
+                        newLocation = officeCoordinate
+                    } else {
+                        let locationService = LocationService()
+                        newLocation = try await locationService.geocodeAddress(officeAddress)
+                    }
                 }
                 
                 // Update settings

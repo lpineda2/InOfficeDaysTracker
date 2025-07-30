@@ -296,6 +296,28 @@ class LocationService: NSObject, ObservableObject {
         }
     }
     
+    func getCurrentLocation() async throws -> CLLocationCoordinate2D? {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            throw NSError(domain: "LocationService", code: 3, userInfo: [NSLocalizedDescriptionKey: "Location permission not granted"])
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            Task {
+                // Request a single location update
+                locationManager.requestLocation()
+                
+                // Wait for location or timeout
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                
+                if let location = locationManager.location {
+                    continuation.resume(returning: location.coordinate)
+                } else {
+                    continuation.resume(throwing: NSError(domain: "LocationService", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unable to get current location"]))
+                }
+            }
+        }
+    }
+    
     func reverseGeocodeLocation(_ coordinate: CLLocationCoordinate2D) async throws -> String {
         return try await withCheckedThrowingContinuation { continuation in
             let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)

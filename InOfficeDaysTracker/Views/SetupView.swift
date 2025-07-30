@@ -17,6 +17,7 @@ struct SetupView: View {
     
     @State private var currentStep = 0
     @State private var officeAddress = ""
+    @State private var officeCoordinate: CLLocationCoordinate2D?
     @State private var detectionRadius = 1609.34 // 1 mile
     @State private var trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Monday-Friday
     @State private var startTime = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
@@ -176,9 +177,14 @@ struct SetupView: View {
             }
             
             VStack(spacing: 16) {
-                TextField("Enter office address", text: $officeAddress)
-                    .textFieldStyle(.roundedBorder)
-                    .submitLabel(.done)
+                AddressAutocompleteField(
+                    selectedAddress: $officeAddress,
+                    selectedCoordinate: $officeCoordinate,
+                    placeholder: "Enter office address",
+                    useCurrentLocationAction: {
+                        useCurrentLocation()
+                    }
+                )
                 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -472,13 +478,44 @@ struct SetupView: View {
         }
     }
     
+    private func useCurrentLocation() {
+        Task {
+            do {
+                guard let currentLocation = try await locationService.getCurrentLocation() else {
+                    await MainActor.run {
+                        errorMessage = "Unable to get current location. Please check location permissions."
+                        showingError = true
+                    }
+                    return
+                }
+                
+                let address = try await locationService.reverseGeocodeLocation(currentLocation)
+                
+                await MainActor.run {
+                    officeAddress = address
+                    officeCoordinate = currentLocation
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Unable to get current location. Please try again or enter address manually."
+                    showingError = true
+                }
+            }
+        }
+    }
+    
     private func completeSetup() {
         isLoading = true
         
         Task {
             do {
-                // Geocode the office address
-                let coordinate = try await locationService.geocodeAddress(officeAddress)
+                // Use coordinate from autocomplete if available, otherwise geocode the address
+                let coordinate: CLLocationCoordinate2D
+                if let officeCoordinate = officeCoordinate {
+                    coordinate = officeCoordinate
+                } else {
+                    coordinate = try await locationService.geocodeAddress(officeAddress)
+                }
                 
                 // Update settings
                 var newSettings = appData.settings
