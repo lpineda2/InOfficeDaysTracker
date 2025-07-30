@@ -397,15 +397,32 @@ struct SetupView: View {
             // Add explanation for why "Always" permission is needed
             if locationService.authorizationStatus == .authorizedWhenInUse {
                 VStack(spacing: 12) {
-                    Text("Background Location Needed")
+                    Text("Upgrade to Always Access")
                         .font(.headline)
                         .foregroundColor(.blue)
                     
-                    Text("To automatically track your office visits when the app is closed, we need 'Always' location access. This allows the app to detect when you enter or leave your office area.")
+                    Text("For automatic office detection when the app is closed, tap the orange 'Enable Always Access' button below. If the system doesn't show the upgrade option, you can manually enable it in Settings.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
+                    
+                    // Manual instructions
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Manual Setup Instructions:")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                        
+                        Text("1. Open Settings app")
+                        Text("2. Go to Privacy & Security > Location Services")
+                        Text("3. Find 'In Office Days Tracker'")
+                        Text("4. Select 'Always' instead of 'While Using App'")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
                 }
                 .padding()
                 .background(
@@ -464,7 +481,7 @@ struct SetupView: View {
         case .restricted:
             return "Location access is restricted on this device"
         case .authorizedWhenInUse:
-            return "✓ Basic access granted. Tap for background tracking (Recommended)"
+            return "✓ Basic access granted. Tap to upgrade for background tracking"
         case .authorizedAlways:
             return "✓ Full location access enabled for automatic tracking"
         @unknown default:
@@ -640,11 +657,13 @@ struct PermissionRow: View {
                     .fill(Color(.systemGray6))
             )
             
-            if status == .notGranted {
+            if status == .notGranted || status == .partiallyGranted {
                 Button(buttonText) {
                     action()
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(status == .partiallyGranted ? .orange : .blue)
             }
         }
     }

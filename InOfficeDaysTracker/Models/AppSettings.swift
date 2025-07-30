@@ -53,7 +53,10 @@ struct AppSettings: Codable {
         isSetupComplete = try container.decode(Bool.self, forKey: .isSetupComplete)
         
         if let latitude = try container.decodeIfPresent(Double.self, forKey: .officeLatitude),
-           let longitude = try container.decodeIfPresent(Double.self, forKey: .officeLongitude) {
+           let longitude = try container.decodeIfPresent(Double.self, forKey: .officeLongitude),
+           latitude.isFinite && longitude.isFinite,
+           latitude >= -90 && latitude <= 90,
+           longitude >= -180 && longitude <= 180 {
             officeLocation = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         }
     }
@@ -68,7 +71,10 @@ struct AppSettings: Codable {
         try container.encode(notificationsEnabled, forKey: .notificationsEnabled)
         try container.encode(isSetupComplete, forKey: .isSetupComplete)
         
-        if let location = officeLocation {
+        if let location = officeLocation,
+           location.latitude.isFinite && location.longitude.isFinite,
+           location.latitude >= -90 && location.latitude <= 90,
+           location.longitude >= -180 && location.longitude <= 180 {
             try container.encode(location.latitude, forKey: .officeLatitude)
             try container.encode(location.longitude, forKey: .officeLongitude)
         }

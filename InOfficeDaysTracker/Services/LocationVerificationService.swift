@@ -90,13 +90,24 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         print("[LocationVerification] Distance to office: \(Int(distanceToOffice))m, Geofence radius: \(Int(appData.settings.detectionRadius))m")
         
-        // Check for status mismatch and correct it
+        // Only correct if there's a significant status mismatch
+        // Allow a small delay buffer to avoid conflicts with geofencing
         if isWithinGeofence && !appData.isCurrentlyInOffice {
-            print("[LocationVerification] User is in office but status shows away - correcting")
-            await handleManualEntry(at: officeLocation)
+            // Add a small delay to allow geofencing to handle the entry first
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            
+            // Check again after delay in case geofencing already handled it
+            if !appData.isCurrentlyInOffice {
+                print("[LocationVerification] User is in office but status shows away - correcting after delay")
+                await handleManualEntry(at: officeLocation)
+            } else {
+                print("[LocationVerification] Geofencing already handled entry, no correction needed")
+            }
         } else if !isWithinGeofence && appData.isCurrentlyInOffice {
             print("[LocationVerification] User is away but status shows in office - correcting")
             await handleManualExit()
+        } else {
+            print("[LocationVerification] Status is correct, no action needed")
         }
     }
     

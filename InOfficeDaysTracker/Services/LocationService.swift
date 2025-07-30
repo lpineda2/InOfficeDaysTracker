@@ -93,6 +93,7 @@ class LocationService: NSObject, ObservableObject {
             } else {
                 // If user has already been asked and chose "When in Use", 
                 // guide them to Settings for manual upgrade
+                locationError = "To enable automatic background tracking, please manually set location access to 'Always' in Settings > Privacy & Security > Location Services > In Office Days Tracker"
                 openAppSettings()
             }
             
@@ -206,27 +207,40 @@ class LocationService: NSObject, ObservableObject {
     }
     
     func setupGeofencing() {
+        #if DEBUG
+        print("🎯 [LocationService] setupGeofencing called")
+        #endif
         guard let appData = appData,
               let officeLocation = appData.settings.officeLocation else {
+            print("❌ [LocationService] Office location not set")
             locationError = "Office location not set"
             return
         }
         
+        #if DEBUG
+        print("🎯 [LocationService] Office location: \(officeLocation.latitude), \(officeLocation.longitude)")
+        #endif
+        
         guard authorizationStatus == .authorizedAlways else {
+            print("❌ [LocationService] Always location permission required, current: \(authorizationStatus)")
             locationError = "Always location permission required for background tracking"
             return
         }
         
         guard isBackgroundLocationSupported else {
+            print("❌ [LocationService] Background location not supported")
             locationError = "Background location monitoring not supported on this device"
             return
         }
+        
+        print("✅ [LocationService] All preconditions met, setting up geofencing")
         
         // Perform location services check asynchronously to avoid main thread blocking
         Task {
             let locationEnabled = await checkLocationServicesEnabled()
             await MainActor.run {
                 guard locationEnabled else {
+                    print("❌ [LocationService] Location services disabled")
                     self.locationError = "Location services are disabled on this device"
                     return
                 }
@@ -242,14 +256,23 @@ class LocationService: NSObject, ObservableObject {
     
     /// Configure geofencing with the provided parameters (called from main thread)
     private func configureGeofencing(for appData: AppData, at officeLocation: CLLocationCoordinate2D) {
+        #if DEBUG
+        print("🎯 [LocationService] configureGeofencing called")
+        #endif
         
         // Clear existing geofences
+        #if DEBUG
+        print("🎯 [LocationService] Clearing \(locationManager.monitoredRegions.count) existing regions")
+        #endif
         locationManager.monitoredRegions.forEach { region in
             locationManager.stopMonitoring(for: region)
         }
         
         // Validate radius (iOS has limits)
         let radius = min(max(appData.settings.detectionRadius, 1), locationManager.maximumRegionMonitoringDistance)
+        #if DEBUG
+        print("🎯 [LocationService] Using radius: \(radius) meters (requested: \(appData.settings.detectionRadius), max: \(locationManager.maximumRegionMonitoringDistance))")
+        #endif
         
         // Create office geofence
         let region = CLCircularRegion(
@@ -261,12 +284,18 @@ class LocationService: NSObject, ObservableObject {
         region.notifyOnEntry = true
         region.notifyOnExit = true
         
+        #if DEBUG
+        print("🎯 [LocationService] Created region: center=(\(officeLocation.latitude), \(officeLocation.longitude)), radius=\(radius)")
+        #endif
+        
         // Check if we can monitor this region
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+            print("❌ [LocationService] Region monitoring not available")
             locationError = "Region monitoring not available"
             return
         }
         
+        print("✅ [LocationService] Starting monitoring for office region")
         locationManager.startMonitoring(for: region)
         
         // Start periodic verification to handle intermittent status issues
@@ -274,6 +303,9 @@ class LocationService: NSObject, ObservableObject {
         
         // Request the current state of the region to handle cases where 
         // the user is already inside the geofence when it's created
+        #if DEBUG
+        print("🎯 [LocationService] Requesting current state for region")
+        #endif
         locationManager.requestState(for: region)
     }
     
@@ -385,22 +417,35 @@ extension LocationService: CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
         Task { @MainActor in
+            #if DEBUG
+            print("🎯 [LocationService] didDetermineState: \(state.rawValue) for region: \(region.identifier)")
+            #endif
             // Handle the case where user is already inside the geofence when monitoring starts
             if state == .inside && region.identifier == "office_location" {
+                print("✅ [LocationService] User is already inside office region")
                 handleRegionEntry(region)
+            } else {
+                print("ℹ️ [LocationService] User is outside office region or unknown state")
             }
         }
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         Task { @MainActor in
+            #if DEBUG
+            print("🎯 [LocationService] didEnterRegion: \(region.identifier)")
+            #endif
             handleRegionEntry(region)
         }
     }
     
     private func handleRegionEntry(_ region: CLRegion) {
+        #if DEBUG
+        print("🎯 [LocationService] handleRegionEntry called for region: \(region.identifier)")
+        #endif
         guard let appData = appData,
               region.identifier == "office_location" else {
+            print("❌ [LocationService] Invalid region or no appData")
             return
         }
 
@@ -409,9 +454,14 @@ extension LocationService: CLLocationManagerDelegate {
         let weekday = calendar.component(.weekday, from: now)
         let hour = calendar.component(.hour, from: now)
 
+        #if DEBUG
+        print("🎯 [LocationService] Current time: weekday=\(weekday), hour=\(hour)")
+        print("🎯 [LocationService] Tracking days: \(appData.settings.trackingDays)")
+        #endif
+
         // Check if today is a tracking day
         guard appData.settings.trackingDays.contains(weekday) else {
-            print("[LocationService] Not a tracking day, ignoring entry")
+            print("❌ [LocationService] Not a tracking day, ignoring entry")
             return
         }
 
@@ -419,22 +469,30 @@ extension LocationService: CLLocationManagerDelegate {
         let officeStartHour = calendar.component(.hour, from: appData.settings.officeHours.startTime)
         let officeEndHour = calendar.component(.hour, from: appData.settings.officeHours.endTime)
 
+        #if DEBUG
+        print("🎯 [LocationService] Office hours: \(officeStartHour) - \(officeEndHour)")
+        #endif
+
         // Allow 1 hour flexibility before and after office hours
         let flexibleStartHour = max(0, officeStartHour - 1)
         let flexibleEndHour = min(23, officeEndHour + 1)
 
+        #if DEBUG
+        print("🎯 [LocationService] Flexible hours: \(flexibleStartHour) - \(flexibleEndHour)")
+        #endif
+
         guard hour >= flexibleStartHour && hour <= flexibleEndHour else {
-            print("[LocationService] Outside office hours, ignoring entry")
+            print("❌ [LocationService] Outside office hours, ignoring entry")
             return
         }
 
         // Prevent duplicate notifications if already marked as in office
         if appData.isCurrentlyInOffice {
-            print("[LocationService] Already marked as in office")
+            print("ℹ️ [LocationService] Already marked as in office")
             return
         }
 
-        print("[LocationService] Valid office entry detected")
+        print("✅ [LocationService] Valid office entry detected")
 
         // Start tracking visit
         if let officeLocation = appData.settings.officeLocation {
@@ -502,6 +560,7 @@ extension LocationService: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
         Task { @MainActor in
             let regionName = region?.identifier ?? "unknown"
+            print("❌ [LocationService] Region monitoring failed for \(regionName): \(error.localizedDescription)")
             var errorMessage = "Region monitoring failed for \(regionName): \(error.localizedDescription)"
             
             // Provide more specific error messages for region monitoring issues
@@ -521,13 +580,13 @@ extension LocationService: CLLocationManagerDelegate {
             }
             
             locationError = errorMessage
-            print("LocationService Region Error: \(errorMessage)")
+            print("❌ [LocationService] Region Error: \(errorMessage)")
         }
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
         Task { @MainActor in
-            print("Started monitoring region: \(region.identifier)")
+            print("✅ [LocationService] Started monitoring region: \(region.identifier)")
             // Clear any previous errors when monitoring starts successfully
             locationError = nil
         }

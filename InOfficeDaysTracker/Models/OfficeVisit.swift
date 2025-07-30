@@ -51,7 +51,15 @@ struct OfficeVisit: Identifiable, Codable {
         self.entryTime = entryTime
         self.exitTime = exitTime
         self.duration = duration
-        self.coordinate = coordinate
+        
+        // Validate coordinates
+        if coordinate.latitude.isFinite && coordinate.longitude.isFinite &&
+           coordinate.latitude >= -90 && coordinate.latitude <= 90 &&
+           coordinate.longitude >= -180 && coordinate.longitude <= 180 {
+            self.coordinate = coordinate
+        } else {
+            self.coordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        }
     }
     
     init(from decoder: Decoder) throws {
@@ -63,7 +71,15 @@ struct OfficeVisit: Identifiable, Codable {
         
         let latitude = try container.decode(Double.self, forKey: .latitude)
         let longitude = try container.decode(Double.self, forKey: .longitude)
-        coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        
+        // Validate coordinates during decoding
+        if latitude.isFinite && longitude.isFinite &&
+           latitude >= -90 && latitude <= 90 &&
+           longitude >= -180 && longitude <= 180 {
+            coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        } else {
+            coordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        }
     }
     
     func encode(to encoder: Encoder) throws {
@@ -72,7 +88,15 @@ struct OfficeVisit: Identifiable, Codable {
         try container.encode(entryTime, forKey: .entryTime)
         try container.encodeIfPresent(exitTime, forKey: .exitTime)
         try container.encodeIfPresent(duration, forKey: .duration)
-        try container.encode(coordinate.latitude, forKey: .latitude)
-        try container.encode(coordinate.longitude, forKey: .longitude)
+        // Validate coordinates before encoding
+        if coordinate.latitude.isFinite && coordinate.longitude.isFinite &&
+           coordinate.latitude >= -90 && coordinate.latitude <= 90 &&
+           coordinate.longitude >= -180 && coordinate.longitude <= 180 {
+            try container.encode(coordinate.latitude, forKey: .latitude)
+            try container.encode(coordinate.longitude, forKey: .longitude)
+        } else {
+            try container.encode(0.0, forKey: .latitude)
+            try container.encode(0.0, forKey: .longitude)
+        }
     }
 }

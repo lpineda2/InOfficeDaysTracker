@@ -18,7 +18,7 @@ struct AddressAutocompleteField: View {
     // MARK: - State
     @State private var inputText: String = ""
     @State private var showingSuggestions = false
-    @State private var isTextFieldFocused = false
+    @FocusState private var isTextFieldFocused: Bool
     
     // MARK: - Services
     @StateObject private var autocompleteService = AddressAutocompleteService()
@@ -48,14 +48,17 @@ struct AddressAutocompleteField: View {
                 HStack {
                     TextField(placeholder, text: $inputText)
                         .textFieldStyle(PlainTextFieldStyle())
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isTextFieldFocused = true
-                                showingSuggestions = !autocompleteService.suggestions.isEmpty
-                            }
-                        }
+                        .focused($isTextFieldFocused)
                         .onChange(of: inputText) { _, newValue in
                             handleTextChange(newValue)
+                        }
+                        .onChange(of: isTextFieldFocused) { _, focused in
+                            print("🔍 Focus changed: \(focused)")
+                            if focused {
+                                showingSuggestions = !autocompleteService.suggestions.isEmpty && !inputText.isEmpty
+                            } else {
+                                showingSuggestions = false
+                            }
                         }
                         .onSubmit {
                             handleManualEntry()
@@ -124,10 +127,8 @@ struct AddressAutocompleteField: View {
         .onTapGesture {
             // Close suggestions when tapping outside
             if showingSuggestions {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showingSuggestions = false
-                    isTextFieldFocused = false
-                }
+                showingSuggestions = false
+                isTextFieldFocused = false
             }
         }
     }
@@ -146,7 +147,6 @@ struct AddressAutocompleteField: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(.systemGray4), lineWidth: 1)
         )
-        .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
     
     // MARK: - Suggestion Row
@@ -191,26 +191,23 @@ struct AddressAutocompleteField: View {
     
     // MARK: - Actions
     private func handleTextChange(_ newValue: String) {
+        print("🔍 Text changed: '\(newValue)'")
         if newValue != selectedAddress {
             autocompleteService.searchForLocations(matching: newValue)
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showingSuggestions = !newValue.isEmpty && isTextFieldFocused
-            }
+            showingSuggestions = !newValue.isEmpty && isTextFieldFocused
         }
     }
     
     private func selectSuggestion(_ suggestion: MKLocalSearchCompletion) {
+        print("🔍 Selecting suggestion: \(suggestion.title)")
         Task {
             if let result = await autocompleteService.selectSuggestion(suggestion) {
                 await MainActor.run {
                     inputText = result.address
                     selectedAddress = result.address
                     selectedCoordinate = result.coordinate
-                    
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showingSuggestions = false
-                        isTextFieldFocused = false
-                    }
+                    showingSuggestions = false
+                    isTextFieldFocused = false
                 }
             }
         }
@@ -218,10 +215,8 @@ struct AddressAutocompleteField: View {
     
     private func handleManualEntry() {
         selectedAddress = inputText
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showingSuggestions = false
-            isTextFieldFocused = false
-        }
+        showingSuggestions = false
+        isTextFieldFocused = false
         autocompleteService.clearSuggestions()
     }
     
@@ -230,10 +225,7 @@ struct AddressAutocompleteField: View {
         selectedAddress = ""
         selectedCoordinate = nil
         autocompleteService.clearSuggestions()
-        
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showingSuggestions = false
-        }
+        showingSuggestions = false
     }
 }
 

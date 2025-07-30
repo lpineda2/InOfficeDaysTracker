@@ -144,12 +144,16 @@ class AddressAutocompleteService: NSObject, ObservableObject {
     private func formatAddress(from placemark: CLPlacemark) -> String {
         var components: [String] = []
         
+        // Combine street number and street name with a space, not comma
+        var streetAddress: [String] = []
         if let subThoroughfare = placemark.subThoroughfare {
-            components.append(subThoroughfare)
+            streetAddress.append(subThoroughfare)
         }
-        
         if let thoroughfare = placemark.thoroughfare {
-            components.append(thoroughfare)
+            streetAddress.append(thoroughfare)
+        }
+        if !streetAddress.isEmpty {
+            components.append(streetAddress.joined(separator: " "))
         }
         
         if let locality = placemark.locality {
@@ -169,7 +173,7 @@ class AddressAutocompleteService: NSObject, ObservableObject {
 }
 
 // MARK: - MKLocalSearchCompleterDelegate
-extension AddressAutocompleteService: @preconcurrency MKLocalSearchCompleterDelegate {
+extension AddressAutocompleteService: MKLocalSearchCompleterDelegate {
     
     nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         Task { @MainActor in
