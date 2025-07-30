@@ -88,7 +88,7 @@ struct MainProgressView: View {
                 }
                 .padding(.horizontal)
             }
-            .navigationTitle("Office Tracker")
+            .navigationTitle("In Office Days")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
