@@ -133,7 +133,7 @@ struct SetupView: View {
                 .foregroundColor(.blue)
             
             VStack(spacing: 16) {
-                Text("Welcome to\nOffice Days Tracker")
+                Text("Welcome to\nIn Office Days Tracker")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
