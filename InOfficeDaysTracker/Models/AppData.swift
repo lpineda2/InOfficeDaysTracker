@@ -105,6 +105,7 @@ class AppData: ObservableObject {
     // MARK: - Visit Management
     
     /// Add a visit with improved duplicate handling
+    /// Add a visit with session management (mainly for manual entry and legacy compatibility)
     func addVisit(_ visit: OfficeVisit) -> Bool {
         let calendar = Calendar.current
         
@@ -113,37 +114,24 @@ class AppData: ObservableObject {
         print("[AppData] Current visits array has \(visits.count) items")
         #endif
         
-        // Remove any existing incomplete visit for today before adding new one
-        let beforeRemovalCount = visits.count
-        visits.removeAll { existingVisit in
-            let isSameDay = calendar.isDate(existingVisit.date, inSameDayAs: visit.date)
-            let isIncomplete = existingVisit.duration == nil
-            if isSameDay && isIncomplete {
-                print("[AppData] Removing incomplete visit from \(existingVisit.entryTime)")
+        // Check if a visit already exists for this day
+        if let existingIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
+            let existingVisit = visits[existingIndex]
+            
+            // If existing visit has an active session, prevent duplicate
+            if existingVisit.isActiveSession {
+                print("[AppData] DUPLICATE PREVENTED: Active session already exists for this day")
+                return false
             }
-            return isSameDay && isIncomplete
+            
+            // Replace existing completed visit with new one (for manual edits)
+            visits[existingIndex] = visit
+            print("[AppData] Replaced existing visit for \(visit.formattedDate)")
+        } else {
+            // No visit exists for this day, add new one
+            visits.append(visit)
+            print("[AppData] Added new visit for \(visit.formattedDate)")
         }
-        let afterRemovalCount = visits.count
-        
-        if beforeRemovalCount != afterRemovalCount {
-            print("[AppData] Removed \(beforeRemovalCount - afterRemovalCount) incomplete visits")
-        }
-        
-        // Check if an active (incomplete) visit for this day already exists
-        // Allow multiple completed visits per day (e.g., lunch breaks)
-        let existingActiveVisits = visits.filter { 
-            calendar.isDate($0.date, inSameDayAs: visit.date) && $0.duration == nil 
-        }
-        
-        if !existingActiveVisits.isEmpty {
-            print("[AppData] DUPLICATE PREVENTED: \(existingActiveVisits.count) active visit(s) already exist for this day")
-            return false // Active visit already exists for today
-        }
-        
-        visits.append(visit)
-        #if DEBUG
-        print("[AppData] Visit added to array. New count: \(visits.count)")
-        #endif
         
         saveVisits()
         #if DEBUG
@@ -162,128 +150,82 @@ class AppData: ObservableObject {
         print("[AppData] Current visit exists: \(currentVisit != nil)")
         #endif
         
-        // CRITICAL: Check if we already have an active visit for today
-        if let currentVisit = currentVisit {
-            if calendar.isDate(currentVisit.date, inSameDayAs: now) {
-                print("[AppData] DUPLICATE PREVENTED: Already have active visit for today")
+        // Session Management: Check if there's already a visit for today
+        if let todayVisitIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: now) }) {
+            var todayVisit = visits[todayVisitIndex]
+            
+            #if DEBUG
+            print("[AppData] Found existing visit for today, managing session")
+            #endif
+            
+            // If there's already an active session, don't create duplicate
+            if todayVisit.isActiveSession {
+                print("[AppData] DUPLICATE PREVENTED: Session already active for today")
+                currentVisit = todayVisit
+                isCurrentlyInOffice = true
                 return
-            } else {
-                print("[AppData] Current visit is from different day, clearing it")
-                self.currentVisit = nil
-                clearCurrentVisit()
             }
-        }
-        
-        // Check for existing active (incomplete) visit today
-        // Allow multiple completed visits per day (e.g., lunch breaks)
-        let existingActiveVisit = visits.first { 
-            calendar.isDate($0.date, inSameDayAs: now) && $0.duration == nil 
-        }
-        
-        if existingActiveVisit != nil {
-            print("[AppData] DUPLICATE PREVENTED: Already have active visit for today")
+            
+            // Resume the session (start new event in existing visit)
+            todayVisit.startNewSession(at: now)
+            visits[todayVisitIndex] = todayVisit
+            currentVisit = todayVisit
+            isCurrentlyInOffice = true
+            
+            saveVisits()
+            print("[AppData] Resumed office session for today")
             return
         }
         
-        // Clean up any incomplete visits for today (defensive cleanup)
-        let beforeCount = visits.count
-        visits.removeAll { visit in
-            calendar.isDate(visit.date, inSameDayAs: now) && visit.duration == nil
-        }
-        let afterCount = visits.count
-        if beforeCount != afterCount {
-            print("[AppData] Cleaned up \(beforeCount - afterCount) incomplete visits for today")
-            saveVisits()
-        }
+        // No visit exists for today, create new one
+        var newVisit = OfficeVisit(date: now, coordinate: location)
+        newVisit.startNewSession(at: now)
         
-        let visit = OfficeVisit(
-            date: now,
-            entryTime: now,
-            coordinate: location
-        )
-        
-        // Set current visit BEFORE adding to array to prevent race conditions
-        currentVisit = visit
+        currentVisit = newVisit
         isCurrentlyInOffice = true
         
-        // Add the visit
-        let wasAdded = addVisit(visit)
-        #if DEBUG
-        print("[AppData] Visit added to array: \(wasAdded)")
-        print("[AppData] Total visits after adding: \(visits.count)")
-        #endif
-        print("[AppData] Started office visit at \(now)")
+        // Add the visit to the array
+        visits.append(newVisit)
+        saveVisits()
+        
+        print("[AppData] Started new office session for today")
     }
     
     func endVisit() {
-        guard let visit = currentVisit else { 
+        guard var visit = currentVisit else { 
             print("[AppData] No current visit to end")
             return 
         }
         
-        print("[AppData] Ending visit that started at \(visit.entryTime)")
+        print("[AppData] Ending current session")
         
         let exitTime = Date()
-        let duration = exitTime.timeIntervalSince(visit.entryTime)
         
-        let completedVisit = OfficeVisit(
-            date: visit.date,
-            entryTime: visit.entryTime,
-            exitTime: exitTime,
-            duration: duration,
-            coordinate: visit.coordinate
-        )
+        // End the current session in the visit
+        visit.endCurrentSession(at: exitTime)
         
-        // Replace any existing visit for today with the completed one
+        // Update the visit in the array
         let calendar = Calendar.current
-        let beforeCount = visits.count
-        visits.removeAll { existingVisit in
-            calendar.isDate(existingVisit.date, inSameDayAs: visit.date)
-        }
-        let afterCount = visits.count
-        
-        if beforeCount != afterCount {
-            print("[AppData] Removed \(beforeCount - afterCount) existing visits for today")
+        if let index = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
+            visits[index] = visit
         }
         
-        // Always save visits with exit time, regardless of duration
-        // This ensures we don't lose exit events even for short visits
-        visits.append(completedVisit)
         saveVisits()
         
-        if completedVisit.isValidVisit {
-            print("[AppData] Completed valid office visit with duration: \(completedVisit.formattedDuration)")
+        if visit.isValidVisit {
+            print("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
         } else {
-            print("[AppData] Completed short visit (\(completedVisit.formattedDuration)), but saving for record")
+            print("[AppData] Completed session (\(visit.formattedDuration)), saved for record")
         }
         
-        // Clear current visit state
+        // Clear current visit state (session is paused, can be resumed later)
         currentVisit = nil
         isCurrentlyInOffice = false
         clearCurrentVisit()
         
-        print("[AppData] Visit ended successfully")
+        print("[AppData] Session ended successfully")
     }
 
-    private func addTodayAsOfficeDay(at location: CLLocationCoordinate2D) {
-        let today = Date()
-        let calendar = Calendar.current
-        
-        // Check if we already have a visit for today
-        let todayVisits = visits.filter { calendar.isDate($0.date, inSameDayAs: today) }
-        
-        if todayVisits.isEmpty {
-            // Add a placeholder visit for today that will be updated when we leave
-            let placeholderVisit = OfficeVisit(
-                date: today,
-                entryTime: today,
-                coordinate: location
-            )
-            visits.append(placeholderVisit)
-            saveVisits()
-        }
-    }
-    
     func getVisits(for month: Date) -> [OfficeVisit] {
         let calendar = Calendar.current
         return visits.filter { visit in
@@ -299,9 +241,9 @@ class AppData: ObservableObject {
         let currentMonth = Date()
         let allVisits = getVisits(for: currentMonth)
         
-        // Count both valid visits (completed with 1+ hour) and visits in progress
+        // Count both valid visits (completed with 1+ hour total) and visits in progress
         let validVisits = allVisits.filter { $0.isValidVisit }
-        let visitsInProgress = allVisits.filter { $0.duration == nil } // Currently in office
+        let visitsInProgress = allVisits.filter { $0.isActiveSession } // Currently in office
         
         let current = validVisits.count + visitsInProgress.count
         let goal = settings.monthlyGoal
@@ -324,13 +266,11 @@ class AppData: ObservableObject {
     
     // MARK: - Utility Methods
     
-    /// Clean up duplicate entries that may have been created
+    /// Clean up duplicate entries with session management awareness
     private func cleanupDuplicateEntries() {
         #if DEBUG
-        print("[AppData] Starting duplicate cleanup...")
+        print("[AppData] Starting duplicate cleanup with session management...")
         #endif
-        let _ = visits.count // Suppress warning
-        let _ = Calendar.current // Suppress warning
         
         // Group visits by date
         var visitsByDate: [String: [OfficeVisit]] = [:]
@@ -350,23 +290,13 @@ class AppData: ObservableObject {
         
         for (dateKey, dayVisits) in visitsByDate {
             if dayVisits.count > 1 {
-                print("[AppData] Found \(dayVisits.count) visits for \(dateKey)")
+                print("[AppData] Found \(dayVisits.count) visits for \(dateKey) - consolidating into session")
                 
-                // Prioritize: completed visits over incomplete, then latest entry time
-                let sortedVisits = dayVisits.sorted { visit1, visit2 in
-                    // Completed visits come first
-                    if (visit1.duration != nil) != (visit2.duration != nil) {
-                        return visit1.duration != nil
-                    }
-                    // Then by entry time (latest first)
-                    return visit1.entryTime > visit2.entryTime
-                }
-                
-                // Keep only the best visit for each day
-                if let bestVisit = sortedVisits.first {
-                    cleanedVisits.append(bestVisit)
+                // Merge multiple visits for the same day into a single session-based visit
+                if let consolidatedVisit = consolidateVisitsIntoSession(dayVisits) {
+                    cleanedVisits.append(consolidatedVisit)
                     duplicatesRemoved += dayVisits.count - 1
-                    print("[AppData] Kept visit from \(bestVisit.entryTime), removed \(dayVisits.count - 1) duplicates")
+                    print("[AppData] Consolidated \(dayVisits.count) visits into single session")
                 }
             } else {
                 cleanedVisits.append(dayVisits[0])
@@ -377,7 +307,7 @@ class AppData: ObservableObject {
             visits = cleanedVisits
             saveVisits()
             #if DEBUG
-            print("[AppData] Cleanup complete: removed \(duplicatesRemoved) duplicates, kept \(cleanedVisits.count) visits")
+            print("[AppData] Cleanup complete: consolidated \(duplicatesRemoved) duplicate visits into sessions")
             #endif
         } else {
             #if DEBUG
@@ -386,7 +316,34 @@ class AppData: ObservableObject {
         }
     }
     
-    /// Validate that currentVisit is consistent with visits array
+    /// Consolidate multiple visits for the same day into a single session-based visit
+    private func consolidateVisitsIntoSession(_ dayVisits: [OfficeVisit]) -> OfficeVisit? {
+        guard !dayVisits.isEmpty else { return nil }
+        
+        // Sort by entry time
+        let sortedVisits = dayVisits.sorted { $0.entryTime < $1.entryTime }
+        let firstVisit = sortedVisits[0]
+        
+        // Create new session-based visit starting with the first visit's data
+        var consolidatedVisit = OfficeVisit(date: firstVisit.date, coordinate: firstVisit.coordinate)
+        
+        // Add events from all visits
+        for visit in sortedVisits {
+            // For legacy visits, create events from entry/exit times
+            if let exitTime = visit.exitTime {
+                let event = OfficeEvent(entryTime: visit.entryTime, exitTime: exitTime)
+                consolidatedVisit.events.append(event)
+            } else {
+                // Incomplete visit - add as active session
+                let event = OfficeEvent(entryTime: visit.entryTime, exitTime: nil)
+                consolidatedVisit.events.append(event)
+            }
+        }
+        
+        return consolidatedVisit
+    }
+    
+    /// Validate that currentVisit is consistent with visits array (session management aware)
     private func validateCurrentVisitConsistency() {
         guard let currentVisit = currentVisit else {
             #if DEBUG
@@ -407,25 +364,23 @@ class AppData: ObservableObject {
             return
         }
         
-        // Check if there's a matching incomplete visit in the array
-        let matchingVisits = visits.filter { visit in
-            calendar.isDate(visit.date, inSameDayAs: currentVisit.date) && 
-            visit.entryTime == currentVisit.entryTime &&
-            visit.duration == nil
-        }
-        
-        if matchingVisits.isEmpty {
-            print("[AppData] Current visit not found in visits array, adding it")
-            _ = addVisit(currentVisit)
-        } else if matchingVisits.count > 1 {
-            print("[AppData] Multiple matching visits found, cleaning up")
-            // Remove duplicates and keep one
-            visits.removeAll { visit in
-                calendar.isDate(visit.date, inSameDayAs: currentVisit.date) && visit.duration == nil
+        // Check if there's a matching visit in the array
+        if let matchingIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: currentVisit.date) }) {
+            let matchingVisit = visits[matchingIndex]
+            
+            // If the visit in array doesn't have an active session but currentVisit exists,
+            // it means we need to sync the state
+            if !matchingVisit.isActiveSession && isCurrentlyInOffice {
+                print("[AppData] Syncing current visit state with session management")
+                var updatedVisit = matchingVisit
+                updatedVisit.startNewSession()
+                visits[matchingIndex] = updatedVisit
+                self.currentVisit = updatedVisit
             }
-            _ = addVisit(currentVisit)
         } else {
-            print("[AppData] Current visit is properly synced with visits array")
+            print("[AppData] Current visit not found in visits array, adding it")
+            visits.append(currentVisit)
+            saveVisits()
         }
     }
     
