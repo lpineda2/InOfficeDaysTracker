@@ -81,7 +81,8 @@ struct MainProgressView: View {
                         current: progressData.current,
                         goal: progressData.goal,
                         remaining: max(0, progressData.goal - progressData.current),
-                        daysLeft: getDaysRemainingInMonth()
+                        daysLeft: getDaysRemainingInMonth(),
+                        appData: appData
                     )
                     
                     Spacer(minLength: 100)
@@ -394,6 +395,7 @@ struct GoalProgressSection: View {
     let goal: Int
     let remaining: Int
     let daysLeft: Int
+    let appData: AppData  // Add appData to access tracking settings
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -451,9 +453,24 @@ struct GoalProgressSection: View {
                 return "0.0 days/week"
             }
         }
-        let pace = Double(remaining) / Double(daysLeft)
-        guard !pace.isNaN && !pace.isInfinite else { return "0.0 days/week" }
-        return String(format: "%.1f days/week", pace * 7)
+        
+        // Get working days per week based on user's tracking settings
+        let workingDaysPerWeek = appData.settings.trackingDays.count
+        guard workingDaysPerWeek > 0 else { return "No tracking days set" }
+        
+        // Calculate daily rate (office days needed per working day)
+        let dailyRate = Double(remaining) / Double(daysLeft)
+        guard !dailyRate.isNaN && !dailyRate.isInfinite else { return "0.0 days/week" }
+        
+        // Convert to weekly rate using actual working days per week
+        let weeklyRate = dailyRate * Double(workingDaysPerWeek)
+        
+        // Cap at maximum possible (can't exceed working days per week)
+        if weeklyRate > Double(workingDaysPerWeek) {
+            return "Goal unreachable"
+        } else {
+            return String(format: "%.1f days/week", weeklyRate)
+        }
     }
 }
 
