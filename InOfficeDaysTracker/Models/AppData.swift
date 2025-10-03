@@ -7,6 +7,12 @@
 
 import Foundation
 import CoreLocation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 @MainActor
 class AppData: ObservableObject {
@@ -16,14 +22,19 @@ class AppData: ObservableObject {
     @Published var isCurrentlyInOffice = false {
         didSet {
             // Persist office status to handle app restarts
-            UserDefaults.standard.set(isCurrentlyInOffice, forKey: "IsCurrentlyInOffice")
+            sharedUserDefaults.set(isCurrentlyInOffice, forKey: "IsCurrentlyInOffice")
             saveCurrentVisit()
+            updateWidgetData()
         }
     }
+    
+    // Shared UserDefaults for app group (widget access)
+    private let sharedUserDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
     
     private let settingsKey = "AppSettings"
     private let visitsKey = "OfficeVisits"
     private let currentVisitKey = "CurrentVisit"
+    private let widgetDataKey = "WidgetData"
     
     init() {
         loadSettings()
@@ -56,12 +67,12 @@ class AppData: ObservableObject {
     
     private func saveSettings() {
         if let encoded = try? JSONEncoder().encode(settings) {
-            UserDefaults.standard.set(encoded, forKey: settingsKey)
+            sharedUserDefaults.set(encoded, forKey: settingsKey)
         }
     }
     
     private func loadSettings() {
-        if let data = UserDefaults.standard.data(forKey: settingsKey),
+        if let data = sharedUserDefaults.data(forKey: settingsKey),
            let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
             settings = decoded
         }
@@ -71,9 +82,9 @@ class AppData: ObservableObject {
     
     private func loadCurrentStatus() {
         // Restore office status and current visit from persistent storage
-        isCurrentlyInOffice = UserDefaults.standard.bool(forKey: "IsCurrentlyInOffice")
+        isCurrentlyInOffice = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
         
-        if let data = UserDefaults.standard.data(forKey: currentVisitKey),
+        if let data = sharedUserDefaults.data(forKey: currentVisitKey),
            let visit = try? JSONDecoder().decode(OfficeVisit.self, from: data) {
             currentVisit = visit
             
@@ -94,12 +105,12 @@ class AppData: ObservableObject {
     private func saveCurrentVisit() {
         if let visit = currentVisit,
            let encoded = try? JSONEncoder().encode(visit) {
-            UserDefaults.standard.set(encoded, forKey: currentVisitKey)
+            sharedUserDefaults.set(encoded, forKey: currentVisitKey)
         }
     }
     
     private func clearCurrentVisit() {
-        UserDefaults.standard.removeObject(forKey: currentVisitKey)
+        sharedUserDefaults.removeObject(forKey: currentVisitKey)
     }
     
     // MARK: - Visit Management
@@ -253,15 +264,35 @@ class AppData: ObservableObject {
     
     private func saveVisits() {
         if let encoded = try? JSONEncoder().encode(visits) {
-            UserDefaults.standard.set(encoded, forKey: visitsKey)
+            sharedUserDefaults.set(encoded, forKey: visitsKey)
         }
+        updateWidgetData()
     }
     
     private func loadVisits() {
-        if let data = UserDefaults.standard.data(forKey: visitsKey),
+        if let data = sharedUserDefaults.data(forKey: visitsKey),
            let decoded = try? JSONDecoder().decode([OfficeVisit].self, from: data) {
             visits = decoded
         }
+    }
+    
+    // MARK: - Widget Data Management
+    
+    /// Update widget data whenever app data changes
+    private func updateWidgetData() {
+        print("✅ [AppData] Triggering widget timeline reload")
+        
+        // Request widget timeline reload
+        #if canImport(WidgetKit)
+        Task {
+            await MainActor.run {
+                WidgetCenter.shared.reloadAllTimelines()
+                print("🔄 [AppData] Widget reload request sent")
+            }
+        }
+        #else
+        print("⚠️ [AppData] WidgetKit not available")
+        #endif
     }
     
     // MARK: - Utility Methods
@@ -399,6 +430,101 @@ class AppData: ObservableObject {
         clearCurrentVisit()
     }
     
+    // MARK: - Widget Helper Methods
+    
+    private func getCurrentMonthName() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: Date())
+    }
+    
+    private func calculateWeeklyProgress() -> Int {
+        let calendar = Calendar.current
+        let now = Date()
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+        
+        let validVisits = visits.filter { visit in
+            visit.isValidVisit && visit.date >= weekStart
+        }
+        
+        let visitsInProgress = visits.filter { visit in
+            visit.duration == nil && visit.date >= weekStart
+        }
+        
+        return validVisits.count + visitsInProgress.count
+    }
+    
+    private func calculateAverageDuration() -> Double {
+        let validVisits = getValidVisits(for: Date())
+        guard !validVisits.isEmpty else { return 0.0 }
+        
+        let totalDuration = validVisits.compactMap { $0.duration }.reduce(0, +)
+        let count = Double(validVisits.count)
+        guard count > 0 else { return 0.0 }
+        
+        let average = (totalDuration / count) / 3600 // Convert to hours
+        guard !average.isNaN && !average.isInfinite else { return 0.0 }
+        return average
+    }
+    
+    private func calculatePaceNeeded(current: Int, goal: Int) -> String {
+        let remaining = max(0, goal - current)
+        let daysLeft = getDaysRemainingInMonth()
+        
+        guard daysLeft > 0 && remaining > 0 else { 
+            if remaining <= 0 {
+                return "Goal complete!"
+            } else {
+                return "0.0 days/week"
+            }
+        }
+        
+        let workingDaysPerWeek = settings.trackingDays.count
+        guard workingDaysPerWeek > 0 else { return "No tracking days set" }
+        
+        let dailyRate = Double(remaining) / Double(daysLeft)
+        guard !dailyRate.isNaN && !dailyRate.isInfinite else { return "0.0 days/week" }
+        
+        let weeklyRate = dailyRate * Double(workingDaysPerWeek)
+        
+        if weeklyRate > Double(workingDaysPerWeek) {
+            return "Goal unreachable"
+        } else {
+            return String(format: "%.1f days/week", weeklyRate)
+        }
+    }
+    
+    private func getDaysRemainingInMonth() -> Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
+        var count = 0
+        var date = now
+
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if settings.trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        return count
+    }
+    
+    private func generateStatusMessage(current: Int, goal: Int, isCurrentlyInOffice: Bool) -> String {
+        let remaining = max(0, goal - current)
+        
+        if remaining == 0 {
+            return "Goal achieved! 🎉"
+        } else if isCurrentlyInOffice {
+            return "Currently in office"
+        } else if remaining == 1 {
+            return "1 more day needed"
+        } else {
+            return "\(remaining) more days needed"
+        }
+    }
+
     #if DEBUG
     private func addTestDataIfNeeded() {
         // Test data functionality disabled for production

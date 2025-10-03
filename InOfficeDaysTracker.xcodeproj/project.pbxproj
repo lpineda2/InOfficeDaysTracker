@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0AF2DAB22E9062D8009CD9CA /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AF2DAB12E9062D8009CD9CA /* WidgetKit.framework */; };
+		0AF2DAB42E9062D8009CD9CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AF2DAB32E9062D8009CD9CA /* SwiftUI.framework */; };
+		0AF2DAC52E9062DA009CD9CA /* OfficeTrackerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0AF2DAAF2E9062D8009CD9CA /* OfficeTrackerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0A807BB22E1AF8450014A212 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +27,37 @@
 			remoteGlobalIDString = 0A807BA32E1AF8440014A212;
 			remoteInfo = InOfficeDaysTracker;
 		};
+		0AF2DAC32E9062DA009CD9CA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0A807B9C2E1AF8440014A212 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0AF2DAAE2E9062D8009CD9CA;
+			remoteInfo = OfficeTrackerWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0AF2DAC62E9062DA009CD9CA /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0AF2DAC52E9062DA009CD9CA /* OfficeTrackerWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0A807BA42E1AF8440014A212 /* InOfficeDaysTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InOfficeDaysTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A807BB12E1AF8450014A212 /* InOfficeDaysTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InOfficeDaysTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A807BBB2E1AF8450014A212 /* InOfficeDaysTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InOfficeDaysTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AF2DAAF2E9062D8009CD9CA /* OfficeTrackerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OfficeTrackerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AF2DAB12E9062D8009CD9CA /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		0AF2DAB32E9062D8009CD9CA /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		0AF2DAD92E9063C2009CD9CA /* OfficeTrackerWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OfficeTrackerWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -37,6 +68,21 @@
 			);
 			target = 0A807BA32E1AF8440014A212 /* InOfficeDaysTracker */;
 		};
+		0AF2DACA2E9062DA009CD9CA /* Exceptions for "OfficeTrackerWidget" folder in "OfficeTrackerWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0AF2DAAE2E9062D8009CD9CA /* OfficeTrackerWidgetExtension */;
+		};
+		0AF2DADC2E906510009CD9CA /* Exceptions for "InOfficeDaysTracker" folder in "OfficeTrackerWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/AppSettings.swift,
+				Models/OfficeVisit.swift,
+			);
+			target = 0AF2DAAE2E9062D8009CD9CA /* OfficeTrackerWidgetExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -44,6 +90,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				0A749ACD2E1B298700E3C5F7 /* Exceptions for "InOfficeDaysTracker" folder in "InOfficeDaysTracker" target */,
+				0AF2DADC2E906510009CD9CA /* Exceptions for "InOfficeDaysTracker" folder in "OfficeTrackerWidgetExtension" target */,
 			);
 			path = InOfficeDaysTracker;
 			sourceTree = "<group>";
@@ -56,6 +103,14 @@
 		0A807BBE2E1AF8450014A212 /* InOfficeDaysTrackerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = InOfficeDaysTrackerUITests;
+			sourceTree = "<group>";
+		};
+		0AF2DAB52E9062D8009CD9CA /* OfficeTrackerWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0AF2DACA2E9062DA009CD9CA /* Exceptions for "OfficeTrackerWidget" folder in "OfficeTrackerWidgetExtension" target */,
+			);
+			path = OfficeTrackerWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,15 +137,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0AF2DAAC2E9062D8009CD9CA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0AF2DAB42E9062D8009CD9CA /* SwiftUI.framework in Frameworks */,
+				0AF2DAB22E9062D8009CD9CA /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0A807B9B2E1AF8440014A212 = {
 			isa = PBXGroup;
 			children = (
+				0AF2DAD92E9063C2009CD9CA /* OfficeTrackerWidgetExtension.entitlements */,
 				0A807BA62E1AF8440014A212 /* InOfficeDaysTracker */,
 				0A807BB42E1AF8450014A212 /* InOfficeDaysTrackerTests */,
 				0A807BBE2E1AF8450014A212 /* InOfficeDaysTrackerUITests */,
+				0AF2DAB52E9062D8009CD9CA /* OfficeTrackerWidget */,
+				0AF2DAB02E9062D8009CD9CA /* Frameworks */,
 				0A807BA52E1AF8440014A212 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,8 +168,18 @@
 				0A807BA42E1AF8440014A212 /* InOfficeDaysTracker.app */,
 				0A807BB12E1AF8450014A212 /* InOfficeDaysTrackerTests.xctest */,
 				0A807BBB2E1AF8450014A212 /* InOfficeDaysTrackerUITests.xctest */,
+				0AF2DAAF2E9062D8009CD9CA /* OfficeTrackerWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		0AF2DAB02E9062D8009CD9CA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0AF2DAB12E9062D8009CD9CA /* WidgetKit.framework */,
+				0AF2DAB32E9062D8009CD9CA /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -115,10 +192,12 @@
 				0A807BA02E1AF8440014A212 /* Sources */,
 				0A807BA12E1AF8440014A212 /* Frameworks */,
 				0A807BA22E1AF8440014A212 /* Resources */,
+				0AF2DAC62E9062DA009CD9CA /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0AF2DAC42E9062DA009CD9CA /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0A807BA62E1AF8440014A212 /* InOfficeDaysTracker */,
@@ -176,6 +255,28 @@
 			productReference = 0A807BBB2E1AF8450014A212 /* InOfficeDaysTrackerUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		0AF2DAAE2E9062D8009CD9CA /* OfficeTrackerWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0AF2DAC92E9062DA009CD9CA /* Build configuration list for PBXNativeTarget "OfficeTrackerWidgetExtension" */;
+			buildPhases = (
+				0AF2DAAB2E9062D8009CD9CA /* Sources */,
+				0AF2DAAC2E9062D8009CD9CA /* Frameworks */,
+				0AF2DAAD2E9062D8009CD9CA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0AF2DAB52E9062D8009CD9CA /* OfficeTrackerWidget */,
+			);
+			name = OfficeTrackerWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = OfficeTrackerWidgetExtension;
+			productReference = 0AF2DAAF2E9062D8009CD9CA /* OfficeTrackerWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +298,9 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 0A807BA32E1AF8440014A212;
 					};
+					0AF2DAAE2E9062D8009CD9CA = {
+						CreatedOnToolsVersion = 16.4;
+					};
 				};
 			};
 			buildConfigurationList = 0A807B9F2E1AF8440014A212 /* Build configuration list for PBXProject "InOfficeDaysTracker" */;
@@ -216,6 +320,7 @@
 				0A807BA32E1AF8440014A212 /* InOfficeDaysTracker */,
 				0A807BB02E1AF8450014A212 /* InOfficeDaysTrackerTests */,
 				0A807BBA2E1AF8450014A212 /* InOfficeDaysTrackerUITests */,
+				0AF2DAAE2E9062D8009CD9CA /* OfficeTrackerWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -236,6 +341,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0A807BB92E1AF8450014A212 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0AF2DAAD2E9062D8009CD9CA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,6 +378,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0AF2DAAB2E9062D8009CD9CA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +397,11 @@
 			isa = PBXTargetDependency;
 			target = 0A807BA32E1AF8440014A212 /* InOfficeDaysTracker */;
 			targetProxy = 0A807BBC2E1AF8450014A212 /* PBXContainerItemProxy */;
+		};
+		0AF2DAC42E9062DA009CD9CA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0AF2DAAE2E9062D8009CD9CA /* OfficeTrackerWidgetExtension */;
+			targetProxy = 0AF2DAC32E9062DA009CD9CA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -410,8 +534,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = InOfficeDaysTracker/InOfficeDaysTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 5G586TFR2Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -430,7 +555,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.5.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDays;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -448,8 +573,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = InOfficeDaysTracker/InOfficeDaysTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 5G586TFR2Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -468,7 +594,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.5.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDays;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -486,11 +612,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 9BU6DY4VA9;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.5.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDaysTrackerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -505,11 +631,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 9BU6DY4VA9;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.5.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDaysTrackerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -523,10 +649,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 9BU6DY4VA9;
 				GENERATE_INFOPLIST_FILE = NO;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.5.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDaysTrackerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -540,16 +666,72 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 9BU6DY4VA9;
 				GENERATE_INFOPLIST_FILE = NO;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.5.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDaysTrackerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = InOfficeDaysTracker;
+			};
+			name = Release;
+		};
+		0AF2DAC72E9062DA009CD9CA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = OfficeTrackerWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = 5G586TFR2Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OfficeTrackerWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OfficeTrackerWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.5.1;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDays.OfficeTrackerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		0AF2DAC82E9062DA009CD9CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = OfficeTrackerWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = 5G586TFR2Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OfficeTrackerWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OfficeTrackerWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.5.1;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.luistech.InOfficeDays.OfficeTrackerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -588,6 +770,15 @@
 			buildConfigurations = (
 				0A807BCC2E1AF8450014A212 /* Debug */,
 				0A807BCD2E1AF8450014A212 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0AF2DAC92E9062DA009CD9CA /* Build configuration list for PBXNativeTarget "OfficeTrackerWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0AF2DAC72E9062DA009CD9CA /* Debug */,
+				0AF2DAC82E9062DA009CD9CA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
