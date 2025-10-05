@@ -139,6 +139,21 @@ struct OfficeVisit: Identifiable, Codable {
         }
     }
     
+    // Events-based initializer (for testing and direct creation)
+    init(date: Date, events: [OfficeEvent], coordinate: CLLocationCoordinate2D) {
+        self.date = date
+        self.events = events
+        
+        // Validate coordinates
+        if coordinate.latitude.isFinite && coordinate.longitude.isFinite &&
+           coordinate.latitude >= -90 && coordinate.latitude <= 90 &&
+           coordinate.longitude >= -180 && coordinate.longitude <= 180 {
+            self.coordinate = coordinate
+        } else {
+            self.coordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        }
+    }
+    
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         date = try container.decode(Date.self, forKey: .date)
