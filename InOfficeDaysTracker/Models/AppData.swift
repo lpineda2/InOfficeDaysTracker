@@ -37,6 +37,9 @@ class AppData: ObservableObject {
     private let widgetDataKey = "WidgetData"
     
     init() {
+        // CRITICAL: Migrate data from standard UserDefaults to App Groups
+        migrateDataFromStandardUserDefaults()
+        
         loadSettings()
         loadVisits()
         loadCurrentStatus()
@@ -525,6 +528,66 @@ class AppData: ObservableObject {
         }
     }
 
+    // MARK: - Data Migration
+    
+    /// Migrate data from standard UserDefaults to App Groups container
+    /// This fixes data loss when upgrading from pre-widget versions
+    private func migrateDataFromStandardUserDefaults() {
+        let standardDefaults = UserDefaults.standard
+        let migrationKey = "DataMigratedToAppGroups_v1.6.0"
+        
+        // Check if migration already completed
+        if sharedUserDefaults.bool(forKey: migrationKey) {
+            print("[AppData] Data migration already completed")
+            return
+        }
+        
+        print("[AppData] Starting data migration from standard UserDefaults...")
+        var migrationCount = 0
+        
+        // Migrate settings
+        if let settingsData = standardDefaults.data(forKey: settingsKey),
+           sharedUserDefaults.data(forKey: settingsKey) == nil {
+            sharedUserDefaults.set(settingsData, forKey: settingsKey)
+            migrationCount += 1
+            print("[AppData] Migrated app settings")
+        }
+        
+        // Migrate visits
+        if let visitsData = standardDefaults.data(forKey: visitsKey),
+           sharedUserDefaults.data(forKey: visitsKey) == nil {
+            sharedUserDefaults.set(visitsData, forKey: visitsKey)
+            migrationCount += 1
+            print("[AppData] Migrated office visits history")
+        }
+        
+        // Migrate current visit
+        if let currentVisitData = standardDefaults.data(forKey: currentVisitKey),
+           sharedUserDefaults.data(forKey: currentVisitKey) == nil {
+            sharedUserDefaults.set(currentVisitData, forKey: currentVisitKey)
+            migrationCount += 1
+            print("[AppData] Migrated current visit state")
+        }
+        
+        // Migrate office status
+        if standardDefaults.object(forKey: "IsCurrentlyInOffice") != nil,
+           sharedUserDefaults.object(forKey: "IsCurrentlyInOffice") == nil {
+            let isInOffice = standardDefaults.bool(forKey: "IsCurrentlyInOffice")
+            sharedUserDefaults.set(isInOffice, forKey: "IsCurrentlyInOffice")
+            migrationCount += 1
+            print("[AppData] Migrated office status: \(isInOffice)")
+        }
+        
+        // Mark migration as complete
+        sharedUserDefaults.set(true, forKey: migrationKey)
+        
+        print("[AppData] Migration completed! Migrated \(migrationCount) data items")
+        
+        if migrationCount > 0 {
+            print("[AppData] ✅ Your previous app data has been restored!")
+        }
+    }
+    
     #if DEBUG
     private func addTestDataIfNeeded() {
         // Test data functionality disabled for production
