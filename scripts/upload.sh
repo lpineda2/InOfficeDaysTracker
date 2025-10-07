@@ -18,9 +18,9 @@ SCHEME="InOfficeDaysTracker"
 PROJECT_FILE="${PROJECT_NAME}.xcodeproj"
 TEAM_ID="5G586TFR2Y"
 
-# Get current version info
-MARKETING_VERSION=$(defaults read "$(pwd)/InOfficeDaysTracker/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.6.0")
-BUILD_NUMBER=$(agvtool what-version -terse)
+# Get current version info (now validated as synchronized)
+MARKETING_VERSION=$(defaults read "$(pwd)/InOfficeDaysTracker/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.7.0")
+BUILD_NUMBER=$(grep -m 1 "CURRENT_PROJECT_VERSION = " InOfficeDaysTracker.xcodeproj/project.pbxproj | sed 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/' | tr -d ' ')
 
 # Paths
 BUILD_DIR="./build"
@@ -40,39 +40,15 @@ if [ ! -d "$ARCHIVE_PATH" ]; then
     exit 1
 fi
 
-echo -e "${YELLOW}📤 Exporting for TestFlight...${NC}"
+echo -e "${YELLOW}📤 Exporting and uploading to TestFlight...${NC}"
+echo -e "${BLUE}This may take several minutes...${NC}"
 
 # Clean previous exports
 rm -rf "$EXPORT_PATH"
 mkdir -p "$EXPORT_PATH"
 
-# Export for App Store/TestFlight
-xcodebuild -exportArchive \
-    -archivePath "$ARCHIVE_PATH" \
-    -exportOptionsPlist "$EXPORT_OPTIONS" \
-    -exportPath "$EXPORT_PATH" \
-    -allowProvisioningUpdates \
-    -quiet || {
-    echo -e "${RED}❌ TestFlight export failed!${NC}"
-    exit 1
-}
-
-# Find the IPA file
-IPA_FILE=$(find "$EXPORT_PATH" -name "*.ipa" | head -n 1)
-
-if [ -z "$IPA_FILE" ]; then
-    echo -e "${RED}❌ IPA file not found in export directory${NC}"
-    echo -e "${YELLOW}💡 Note: Upload may have succeeded even if IPA cleanup occurred${NC}"
-else
-    echo -e "${GREEN}✅ IPA exported for TestFlight!${NC}"
-    echo -e "${BLUE}📱 IPA Location: $IPA_FILE${NC}"
-fi
-
-# Upload to TestFlight using xcodebuild -exportArchive with upload option
-echo -e "${YELLOW}☁️ Uploading to TestFlight...${NC}"
-echo -e "${BLUE}This may take several minutes...${NC}"
-
-# Use xcodebuild export with upload option (more reliable than altool)
+# Export and upload to TestFlight in one step
+# The exportOptionsTestFlight.plist has destination=upload, so this automatically uploads
 if xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
     -exportOptionsPlist "$EXPORT_OPTIONS" \
@@ -84,6 +60,13 @@ if xcodebuild -exportArchive \
     echo -e "${BLUE}📱 Build ${BUILD_NUMBER} uploaded to TestFlight${NC}"
     echo -e "${YELLOW}⏱️  Processing may take 5-15 minutes on Apple's servers${NC}"
     echo -e "${BLUE}🔗 Check App Store Connect for status updates${NC}"
+    
+    # Check if IPA file was created (optional - mainly for logging)
+    IPA_FILE=$(find "$EXPORT_PATH" -name "*.ipa" | head -n 1)
+    if [ -n "$IPA_FILE" ]; then
+        echo -e "${BLUE}📱 IPA Location: $IPA_FILE${NC}"
+    fi
+    
 else
     echo -e "${RED}❌ Upload failed! Check the logs above.${NC}"
     echo -e "${YELLOW}💡 Make sure you have set up App-Specific Password in Keychain${NC}"
