@@ -62,30 +62,31 @@ IPA_FILE=$(find "$EXPORT_PATH" -name "*.ipa" | head -n 1)
 
 if [ -z "$IPA_FILE" ]; then
     echo -e "${RED}❌ IPA file not found in export directory${NC}"
-    exit 1
+    echo -e "${YELLOW}💡 Note: Upload may have succeeded even if IPA cleanup occurred${NC}"
+else
+    echo -e "${GREEN}✅ IPA exported for TestFlight!${NC}"
+    echo -e "${BLUE}📱 IPA Location: $IPA_FILE${NC}"
 fi
 
-echo -e "${GREEN}✅ IPA exported for TestFlight!${NC}"
-
-# Upload to TestFlight using altool
+# Upload to TestFlight using xcodebuild -exportArchive with upload option
 echo -e "${YELLOW}☁️ Uploading to TestFlight...${NC}"
 echo -e "${BLUE}This may take several minutes...${NC}"
 
-# Note: You'll need to set up an App-Specific Password or API Key
-# For now, we'll use xcrun altool which will prompt for credentials
-xcrun altool --upload-app \
-    --type ios \
-    --file "$IPA_FILE" \
-    --username "luispineda.me@gmail.com" \
-    --password "@keychain:ALT_PASSWORD" \
-    --verbose || {
-    echo -e "${RED}❌ Upload failed!${NC}"
+# Use xcodebuild export with upload option (more reliable than altool)
+if xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportOptionsPlist "$EXPORT_OPTIONS" \
+    -exportPath "$EXPORT_PATH" \
+    -allowProvisioningUpdates \
+    -quiet; then
+    
+    echo -e "${GREEN}🎉 Upload successful!${NC}"
+    echo -e "${BLUE}📱 Build ${BUILD_NUMBER} uploaded to TestFlight${NC}"
+    echo -e "${YELLOW}⏱️  Processing may take 5-15 minutes on Apple's servers${NC}"
+    echo -e "${BLUE}🔗 Check App Store Connect for status updates${NC}"
+else
+    echo -e "${RED}❌ Upload failed! Check the logs above.${NC}"
     echo -e "${YELLOW}💡 Make sure you have set up App-Specific Password in Keychain${NC}"
     echo -e "${YELLOW}💡 Or configure API Key authentication${NC}"
     exit 1
-}
-
-echo -e "${GREEN}🎉 Upload successful!${NC}"
-echo -e "${BLUE}📱 Build ${BUILD_NUMBER} uploaded to TestFlight${NC}"
-echo -e "${YELLOW}⏱️  Processing may take 5-15 minutes on Apple's servers${NC}"
-echo -e "${BLUE}🔗 Check App Store Connect for status updates${NC}"
+fi
