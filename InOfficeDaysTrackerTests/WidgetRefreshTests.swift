@@ -156,7 +156,9 @@ struct WidgetRefreshTests {
         // Test when away again - check through UserDefaults directly
         let isAfterExitStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
         #expect(isAfterExitStatus == false)
-    }        @Test("Widget Data - Proper UserDefaults synchronization timing")
+    }
+    
+    @Test("Widget Data - Proper UserDefaults synchronization timing")
     func testWidgetDataSynchronizationTiming() async throws {
         let appData = createTestAppData()
         
