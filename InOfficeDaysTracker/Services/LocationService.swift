@@ -9,6 +9,9 @@ import Foundation
 import CoreLocation
 import UserNotifications
 import UIKit
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 @MainActor
 class LocationService: NSObject, ObservableObject {
@@ -376,6 +379,39 @@ class LocationService: NSObject, ObservableObject {
             }
         }
     }
+    
+    // MARK: - Widget Refresh Management
+    
+    /// Trigger immediate widget refresh when office status changes
+    /// This ensures widgets update quickly when entering/exiting office
+    private func triggerWidgetRefresh(reason: String) {
+        #if DEBUG
+        print("🔄 [LocationService] Triggering widget refresh for: \(reason)")
+        #endif
+        
+        #if canImport(WidgetKit)
+        Task {
+            await MainActor.run {
+                // Strategy 1: Immediate reload of all widget timelines
+                WidgetCenter.shared.reloadAllTimelines()
+                
+                // Strategy 2: Specifically reload our office tracker widget
+                WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
+                
+                print("🔄 [LocationService] Widget refresh triggered for \(reason)")
+                
+                // Strategy 3: Background refresh with delay for reliability
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                    WidgetCenter.shared.reloadAllTimelines()
+                    print("🔄 [LocationService] Delayed widget refresh completed for \(reason)")
+                }
+            }
+        }
+        #else
+        print("⚠️ [LocationService] WidgetKit not available for refresh")
+        #endif
+    }
 }
 
 extension LocationService: CLLocationManagerDelegate {
@@ -499,6 +535,9 @@ extension LocationService: CLLocationManagerDelegate {
             appData.startVisit(at: officeLocation)
         }
 
+        // Trigger immediate widget refresh for office entry
+        triggerWidgetRefresh(reason: "office entry")
+
         // Send notification
         if appData.settings.notificationsEnabled {
             NotificationService.shared.sendVisitNotification(type: .entry)
@@ -516,6 +555,9 @@ extension LocationService: CLLocationManagerDelegate {
             
             // End tracking visit
             appData.endVisit()
+            
+            // Trigger immediate widget refresh for office exit
+            triggerWidgetRefresh(reason: "office exit")
             
             // Send notification
             if appData.settings.notificationsEnabled {

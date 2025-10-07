@@ -87,6 +87,8 @@ InOfficeDaysTracker now supports **iPhone Lock Screen widgets** (iOS 16+), givin
 7. **Tap "Done"** to save
 
 ### **Widget Updates:**
+- **🚀 NEW: Location-Triggered Refresh** - Instant updates when entering/exiting office
+- **Real-time status changes** - No more delays when leaving for lunch or returning
 - **Automatic refresh** when you enter/exit office radius
 - **Hourly updates** to ensure fresh data
 - **Instant sync** with main app changes
