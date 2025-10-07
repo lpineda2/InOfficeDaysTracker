@@ -17,14 +17,33 @@ struct WidgetRefreshTests {
     
     /// Creates a clean AppData instance for testing
     func createTestAppData() -> AppData {
-        let appData = AppData()
-        // Clear shared UserDefaults to prevent test interference
-        appData.sharedUserDefaults.removePersistentDomain(forName: "group.com.lpineda.InOfficeDaysTracker")
-        appData.sharedUserDefaults.synchronize()
+        // More comprehensive cleanup to prevent test interference
+        let groupDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker")!
         
+        // Remove the entire persistent domain to ensure clean state
+        groupDefaults.removePersistentDomain(forName: "group.com.lpineda.InOfficeDaysTracker")
+        
+        // Also explicitly remove key values that might persist
+        let keysToRemove = [
+            "currentVisit", "officeEvents", "monthlyGoal", "weeklyGoal", 
+            "isInOffice", "lastLocationUpdate", "IsCurrentlyInOffice"
+        ]
+        for key in keysToRemove {
+            groupDefaults.removeObject(forKey: key)
+        }
+        
+        // Force synchronization and add small delay for propagation
+        groupDefaults.synchronize()
+        Thread.sleep(forTimeInterval: 0.02)
+        
+        let appData = AppData()
         appData.visits = [] // Clear any existing visits
         appData.currentVisit = nil
         appData.isCurrentlyInOffice = false
+        
+        // Ensure the AppData's shared defaults are also synchronized
+        appData.sharedUserDefaults.synchronize()
+        
         return appData
     }
     
