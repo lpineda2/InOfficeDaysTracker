@@ -59,22 +59,33 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Step 1: Version Management
+# Step 1: Version Management and Synchronization
 if [ "$INCREMENT_BUILD" = true ]; then
-    echo -e "${YELLOW}📈 Incrementing build number...${NC}"
-    agvtool next-version -all
-    NEW_BUILD=$(agvtool what-version -terse)
-    echo -e "${GREEN}✅ Build number incremented to: $NEW_BUILD${NC}"
+    echo -e "${YELLOW}📈 Incrementing build number with version synchronization...${NC}"
+    ./scripts/update_version.sh --increment-build || {
+        echo -e "${RED}❌ Version increment failed! Aborting release.${NC}"
+        exit 1
+    }
+    
+    # Get the new build number for commit message
+    NEW_BUILD=$(grep -m 1 "CURRENT_PROJECT_VERSION = " InOfficeDaysTracker.xcodeproj/project.pbxproj | sed 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/' | tr -d ' ')
     
     # Commit version change
     git add -A
-    git commit -m "Increment build number to $NEW_BUILD"
+    git commit -m "Increment build number to $NEW_BUILD with synchronized versions"
     echo -e "${GREEN}✅ Version change committed to git${NC}"
+else
+    # Always validate version synchronization before proceeding
+    echo -e "${YELLOW}🔍 Validating version synchronization...${NC}"
+    ./scripts/update_version.sh --validate || {
+        echo -e "${RED}❌ Version mismatch detected! Run with --increment to fix, or use update_version.sh${NC}"
+        exit 1
+    }
 fi
 
-# Get current version info
+# Get current version info (now guaranteed to be synchronized)
 MARKETING_VERSION=$(defaults read "$(pwd)/InOfficeDaysTracker/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.6.0")
-BUILD_NUMBER=$(agvtool what-version -terse)
+BUILD_NUMBER=$(grep -m 1 "CURRENT_PROJECT_VERSION = " InOfficeDaysTracker.xcodeproj/project.pbxproj | sed 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/' | tr -d ' ')
 
 echo -e "${BLUE}📊 Current Version Info:${NC}"
 echo -e "  Marketing Version: ${GREEN}$MARKETING_VERSION${NC}"

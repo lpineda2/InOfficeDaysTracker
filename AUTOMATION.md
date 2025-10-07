@@ -50,13 +50,52 @@ Edit `scripts/upload.sh` and replace `your-apple-id@email.com` with your Apple I
 
 ```
 scripts/
-├── test.sh     # Run unit tests and validate build
-├── build.sh    # Create archive and export IPA
-├── upload.sh   # Upload to TestFlight
-└── release.sh  # Full pipeline orchestration
-
-exportOptionsTestFlight.plist  # TestFlight export configuration
+├── test.sh           # Run unit tests and validation
+├── build.sh          # Create archive and export IPA
+├── upload.sh         # Upload to TestFlight
+├── release.sh        # Full pipeline automation
+└── update_version.sh # Version synchronization (prevents ITMS-90473 errors)
+.vscode/
+└── tasks.json        # VS Code tasks for easy access
+exportOptions.plist   # Export configuration for IPA
 ```
+
+## 🔄 Version Management & Synchronization
+
+### Preventing Apple's ITMS-90473 Version Mismatch Errors
+
+This project includes automatic version synchronization to prevent the common Apple error:
+> ITMS-90473: CFBundleShortVersionString Mismatch - The CFBundleShortVersionString value of extension does not match its containing iOS application.
+
+### Using the Version Update Script
+
+```bash
+# Validate version consistency (run before any build)
+./scripts/update_version.sh --validate
+
+# Increment build number while keeping marketing version
+./scripts/update_version.sh --increment-build
+
+# Set specific version and build numbers
+./scripts/update_version.sh 1.8.0 5
+
+# Show help
+./scripts/update_version.sh --help
+```
+
+### Automatic Version Validation
+
+- **Build script** automatically validates version consistency before building
+- **Release script** validates versions and optionally increments build number
+- **All targets synchronized**: Main app and widget extension versions are kept in sync
+
+### What Gets Synchronized
+
+1. **Project file settings** (`MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`)
+2. **Main app Info.plist** (`CFBundleShortVersionString` and `CFBundleVersion`)
+3. **Widget extension Info.plist** (`CFBundleShortVersionString` and `CFBundleVersion`)
+
+All targets must have matching versions to pass Apple's validation.
 
 ## 🔧 Configuration Files
 

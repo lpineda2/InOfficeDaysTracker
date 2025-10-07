@@ -18,9 +18,17 @@ SCHEME="InOfficeDaysTracker"
 PROJECT_FILE="${PROJECT_NAME}.xcodeproj"
 TEAM_ID="5G586TFR2Y"
 
-# Get current version info  
+# Validate version synchronization before building
+echo -e "${YELLOW}🔍 Pre-build version validation...${NC}"
+./scripts/update_version.sh --validate || {
+    echo -e "${RED}❌ Version mismatch detected! Fix with: ./scripts/update_version.sh --validate${NC}"
+    echo -e "${YELLOW}💡 This prevents ITMS-90473 CFBundleShortVersionString mismatch errors${NC}"
+    exit 1
+}
+
+# Get current version info (now validated as synchronized)
 MARKETING_VERSION=$(defaults read "$(pwd)/InOfficeDaysTracker/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.6.0")
-BUILD_NUMBER=$(agvtool what-version -terse)
+BUILD_NUMBER=$(grep -m 1 "CURRENT_PROJECT_VERSION = " InOfficeDaysTracker.xcodeproj/project.pbxproj | sed 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/' | tr -d ' ')
 
 # Paths
 BUILD_DIR="./build"
