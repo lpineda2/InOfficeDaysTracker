@@ -76,7 +76,7 @@ echo -e "${BLUE}This may take several minutes...${NC}"
 xcrun altool --upload-app \
     --type ios \
     --file "$IPA_FILE" \
-    --username "lpineda2@gmail.com" \
+    --username "luispineda.me@gmail.com" \
     --password "@keychain:ALT_PASSWORD" \
     --verbose || {
     echo -e "${RED}❌ Upload failed!${NC}"
