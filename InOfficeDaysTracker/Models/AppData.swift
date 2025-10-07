@@ -29,7 +29,7 @@ class AppData: ObservableObject {
     }
     
     // Shared UserDefaults for app group (widget access)
-    private let sharedUserDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
+    let sharedUserDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
     
     private let settingsKey = "AppSettings"
     private let visitsKey = "OfficeVisits"
@@ -289,6 +289,10 @@ class AppData: ObservableObject {
         // Force UserDefaults synchronization to ensure data is written immediately
         sharedUserDefaults.synchronize()
         
+        // Verify the data was persisted correctly
+        let verifyStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") 
+        print("🔍 [AppData] Verified persisted office status: \(verifyStatus)")
+        
         // Request widget timeline reload with multiple strategies for reliability
         #if canImport(WidgetKit)
         Task {
@@ -301,11 +305,15 @@ class AppData: ObservableObject {
                 
                 print("🔄 [AppData] Widget reload requests sent (all + specific)")
                 
-                // Strategy 3: Add a small delay and reload again to handle timing issues
+                // Strategy 3: Multiple delayed reloads to handle iOS widget caching issues
                 Task {
                     try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                     WidgetCenter.shared.reloadAllTimelines()
-                    print("🔄 [AppData] Delayed widget reload request sent")
+                    print("🔄 [AppData] First delayed widget reload request sent")
+                    
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                    WidgetCenter.shared.reloadAllTimelines()
+                    print("🔄 [AppData] Second delayed widget reload request sent")
                 }
             }
         }

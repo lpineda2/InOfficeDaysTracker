@@ -29,6 +29,9 @@ class LocationService: NSObject, ObservableObject {
     // Track if we've already requested "Always" permission to avoid repeated requests
     private var hasRequestedAlwaysPermission = false
     
+    // Fallback timer for widget refresh reliability
+    private var widgetRefreshTimer: Timer?
+    
     override init() {
         super.init()
         setupLocationManager()
@@ -387,11 +390,18 @@ class LocationService: NSObject, ObservableObject {
     private func triggerWidgetRefresh(reason: String) {
         #if DEBUG
         print("🔄 [LocationService] Triggering widget refresh for: \(reason)")
+        print("🔍 [LocationService] Current office status: \(appData?.isCurrentlyInOffice ?? false)")
         #endif
         
         #if canImport(WidgetKit)
         Task {
             await MainActor.run {
+                // Force UserDefaults synchronization to ensure data is immediately available
+                if let appData = appData {
+                    appData.sharedUserDefaults.synchronize()
+                    print("🔄 [LocationService] UserDefaults synchronized before widget refresh")
+                }
+                
                 // Strategy 1: Immediate reload of all widget timelines
                 WidgetCenter.shared.reloadAllTimelines()
                 
@@ -400,17 +410,55 @@ class LocationService: NSObject, ObservableObject {
                 
                 print("🔄 [LocationService] Widget refresh triggered for \(reason)")
                 
-                // Strategy 3: Background refresh with delay for reliability
+                // Strategy 3: Multiple delayed refreshes for reliability
                 Task {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
                     WidgetCenter.shared.reloadAllTimelines()
-                    print("🔄 [LocationService] Delayed widget refresh completed for \(reason)")
+                    print("🔄 [LocationService] First delayed widget refresh completed for \(reason)")
+                    
+                    // Extra delayed refresh for stubborn cases
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second delay
+                    WidgetCenter.shared.reloadAllTimelines()
+                    print("🔄 [LocationService] Second delayed widget refresh completed for \(reason)")
                 }
+                
+                // Start fallback timer for persistent refresh attempts
+                startFallbackWidgetRefreshTimer(reason: reason)
             }
         }
         #else
         print("⚠️ [LocationService] WidgetKit not available for refresh")
         #endif
+    }
+    
+    /// Start a fallback timer that periodically refreshes widgets to ensure they eventually update
+    /// This handles cases where initial refresh attempts fail due to timing or system issues
+    private func startFallbackWidgetRefreshTimer(reason: String) {
+        // Cancel any existing timer
+        widgetRefreshTimer?.invalidate()
+        
+        print("⏰ [LocationService] Starting fallback widget refresh timer for: \(reason)")
+        
+        // Create timer that fires every 15 seconds for the next 2 minutes
+        var attempts = 0
+        let maxAttempts = 8 // 8 attempts × 15 seconds = 2 minutes
+        
+        widgetRefreshTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] timer in
+            attempts += 1
+            print("⏰ [LocationService] Fallback widget refresh attempt \(attempts)/\(maxAttempts)")
+            
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
+            
+            if attempts >= maxAttempts {
+                print("⏰ [LocationService] Completed fallback widget refresh attempts")
+                timer.invalidate()
+                Task { @MainActor in
+                    self?.widgetRefreshTimer = nil
+                }
+            }
+        }
     }
 }
 
@@ -530,10 +578,22 @@ extension LocationService: CLLocationManagerDelegate {
 
         print("✅ [LocationService] Valid office entry detected")
 
+        print("🔍 [LocationService] Office status before entry: \(appData.isCurrentlyInOffice)")
+        
         // Start tracking visit
         if let officeLocation = appData.settings.officeLocation {
             appData.startVisit(at: officeLocation)
         }
+
+        print("🔍 [LocationService] Office status after startVisit(): \(appData.isCurrentlyInOffice)")
+        print("🔍 [LocationService] Current visit after entry: \(appData.currentVisit?.id.uuidString ?? "none")")
+        
+        // Force immediate data synchronization
+        appData.sharedUserDefaults.synchronize()
+        
+        // Verify UserDefaults was updated
+        let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        print("🔍 [LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
 
         // Trigger immediate widget refresh for office entry
         triggerWidgetRefresh(reason: "office entry")
@@ -548,13 +608,25 @@ extension LocationService: CLLocationManagerDelegate {
         Task { @MainActor in
             guard let appData = appData,
                   region.identifier == "office_location" else {
+                print("❌ [LocationService] Invalid region or no appData for exit")
                 return
             }
             
-            print("[LocationService] Office exit detected")
+            print("🚪 [LocationService] Office exit detected at \(Date())")
+            print("🔍 [LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
             
             // End tracking visit
             appData.endVisit()
+            
+            print("🔍 [LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
+            print("🔍 [LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
+            
+            // Force immediate data synchronization
+            appData.sharedUserDefaults.synchronize()
+            
+            // Verify UserDefaults was updated
+            let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+            print("🔍 [LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
             
             // Trigger immediate widget refresh for office exit
             triggerWidgetRefresh(reason: "office exit")
