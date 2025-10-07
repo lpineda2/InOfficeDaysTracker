@@ -18,6 +18,10 @@ struct WidgetRefreshTests {
     /// Creates a clean AppData instance for testing
     func createTestAppData() -> AppData {
         let appData = AppData()
+        // Clear shared UserDefaults to prevent test interference
+        appData.sharedUserDefaults.removePersistentDomain(forName: "group.com.lpineda.InOfficeDaysTracker")
+        appData.sharedUserDefaults.synchronize()
+        
         appData.visits = [] // Clear any existing visits
         appData.currentVisit = nil
         appData.isCurrentlyInOffice = false
