@@ -60,12 +60,20 @@ struct OfficeTrackerWidgetEntryView: View {
 
     var body: some View {
         switch family {
+        // Home Screen widgets
         case .systemSmall:
             SmallWidgetView(data: entry.widgetData)
         case .systemMedium:
             MediumWidgetView(data: entry.widgetData)
         case .systemLarge:
             LargeWidgetView(data: entry.widgetData)
+        // Lock Screen widgets
+        case .accessoryCircular:
+            AccessoryCircularView(data: entry.widgetData)
+        case .accessoryRectangular:
+            AccessoryRectangularView(data: entry.widgetData)
+        case .accessoryInline:
+            AccessoryInlineView(data: entry.widgetData)
         default:
             MediumWidgetView(data: entry.widgetData)
         }
@@ -82,11 +90,35 @@ struct OfficeTrackerWidget: Widget {
         }
         .configurationDisplayName("Office Tracker")
         .description("Track your office visit progress.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([
+            .systemSmall, .systemMedium, .systemLarge,  // Home Screen widgets
+            .accessoryCircular, .accessoryRectangular, .accessoryInline  // Lock Screen widgets
+        ])
     }
 }
 
-#Preview(as: .systemSmall) {
+#Preview("Home Screen Small", as: .systemSmall) {
+    OfficeTrackerWidget()
+} timeline: {
+    SimpleEntry(date: .now, widgetData: WidgetData.placeholder)
+    SimpleEntry(date: .now, widgetData: WidgetData.sampleProgress)
+}
+
+#Preview("Lock Screen Circular", as: .accessoryCircular) {
+    OfficeTrackerWidget()
+} timeline: {
+    SimpleEntry(date: .now, widgetData: WidgetData.placeholder)
+    SimpleEntry(date: .now, widgetData: WidgetData.sampleProgress)
+}
+
+#Preview("Lock Screen Rectangular", as: .accessoryRectangular) {
+    OfficeTrackerWidget()
+} timeline: {
+    SimpleEntry(date: .now, widgetData: WidgetData.placeholder)
+    SimpleEntry(date: .now, widgetData: WidgetData.sampleProgress)
+}
+
+#Preview("Lock Screen Inline", as: .accessoryInline) {
     OfficeTrackerWidget()
 } timeline: {
     SimpleEntry(date: .now, widgetData: WidgetData.placeholder)
