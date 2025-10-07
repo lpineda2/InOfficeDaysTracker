@@ -10,6 +10,82 @@
 			"problemMatcher": [
 				"$swiftc"
 			]
+		},
+		{
+			"label": "🧪 Run Tests",
+			"type": "shell",
+			"command": "./scripts/test.sh",
+			"group": "test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$swiftc"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true
+			}
+		},
+		{
+			"label": "🔨 Build Archive",
+			"type": "shell",
+			"command": "./scripts/build.sh",
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$swiftc"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true
+			}
+		},
+		{
+			"label": "☁️ Upload to TestFlight",
+			"type": "shell",
+			"command": "./scripts/upload.sh",
+			"group": "build",
+			"isBackground": false,
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true
+			}
+		},
+		{
+			"label": "🚀 Full Release Pipeline",
+			"type": "shell",
+			"command": "./scripts/release.sh",
+			"group": "build",
+			"isBackground": false,
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true
+			}
+		},
+		{
+			"label": "📈 Release with Version Increment",
+			"type": "shell",
+			"command": "./scripts/release.sh --increment",
+			"group": "build",
+			"isBackground": false,
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true
+			}
 		}
 	]
 }
