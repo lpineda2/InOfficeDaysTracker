@@ -20,7 +20,7 @@ struct OfficeEvent: Codable {
 }
 
 struct OfficeVisit: Identifiable, Codable {
-    let id = UUID()
+    var id: UUID
     let date: Date
     var events: [OfficeEvent]
     let coordinate: CLLocationCoordinate2D
@@ -101,13 +101,14 @@ struct OfficeVisit: Identifiable, Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case date, events
+        case id, date, events
         case latitude, longitude
         // Legacy keys for backward compatibility
         case entryTime, exitTime, duration
     }
     
     init(date: Date, entryTime: Date, exitTime: Date? = nil, duration: TimeInterval? = nil, coordinate: CLLocationCoordinate2D) {
+        self.id = UUID()
         self.date = date
         
         // Create initial event
@@ -126,6 +127,7 @@ struct OfficeVisit: Identifiable, Codable {
     
     // Session-based initializer
     init(date: Date, coordinate: CLLocationCoordinate2D) {
+        self.id = UUID()
         self.date = date
         self.events = []
         
@@ -141,6 +143,7 @@ struct OfficeVisit: Identifiable, Codable {
     
     // Events-based initializer (for testing and direct creation)
     init(date: Date, events: [OfficeEvent], coordinate: CLLocationCoordinate2D) {
+        self.id = UUID()
         self.date = date
         self.events = events
         
@@ -156,6 +159,10 @@ struct OfficeVisit: Identifiable, Codable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Decode id (generate new one if not present for backward compatibility)
+        id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
+        
         date = try container.decode(Date.self, forKey: .date)
         
         // Try to decode new format first
@@ -184,6 +191,7 @@ struct OfficeVisit: Identifiable, Codable {
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
         try container.encode(date, forKey: .date)
         try container.encode(events, forKey: .events)
         
