@@ -18,12 +18,15 @@ import WidgetKit
 class AppData: ObservableObject {
     @Published var settings = AppSettings()
     @Published var visits: [OfficeVisit] = []
-    @Published var currentVisit: OfficeVisit?
+    @Published var currentVisit: OfficeVisit? {
+        didSet {
+            saveCurrentVisit()
+        }
+    }
     @Published var isCurrentlyInOffice = false {
         didSet {
             // Persist office status to handle app restarts
             sharedUserDefaults.set(isCurrentlyInOffice, forKey: "IsCurrentlyInOffice")
-            saveCurrentVisit()
             updateWidgetData()
         }
     }
@@ -109,6 +112,9 @@ class AppData: ObservableObject {
         if let visit = currentVisit,
            let encoded = try? JSONEncoder().encode(visit) {
             sharedUserDefaults.set(encoded, forKey: currentVisitKey)
+        } else {
+            // Clear persisted current visit when currentVisit is nil
+            sharedUserDefaults.removeObject(forKey: currentVisitKey)
         }
     }
     
