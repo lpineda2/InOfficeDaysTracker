@@ -23,10 +23,21 @@ struct Provider: TimelineProvider {
         var entries: [SimpleEntry] = []
         let currentDate = Date()
         
+        #if DEBUG
+        print("🔄 [Widget] getTimeline called at \(currentDate)")
+        #endif
+        
+        // Get fresh data for the timeline
+        let widgetData = WidgetDataManager.shared.createWidgetData()
+        
+        #if DEBUG
+        print("🔄 [Widget] Timeline data - isInOffice: \(widgetData.isCurrentlyInOffice), visits: \(widgetData.current)")
+        #endif
+        
         // Create entries for the next 6 hours, updating hourly
         for hourOffset in 0..<6 {
             let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let widgetData = WidgetDataManager.shared.createWidgetData()
+            // Use the same data for all timeline entries since they represent the current state
             let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
             entries.append(entry)
         }

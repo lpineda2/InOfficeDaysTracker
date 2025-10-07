@@ -284,13 +284,29 @@ class AppData: ObservableObject {
     /// Update widget data whenever app data changes
     private func updateWidgetData() {
         print("✅ [AppData] Triggering widget timeline reload")
+        print("🔄 [AppData] Current state: isInOffice=\(isCurrentlyInOffice), visits=\(getCurrentMonthProgress().current)")
         
-        // Request widget timeline reload
+        // Force UserDefaults synchronization to ensure data is written immediately
+        sharedUserDefaults.synchronize()
+        
+        // Request widget timeline reload with multiple strategies for reliability
         #if canImport(WidgetKit)
         Task {
             await MainActor.run {
+                // Strategy 1: Reload all timelines
                 WidgetCenter.shared.reloadAllTimelines()
-                print("🔄 [AppData] Widget reload request sent")
+                
+                // Strategy 2: Also reload specific widget configuration
+                WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
+                
+                print("🔄 [AppData] Widget reload requests sent (all + specific)")
+                
+                // Strategy 3: Add a small delay and reload again to handle timing issues
+                Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                    WidgetCenter.shared.reloadAllTimelines()
+                    print("🔄 [AppData] Delayed widget reload request sent")
+                }
             }
         }
         #else

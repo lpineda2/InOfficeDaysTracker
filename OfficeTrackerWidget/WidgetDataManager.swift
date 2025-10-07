@@ -64,11 +64,17 @@ class WidgetDataManager {
     // MARK: - Data Conversion from UserDefaults
     
     func createWidgetData() -> WidgetData {
-        print("🔍 [WidgetDataManager] Creating widget data...")
+        let timestamp = Date()
+        print("🔍 [WidgetDataManager] Creating widget data at \(timestamp)...")
+        
         guard let userDefaults = sharedDefaults else {
             print("❌ [WidgetDataManager] No shared UserDefaults available")
             return WidgetData.noData
         }
+        
+        // Force synchronization to get the latest data
+        userDefaults.synchronize()
+        print("🔄 [WidgetDataManager] UserDefaults synchronized")
         
         let progressData = getCurrentMonthProgress()
         let monthName = getCurrentMonthName()
@@ -90,7 +96,8 @@ class WidgetDataManager {
         
         // Get current office status
         let isCurrentlyInOffice = userDefaults.bool(forKey: "IsCurrentlyInOffice")
-        print("🔍 [WidgetDataManager] Office status: \(isCurrentlyInOffice)")
+        print("🔍 [WidgetDataManager] Office status from UserDefaults: \(isCurrentlyInOffice)")
+        print("🔍 [WidgetDataManager] Month progress: current=\(progressData.current), goal=\(progressData.goal)")
         
         // Calculate current visit duration if in office
         var currentVisitDuration: TimeInterval? = nil
