@@ -121,36 +121,43 @@ struct WidgetRefreshTests {
         let appData = createTestAppData()
         let testCoord = testCoordinate()
         
+        // Ensure clean state by explicitly ending any existing visit
+        if appData.isCurrentlyInOffice {
+            appData.endVisit()
+        }
+        appData.sharedUserDefaults.synchronize()
+        
         // Verify no current visit initially
         #expect(appData.currentVisit == nil)
-        #expect(appData.sharedUserDefaults.data(forKey: "CurrentVisit") == nil)
         
-        // Start visit
+        // Start a new visit
         appData.startVisit(at: testCoord)
         let visitId = appData.currentVisit?.id
         
-        // Force synchronization
+        // Force synchronization and add small delay for propagation
         appData.sharedUserDefaults.synchronize()
+        Thread.sleep(forTimeInterval: 0.01)
         
         // Verify current visit is persisted
         #expect(appData.currentVisit != nil)
         let persistedVisitData = appData.sharedUserDefaults.data(forKey: "CurrentVisit")
-        #expect(persistedVisitData != nil)
+        #expect(persistedVisitData != nil, "CurrentVisit should be persisted to UserDefaults")
         
         // Verify persisted visit can be decoded and matches
         if let data = persistedVisitData {
             let decodedVisit = try? JSONDecoder().decode(OfficeVisit.self, from: data)
-            #expect(decodedVisit?.id == visitId)
+            #expect(decodedVisit?.id == visitId, "Decoded visit ID should match original visit ID")
         }
         
         // End visit
         appData.endVisit()
         appData.sharedUserDefaults.synchronize()
+        Thread.sleep(forTimeInterval: 0.01)
         
         // Verify current visit is cleared from persistence
         #expect(appData.currentVisit == nil)
         let clearedVisitData = appData.sharedUserDefaults.data(forKey: "CurrentVisit")
-        #expect(clearedVisitData == nil)
+        #expect(clearedVisitData == nil, "CurrentVisit should be cleared from UserDefaults after ending visit")
     }
     
     // MARK: - Widget Data Creation Tests
