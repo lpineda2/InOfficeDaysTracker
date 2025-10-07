@@ -25,15 +25,19 @@ if [ ! -d "$PROJECT_FILE" ]; then
     exit 1
 fi
 
-echo -e "${YELLOW}📱 Running unit tests...${NC}"
+echo -e "${YELLOW}📱 Running unit tests (serial execution for reliability)...${NC}"
 
-# Run tests
+# Run tests with serial execution to prevent concurrency issues
+# -parallel-testing-enabled NO ensures tests don't interfere with shared UserDefaults
 xcodebuild test \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
     -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+    -parallel-testing-enabled NO \
     -quiet || {
     echo -e "${RED}❌ Tests failed!${NC}"
+    echo -e "${YELLOW}💡 Tip: Run individual tests with:${NC}"
+    echo -e "   xcodebuild test -scheme $SCHEME -only-testing:InOfficeDaysTrackerTests/WidgetRefreshTests"
     exit 1
 }
 

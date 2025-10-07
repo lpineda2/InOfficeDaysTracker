@@ -93,9 +93,10 @@ echo -e "  Build Number: ${GREEN}$BUILD_NUMBER${NC}"
 
 # Step 2: Testing
 if [ "$SKIP_TESTS" = false ]; then
-    echo -e "${YELLOW}🧪 Running automated tests...${NC}"
+    echo -e "${YELLOW}🧪 Running automated tests (serial execution)...${NC}"
     ./scripts/test.sh || {
         echo -e "${RED}❌ Tests failed! Aborting release.${NC}"
+        echo -e "${YELLOW}💡 You can skip tests with: $0 --skip-tests (not recommended)${NC}"
         exit 1
     }
 else
