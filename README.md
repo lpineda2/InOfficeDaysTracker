@@ -65,7 +65,15 @@ This app is built following Apple's official development guidelines and best pra
 - **Goal Reminders**: Stay on track with progress notifications
 - **Privacy Focused**: All notifications are local to your device
 
-### 🔒 **Privacy First**
+### � **iPhone Lock Screen Widgets (iOS 16+)**
+- **Circular Progress**: Ring widget showing completion percentage with current/goal count
+- **Detailed Status**: Rectangular widget with office progress and smart status indicators
+- **Minimal Inline**: Single-line widget with emoji status for compact lock screens
+- **Instant Access**: Check progress without unlocking your device
+- **Battery Efficient**: Optimized updates only when office status changes
+- **Native Integration**: Seamlessly blends with iOS lock screen design
+
+### �🔒 **Privacy First**
 - **Local Storage**: All data stays on your device
 - **No Cloud Sync**: No external servers or accounts required
 - **Transparent Permissions**: Clear explanations for location access
