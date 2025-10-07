@@ -17,15 +17,15 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.7.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>5</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs location access to automatically detect when you&apos;re at your office and track your office visits in the background.</string>
+	<string>This app needs location access to automatically detect when you're at your office and track your office visits in the background.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs Always location access to automatically track office visits in the background when the app is not open.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs location access to detect when you&apos;re at your office and track your office visits.</string>
+	<string>This app needs location access to detect when you're at your office and track your office visits.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
