@@ -6,5 +6,7 @@
 	<array>
 		<string>group.com.lpineda.InOfficeDaysTracker</string>
 	</array>
+	<key>com.apple.developer.location</key>
+	<true/>
 </dict>
 </plist>

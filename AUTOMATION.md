@@ -99,6 +99,12 @@ All targets must have matching versions to pass Apple's validation.
 
 ## 🔧 Configuration Files
 
+### App Export Compliance
+The app includes `ITSAppUsesNonExemptEncryption` set to `false` in both main app and widget Info.plist files. This automatically answers Apple's encryption export compliance question as "None of the algorithms mentioned above" since the app only uses:
+- Standard iOS location services encryption
+- Standard UserDefaults/Keychain encryption 
+- No custom or proprietary encryption algorithms
+
 ### exportOptionsTestFlight.plist
 - Configured for App Store distribution
 - Automatic signing with Team ID: 5G586TFR2Y
