@@ -12,40 +12,34 @@ struct AccessoryRectangularView: View {
     let data: WidgetData
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Progress line
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 1) {
+            // Top line: Office label and percentage
+            HStack {
                 Image(systemName: "building.2")
-                    .font(.caption)
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.primary)
-                
-                Text("Office: \(data.current)/\(data.goal)")
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                Text("Office")
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.primary)
-                
                 Spacer()
-                
                 Text("\(progressPercentage)%")
-                    .font(.system(.caption2, design: .rounded))
-                    .foregroundColor(.secondary)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.accentColor)
             }
             
-            // Status line
-            HStack(spacing: 4) {
-                statusIcon
-                    .font(.caption2)
-                    .foregroundColor(statusColor)
-                
-                Text(statusText)
-                    .font(.system(.caption2, design: .rounded))
+            // Bottom line: Progress count and status
+            HStack {
+                Text("\(data.current) of \(data.goal) days")
+                    .font(.caption.weight(.regular))
                     .foregroundColor(.secondary)
-                    .lineLimit(1)
-                
                 Spacer()
+                statusIcon
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(statusColor)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var progressPercentage: Int {
