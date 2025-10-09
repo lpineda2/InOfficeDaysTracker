@@ -82,25 +82,5 @@ struct CircularProgressViewWidget: View {
     }
 }
 
-#Preview {
-    VStack(spacing: 20) {
-        // Normal progress
-        CircularProgressViewWidget(
-            current: 8,
-            goal: 12,
-            percentage: 0.67,
-            gradient: .standard
-        )
-        .frame(width: 100, height: 100)
-        
-        // Goal complete
-        CircularProgressViewWidget(
-            current: 15,
-            goal: 12,
-            percentage: 1.25,
-            gradient: .celebration
-        )
-        .frame(width: 100, height: 100)
-    }
-    .padding()
-}
+// Preview removed - widget extensions can only host widget previews
+// To test this view, use it within a widget configuration or move to main app target

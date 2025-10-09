@@ -12,39 +12,47 @@ struct AccessoryCircularView: View {
     let data: WidgetData
     
     var body: some View {
-        ZStack {
-            // Background circle
-            Circle()
-                .stroke(Color.primary.opacity(0.2), lineWidth: 4)
-            
-            // Progress circle
-            Circle()
-                .trim(from: 0, to: progressValue)
-                .stroke(
-                    Color.primary,
-                    style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.3), value: progressValue)
-            
-            // Center content
-            VStack(spacing: 1) {
+        Gauge(value: progressValue, in: 0...1) {
+            // Gauge label (not shown in accessory circular)
+            AnyView(Text("Office Days"))
+        } currentValueLabel: {
+            // Large center number (current days) - more prominent
+            AnyView(
                 Text("\(data.current)")
-                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .font(.system(.title, design: .rounded, weight: .bold))
                     .foregroundColor(.primary)
-                
-                Text("/\(data.goal)")
-                    .font(.system(.caption2, design: .rounded))
+            )
+        } minimumValueLabel: {
+            // Visual status indicator on bottom left (smaller)
+            AnyView(
+                Image(systemName: statusIndicator)
+                    .font(.system(size: 8, design: .rounded))
+                    .foregroundColor(.primary)
+            )
+        } maximumValueLabel: {
+            // Goal number on bottom right - smaller and subtle
+            AnyView(
+                Text("\(data.goal)")
+                    .font(.system(.caption, design: .rounded, weight: .regular))
                     .foregroundColor(.secondary)
-            }
+            )
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .gaugeStyle(.accessoryCircular)
+        .animation(.easeInOut(duration: 0.3), value: progressValue)
     }
     
     private var progressValue: Double {
         guard data.goal > 0 else { return 0.0 }
         let progress = Double(data.current) / Double(data.goal)
         return min(progress, 1.0)
+    }
+    
+    private var statusIndicator: String {
+        if data.isCurrentlyInOffice {
+            return "building.2.fill"  // Office building for "in office"
+        } else {
+            return "figure.walk"      // Walking figure for "away"
+        }
     }
 }
 
