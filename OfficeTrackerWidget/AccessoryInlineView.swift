@@ -35,11 +35,11 @@ struct AccessoryInlineView: View {
     
     private var statusIndicator: String {
         if data.isCurrentlyInOffice {
-            return "📍"  // Location pin for currently in office
+            return "🏢"  // Building emoji to match the concept
         } else if data.current >= data.goal {
             return "✅"  // Checkmark for goal achieved
         } else {
-            return "⏳"  // Hourglass for in progress
+            return "🚶"  // Walking person emoji to match figure.walk concept
         }
     }
 }

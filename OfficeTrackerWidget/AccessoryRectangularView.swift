@@ -13,7 +13,7 @@ struct AccessoryRectangularView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            // Top line: Office label and percentage
+            // Top line: Office label and status icon
             HStack {
                 Image(systemName: "building.2")
                     .font(.footnote.weight(.medium))
@@ -22,20 +22,20 @@ struct AccessoryRectangularView: View {
                     .font(.footnote.weight(.medium))
                     .foregroundColor(.primary)
                 Spacer()
-                Text("\(progressPercentage)%")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                statusIcon
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(statusColor)
             }
             
-            // Bottom line: Progress count and status
+            // Bottom line: Progress count and percentage
             HStack {
                 Text("\(data.current) of \(data.goal) days")
                     .font(.caption.weight(.regular))
                     .foregroundColor(.secondary)
                 Spacer()
-                statusIcon
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(statusColor)
+                Text("\(progressPercentage)%")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.accentColor)
             }
         }
         .padding(.horizontal, 2)
@@ -49,11 +49,11 @@ struct AccessoryRectangularView: View {
     
     private var statusIcon: Image {
         if data.isCurrentlyInOffice {
-            return Image(systemName: "location.fill")
+            return Image(systemName: "building.2.fill")  // Match AccessoryCircularView
         } else if data.current >= data.goal {
             return Image(systemName: "checkmark.circle.fill")
         } else {
-            return Image(systemName: "clock")
+            return Image(systemName: "figure.walk")  // Match AccessoryCircularView for "away"
         }
     }
     
