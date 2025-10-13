@@ -2,7 +2,7 @@
 //  AccessoryRectangularView.swift
 //  OfficeTrackerWidget
 //
-//  Rectangular widget for iPhone lock screen showing office progress and status
+//  Rectangular widget for iPhone lock screen: Icon left, text center, progress ring right
 //
 
 import SwiftUI
@@ -12,49 +12,66 @@ struct AccessoryRectangularView: View {
     let data: WidgetData
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            // Top line: Office label and status icon
-            HStack {
-                Image(systemName: "building.2")
-                    .font(.footnote.weight(.medium))
+        HStack(spacing: 8) {
+            // Left: Building icon
+            Image(systemName: "building.2.fill")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(width: 24, height: 24)
+            
+            // Center: Progress text (centered between icon and progress ring)
+            Spacer()
+            
+            VStack(alignment: .center, spacing: 0) {
+                Text("\(data.current) of \(data.goal)")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundColor(.primary)
-                Text("Office")
-                    .font(.footnote.weight(.medium))
-                    .foregroundColor(.primary)
-                Spacer()
-                statusIcon
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(statusColor)
+                Text("days")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundColor(.secondary)
             }
             
-            // Bottom line: Progress count and percentage
-            HStack {
-                Text("\(data.current) of \(data.goal) days")
-                    .font(.caption.weight(.regular))
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("\(progressPercentage)%")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(.accentColor)
+            Spacer()
+            
+            // Right: Circular progress indicator
+            ZStack {
+                // Background circle
+                Circle()
+                    .stroke(Color.secondary.opacity(0.3), lineWidth: 3)
+                    .frame(width: 28, height: 28)
+                
+                // Progress circle
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        statusColor,
+                        style: StrokeStyle(
+                            lineWidth: 3,
+                            lineCap: .round
+                        )
+                    )
+                    .frame(width: 28, height: 28)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeInOut(duration: 0.3), value: progress)
+                
+                // Center status indicator matching circular widget
+                Image(systemName: statusIcon)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(statusColor)
             }
         }
-        .padding(.horizontal, 2)
+        .padding(.horizontal, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     
-    private var progressPercentage: Int {
-        guard data.goal > 0 else { return 0 }
-        return Int((Double(data.current) / Double(data.goal)) * 100)
+    private var progress: Double {
+        guard data.goal > 0 else { return 0.0 }
+        let calculatedProgress = Double(data.current) / Double(data.goal)
+        return min(max(calculatedProgress, 0.0), 1.0)
     }
     
-    private var statusIcon: Image {
-        if data.isCurrentlyInOffice {
-            return Image(systemName: "building.2.fill")  // Match AccessoryCircularView
-        } else if data.current >= data.goal {
-            return Image(systemName: "checkmark.circle.fill")
-        } else {
-            return Image(systemName: "figure.walk")  // Match AccessoryCircularView for "away"
-        }
+    private var statusIcon: String {
+        data.isCurrentlyInOffice ? "building.2.fill" : "figure.walk"
     }
     
     private var statusColor: Color {
@@ -64,17 +81,6 @@ struct AccessoryRectangularView: View {
             return .blue
         } else {
             return .orange
-        }
-    }
-    
-    private var statusText: String {
-        if data.isCurrentlyInOffice {
-            return "Currently in office"
-        } else if data.current >= data.goal {
-            return "Goal achieved!"
-        } else {
-            let remaining = data.goal - data.current
-            return "\(remaining) day\(remaining == 1 ? "" : "s") to go"
         }
     }
 }
