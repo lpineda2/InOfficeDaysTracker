@@ -15,19 +15,19 @@ struct AccessoryRectangularView: View {
         HStack(spacing: 8) {
             // Left: Building icon
             Image(systemName: "building.2.fill")
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: 21, weight: .medium))
                 .foregroundColor(.primary)
-                .frame(width: 24, height: 24)
+                .frame(width: 25, height: 25)
             
             // Center: Progress text (centered between icon and progress ring)
             Spacer()
             
             VStack(alignment: .center, spacing: 0) {
                 Text("\(data.current) of \(data.goal)")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 13, weight: .semibold, design: .default))
                     .foregroundColor(.primary)
                 Text("days")
-                    .font(.caption.weight(.regular))
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundColor(.secondary)
             }
             
@@ -38,7 +38,7 @@ struct AccessoryRectangularView: View {
                 // Background circle
                 Circle()
                     .stroke(Color.secondary.opacity(0.3), lineWidth: 3)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 29, height: 29)
                 
                 // Progress circle
                 Circle()
@@ -50,13 +50,13 @@ struct AccessoryRectangularView: View {
                             lineCap: .round
                         )
                     )
-                    .frame(width: 28, height: 28)
+                    .frame(width: 29, height: 29)
                     .rotationEffect(.degrees(-90))
                     .animation(.easeInOut(duration: 0.3), value: progress)
                 
                 // Center status indicator matching circular widget
                 Image(systemName: statusIcon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(statusColor)
             }
         }
