@@ -24,10 +24,10 @@ struct AccessoryRectangularView: View {
             
             VStack(alignment: .center, spacing: 0) {
                 Text("\(data.current) of \(data.goal)")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(.caption.weight(.semibold))
                     .foregroundColor(.primary)
                 Text("days")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.caption.weight(.regular))
                     .foregroundColor(.secondary)
             }
             
