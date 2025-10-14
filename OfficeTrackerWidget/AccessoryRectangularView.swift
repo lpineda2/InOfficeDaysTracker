@@ -27,12 +27,12 @@ struct AccessoryRectangularView: View {
                     .font(.system(size: dynamicFontSize, weight: .medium, design: .rounded))
                     .foregroundColor(.primary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.5)
+                    .minimumScaleFactor(0.7)
                     .allowsTightening(true)
                 Text("days")
-                    .font(.system(size: 8, weight: .regular, design: .rounded))
+                    .font(.system(size: dynamicDaysTextSize, weight: .regular, design: .rounded))
                     .foregroundColor(.secondary)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.9)
                     .allowsTightening(true)
             }
             
@@ -77,7 +77,26 @@ struct AccessoryRectangularView: View {
     
     private var dynamicFontSize: CGFloat {
         let screenWidth = UIScreen.main.bounds.width
-        return screenWidth < 400 ? 11 : 12  // More conservative sizing for better fit
+        // iPhone 16 Pro: 393px, iPhone 16 Pro Max: 430px
+        if screenWidth >= 430 {
+            return 14  // Pro Max gets larger text
+        } else if screenWidth >= 400 {
+            return 13  // Regular Pro size
+        } else {
+            return 12  // Compact displays
+        }
+    }
+    
+    private var dynamicDaysTextSize: CGFloat {
+        let screenWidth = UIScreen.main.bounds.width
+        // Scale the "days" text proportionally
+        if screenWidth >= 430 {
+            return 10  // Pro Max
+        } else if screenWidth >= 400 {
+            return 9   // Regular Pro
+        } else {
+            return 8   // Compact displays
+        }
     }
     
     private var statusIcon: String {
