@@ -48,9 +48,9 @@ struct LargeWidgetView: View {
                     .fontWeight(.bold)
                 
                 HStack(spacing: 6) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 8, height: 8)
+                    Image(systemName: data.isCurrentlyInOffice ? "building.2.fill" : "figure.walk")
+                        .font(.caption)
+                        .foregroundColor(statusColor)
                     
                     Text(data.isCurrentlyInOffice ? "Currently in office" : "Currently away")
                         .font(.caption)
@@ -110,6 +110,7 @@ struct LargeWidgetView: View {
                 subtitle: "in month",
                 color: .blue
             )
+            .frame(height: 60) // Fixed height for consistency
             
             StatisticCard(
                 title: "Pace",
@@ -117,6 +118,7 @@ struct LargeWidgetView: View {
                 subtitle: "needed",
                 color: data.paceNeeded.contains("Complete") ? .green : .orange
             )
+            .frame(height: 60) // Fixed height for consistency
         }
     }
     
@@ -148,6 +150,8 @@ struct StatisticCard: View {
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             
             Text(subtitle)
                 .font(.caption2)
