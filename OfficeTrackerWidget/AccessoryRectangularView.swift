@@ -14,7 +14,7 @@ struct AccessoryRectangularView: View {
     var body: some View {
         HStack(spacing: 8) {
             // Left: Building icon
-            Image(systemName: "building.2.fill")
+            Image(systemName: "building.2.fill.badge.clock")
                 .font(.system(size: 23, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(width: 27, height: 27)
@@ -100,7 +100,7 @@ struct AccessoryRectangularView: View {
     }
     
     private var statusIcon: String {
-        data.isCurrentlyInOffice ? "building.2.fill" : "figure.walk"
+        data.isCurrentlyInOffice ? "building.2.fill.badge.clock" : "figure.walk"
     }
     
     private var statusColor: Color {

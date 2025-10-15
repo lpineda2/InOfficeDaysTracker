@@ -49,7 +49,7 @@ struct AccessoryCircularView: View {
     
     private var statusIndicator: String {
         if data.isCurrentlyInOffice {
-            return "building.2.fill"  // Office building for "in office"
+            return "building.2.fill.badge.clock"  // Office building with clock badge for "in office"
         } else {
             return "figure.walk"      // Walking figure for "away"
         }
