@@ -40,6 +40,11 @@ if [ ! -d "$ARCHIVE_PATH" ]; then
     exit 1
 fi
 
+# Pre-flight check: Warn about potential build number collision
+echo -e "${YELLOW}🔍 Pre-flight check: Validating build number uniqueness...${NC}"
+echo -e "${BLUE}ℹ️  Build ${BUILD_NUMBER} will be uploaded. If this fails with 'bundle version already used',"
+echo -e "   run: ./scripts/update_version.sh --increment-build${NC}"
+
 echo -e "${YELLOW}📤 Exporting and uploading to TestFlight...${NC}"
 echo -e "${BLUE}This may take several minutes...${NC}"
 
@@ -69,7 +74,12 @@ if xcodebuild -exportArchive \
     
 else
     echo -e "${RED}❌ Upload failed! Check the logs above.${NC}"
-    echo -e "${YELLOW}💡 Make sure you have set up App-Specific Password in Keychain${NC}"
-    echo -e "${YELLOW}💡 Or configure API Key authentication${NC}"
+    echo ""
+    echo -e "${YELLOW}Common solutions:${NC}"
+    echo -e "${YELLOW}� Build number collision: ./scripts/update_version.sh --increment-build${NC}"
+    echo -e "${YELLOW}🔐 Authentication issue: Check App-Specific Password in Keychain${NC}"
+    echo -e "${YELLOW}� Missing provisioning: Check certificates and provisioning profiles${NC}"
+    echo ""
+    echo -e "${BLUE}💡 For automated increment and retry, use: ./scripts/release.sh --increment${NC}"
     exit 1
 fi

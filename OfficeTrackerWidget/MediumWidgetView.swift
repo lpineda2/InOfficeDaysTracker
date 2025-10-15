@@ -32,7 +32,7 @@ struct MediumWidgetView: View {
                 
                 // Current status
                 HStack(spacing: 6) {
-                    Image(systemName: data.isCurrentlyInOffice ? "building.2.fill.badge.clock" : "figure.walk")
+                    Image(systemName: data.isCurrentlyInOffice ? "clock.badge.fill" : "figure.walk")
                         .font(.caption)
                         .foregroundColor(statusColor)
                     
