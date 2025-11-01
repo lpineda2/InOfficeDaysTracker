@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import WhatsNewKit
 
 @main
 struct InOfficeDaysTrackerApp: App {
@@ -22,6 +23,18 @@ struct InOfficeDaysTrackerApp: App {
                 .onAppear {
                     locationService.setAppData(appData)
                 }
+                // Automatically present WhatsNew for lock screen widgets
+                .whatsNewSheet(
+                    layout: .inOfficeDaysStyle
+                )
+                // Configure WhatsNew environment for automatic presentation
+                .environment(
+                    \.whatsNew,
+                    WhatsNewEnvironment(
+                        versionStore: UserDefaultsWhatsNewVersionStore(),
+                        whatsNewCollection: self
+                    )
+                )
         }
     }
 }

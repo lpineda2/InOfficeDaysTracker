@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AEED9CD2EB6AB8400D68F44 /* WhatsNewKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0AEED9CC2EB6AB8400D68F44 /* WhatsNewKit */; };
 		0AF2DAB22E9062D8009CD9CA /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AF2DAB12E9062D8009CD9CA /* WidgetKit.framework */; };
 		0AF2DAB42E9062D8009CD9CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AF2DAB32E9062D8009CD9CA /* SwiftUI.framework */; };
 		0AF2DAC52E9062DA009CD9CA /* OfficeTrackerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0AF2DAAF2E9062D8009CD9CA /* OfficeTrackerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -120,6 +121,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0AEED9CD2EB6AB8400D68F44 /* WhatsNewKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,6 +206,7 @@
 			);
 			name = InOfficeDaysTracker;
 			packageProductDependencies = (
+				0AEED9CC2EB6AB8400D68F44 /* WhatsNewKit */,
 			);
 			productName = InOfficeDaysTracker;
 			productReference = 0A807BA42E1AF8440014A212 /* InOfficeDaysTracker.app */;
@@ -312,6 +315,9 @@
 			);
 			mainGroup = 0A807B9B2E1AF8440014A212;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0AEED9CB2EB6AB8400D68F44 /* XCRemoteSwiftPackageReference "WhatsNewKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A807BA52E1AF8440014A212 /* Products */;
 			projectDirPath = "";
@@ -784,6 +790,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0AEED9CB2EB6AB8400D68F44 /* XCRemoteSwiftPackageReference "WhatsNewKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SvenTiigi/WhatsNewKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0AEED9CC2EB6AB8400D68F44 /* WhatsNewKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0AEED9CB2EB6AB8400D68F44 /* XCRemoteSwiftPackageReference "WhatsNewKit" */;
+			productName = WhatsNewKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0A807B9C2E1AF8440014A212 /* Project object */;
 }
