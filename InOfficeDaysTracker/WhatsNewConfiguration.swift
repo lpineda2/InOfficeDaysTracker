@@ -36,7 +36,7 @@ struct WhatsNewConfiguration {
                         foregroundColor: .green
                     ),
                     title: "Lock Screen Status",
-                    subtitle: "Detailed view with building icon, progress count, and visual ring"
+                    subtitle: "Detailed view with office status, progress count, and visual ring"
                 ),
                 
                 // Home Screen - Medium Widget
