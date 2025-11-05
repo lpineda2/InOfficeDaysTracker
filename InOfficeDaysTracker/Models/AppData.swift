@@ -34,6 +34,9 @@ class AppData: ObservableObject {
     // Shared UserDefaults for app group (widget access)
     let sharedUserDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
     
+    // Calendar Integration
+    private let calendarEventManager = CalendarEventManager()
+    
     private let settingsKey = "AppSettings"
     private let visitsKey = "OfficeVisits"
     private let currentVisitKey = "CurrentVisit"
@@ -47,6 +50,9 @@ class AppData: ObservableObject {
         loadVisits()
         loadCurrentStatus()
         
+        // Setup calendar integration
+        AppDataAccess.shared.appData = self
+        
         // CRITICAL: Clean up any duplicate entries on startup
         cleanupDuplicateEntries()
         
@@ -57,6 +63,13 @@ class AppData: ObservableObject {
         #if DEBUG
         addTestDataIfNeeded()
         #endif
+        
+        // Perform calendar catch-up sync if enabled
+        if settings.calendarSettings.isEnabled {
+            Task {
+                await performCalendarCatchUpSync()
+            }
+        }
     }
     
     // MARK: - Settings Management
@@ -193,6 +206,12 @@ class AppData: ObservableObject {
             isCurrentlyInOffice = true
             
             saveVisits()
+            
+            // Handle calendar event update
+            Task {
+                await calendarEventManager.handleVisitUpdate(todayVisit, settings: settings)
+            }
+            
             print("[AppData] Resumed office session for today")
             return
         }
@@ -207,6 +226,11 @@ class AppData: ObservableObject {
         // Add the visit to the array
         visits.append(newVisit)
         saveVisits()
+        
+        // Handle calendar event creation
+        Task {
+            await calendarEventManager.handleVisitStart(newVisit, settings: settings)
+        }
         
         print("[AppData] Started new office session for today")
     }
@@ -231,6 +255,11 @@ class AppData: ObservableObject {
         }
         
         saveVisits()
+        
+        // Handle calendar event end
+        Task {
+            await calendarEventManager.handleVisitEnd(visit, settings: settings)
+        }
         
         if visit.isValidVisit {
             print("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
@@ -616,6 +645,15 @@ class AppData: ObservableObject {
         if migrationCount > 0 {
             print("[AppData] ✅ Your previous app data has been restored!")
         }
+    }
+    
+    // MARK: - Calendar Integration
+    
+    private func performCalendarCatchUpSync() async {
+        let lastSyncKey = "LastCalendarSync"
+        let lastSyncDate = sharedUserDefaults.object(forKey: lastSyncKey) as? Date ?? Date().addingTimeInterval(-7 * 24 * 3600) // Default to 7 days ago
+        
+        await calendarEventManager.performCatchUpSync(since: lastSyncDate, visits: visits, settings: settings)
     }
     
     #if DEBUG

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreLocation
+import EventKit
 
 struct SetupView: View {
     @ObservedObject var appData: AppData
@@ -25,11 +26,17 @@ struct SetupView: View {
     @State private var monthlyGoal = 12
     @State private var notificationsEnabled = true
     
+    // Calendar Integration (Step 7)
+    @StateObject private var calendarService = CalendarService.shared
+    @StateObject private var calendarPermissionHandler = CalendarPermissionHandler()
+    @State private var selectedCalendar: EKCalendar?
+    @State private var calendarIntegrationEnabled = false
+    
     @State private var isLoading = false
     @State private var showingError = false
     @State private var errorMessage = ""
     
-    private let totalSteps = 6
+    private let totalSteps = 7
 
     private var usesImperial: Bool {
         if #available(iOS 16.0, *) {
@@ -76,6 +83,9 @@ struct SetupView: View {
                     
                     permissionsStep
                         .tag(5)
+                    
+                    calendarSetupStep
+                        .tag(6)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .disabled(isLoading)
@@ -443,6 +453,80 @@ struct SetupView: View {
         }
     }
     
+    private var calendarSetupStep: some View {
+        VStack(spacing: 30) {
+            VStack(spacing: 16) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(.system(size: 60))
+                    .foregroundColor(.blue)
+                
+                Text("Calendar Integration")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text("Connect your calendar to automatically track office visits and remote work days (Optional)")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+            }
+            
+            if calendarPermissionHandler.hasAccess {
+                calendarSelectionView
+            } else {
+                calendarPermissionView
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .onAppear {
+            calendarPermissionHandler.updateAuthorizationStatus()
+            if calendarPermissionHandler.hasAccess {
+                calendarService.loadAvailableCalendars()
+            }
+        }
+    }
+    
+    private var calendarPermissionView: some View {
+        VStack(spacing: 20) {
+            CalendarPermissionView(
+                permissionHandler: calendarPermissionHandler,
+                onGranted: {
+                    calendarService.loadAvailableCalendars()
+                },
+                onSkipped: {
+                    // Mark as seen but not enabled
+                    calendarIntegrationEnabled = false
+                }
+            )
+        }
+    }
+    
+    private var calendarSelectionView: some View {
+        VStack(spacing: 20) {
+            Text("✅ Calendar access granted!")
+                .font(.headline)
+                .foregroundColor(.green)
+            
+            CalendarPickerView(
+                calendarService: calendarService,
+                selectedCalendar: $selectedCalendar,
+                title: "Choose Your Calendar",
+                subtitle: "Select a calendar where office visit events will be created",
+                showSkipOption: true,
+                onCalendarSelected: { calendar in
+                    selectedCalendar = calendar
+                    calendarIntegrationEnabled = true
+                },
+                onSkipped: {
+                    selectedCalendar = nil
+                    calendarIntegrationEnabled = false
+                }
+            )
+        }
+    }
+    
     private var canProceed: Bool {
         switch currentStep {
         case 1:
@@ -545,6 +629,18 @@ struct SetupView: View {
                 newSettings.monthlyGoal = monthlyGoal
                 newSettings.notificationsEnabled = notificationsEnabled
                 
+                // Calendar Integration Settings
+                newSettings.calendarSettings.isEnabled = calendarIntegrationEnabled
+                newSettings.calendarSettings.selectedCalendarId = selectedCalendar?.calendarIdentifier
+                newSettings.hasSeenCalendarSetup = true
+                
+                // Auto-detect home office time zone from address
+                if calendarIntegrationEnabled {
+                    if let homeTimeZone = await TimeZoneDetectionHelper.detectTimeZone(from: officeAddress) {
+                        newSettings.calendarSettings.homeOfficeTimeZoneId = homeTimeZone.identifier
+                    }
+                }
+                
                 await MainActor.run {
                     appData.updateSettings(newSettings)
                     appData.completeSetup()
@@ -552,6 +648,11 @@ struct SetupView: View {
                     
                     if notificationsEnabled {
                         notificationService.scheduleWeeklyGoalReminder()
+                    }
+                    
+                    // Setup calendar service if enabled
+                    if calendarIntegrationEnabled {
+                        calendarService.setSelectedCalendar(selectedCalendar)
                     }
                     
                     isLoading = false

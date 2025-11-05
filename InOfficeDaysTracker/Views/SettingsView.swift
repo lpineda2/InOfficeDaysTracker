@@ -49,6 +49,7 @@ struct SettingsView: View {
             Form {
                 locationSection
                 trackingSection
+                calendarSection
                 goalsSection
                 notificationsSection
                 dataSection
@@ -202,6 +203,41 @@ struct SettingsView: View {
             Text("Tracking Preferences")
         } footer: {
             Text("Choose which days to track and set your typical office hours for more accurate visit detection.")
+        }
+    }
+    
+    private var calendarSection: some View {
+        Section {
+            NavigationLink(destination: CalendarSettingsView(appData: appData)) {
+                HStack {
+                    Image(systemName: "calendar.badge.plus")
+                        .foregroundColor(.blue)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Calendar Integration")
+                            .font(.body)
+                        
+                        Text(calendarStatusText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+            }
+        } header: {
+            Text("Integration")
+        } footer: {
+            Text("Automatically create calendar events for office visits and remote work days.")
+        }
+    }
+    
+    private var calendarStatusText: String {
+        if appData.settings.calendarSettings.isEnabled {
+            return "Enabled - Events will be created"
+        } else {
+            return "Tap to configure calendar integration"
         }
     }
     

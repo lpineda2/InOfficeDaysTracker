@@ -18,6 +18,10 @@ struct AppSettings: Codable {
     var notificationsEnabled: Bool = true
     var isSetupComplete: Bool = false
     
+    // Calendar Integration (v1.8.0)
+    var calendarSettings: CalendarSettings = CalendarSettings.default
+    var hasSeenCalendarSetup: Bool = false
+    
     struct OfficeHours: Codable {
         var startTime: Date = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
         var endTime: Date = Calendar.current.date(from: DateComponents(hour: 17, minute: 0)) ?? Date()

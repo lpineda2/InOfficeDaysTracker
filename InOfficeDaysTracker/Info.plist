@@ -17,11 +17,13 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.7.0</string>
 	<key>CFBundleVersion</key>
-	<string>33</string>
+	<string>34</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>This app creates calendar events to track your office visits and remote work days, helping you visualize your work patterns. All events are stored locally in your chosen calendar.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access to automatically detect when you're at your office and track your office visits in the background.</string>
 	<key>NSLocationAlwaysUsageDescription</key>

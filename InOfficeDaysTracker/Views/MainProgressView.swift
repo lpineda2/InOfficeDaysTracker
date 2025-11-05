@@ -9,6 +9,8 @@ import SwiftUI
 
 struct MainProgressView: View {
     @ObservedObject var appData: AppData
+    @StateObject private var bannerManager = CalendarBannerManager()
+    @Environment(\.scenePhase) private var scenePhase
     
     @State private var showingHistory = false
     @State private var showingSettings = false
@@ -18,8 +20,21 @@ struct MainProgressView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView(.vertical) {
-                VStack(spacing: 24) {
+            VStack(spacing: 0) {
+                if let banner = bannerManager.currentBanner {
+                    CalendarErrorBanner(
+                        error: banner,
+                        onAction: {
+                            self.handleBannerAction(for: banner.type)
+                        },
+                        onDismiss: {
+                            self.bannerManager.dismissBanner()
+                        }
+                    )
+                }
+                
+                ScrollView(.vertical) {
+                    VStack(spacing: 24) {
                     // Header
                     VStack(spacing: 8) {
                         Text("This Month")
@@ -85,9 +100,10 @@ struct MainProgressView: View {
                         appData: appData
                     )
                     
-                    Spacer(minLength: 100)
+                        Spacer(minLength: 100)
+                    }
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
             }
             .navigationTitle("In Office Days")
             .navigationBarTitleDisplayMode(.inline)
@@ -116,10 +132,16 @@ struct MainProgressView: View {
             }
             .onAppear {
                 currentTime = Date()
+                self.checkForCalendarErrors()
             }
             .onReceive(timer) { _ in
                 if appData.isCurrentlyInOffice {
                     currentTime = Date() // Just trigger UI update
+                }
+            }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .active {
+                    self.checkForCalendarErrors()
                 }
             }
         }
@@ -198,6 +220,62 @@ struct MainProgressView: View {
         date = calendar.date(byAdding: .day, value: 1, to: date)!
     }
     return count
+    }
+    
+    // MARK: - Calendar Error Handling
+    
+    private func checkForCalendarErrors() {
+        let calendarService = CalendarService.shared
+        
+        // Check permission status
+        if calendarService.authorizationStatus == .denied {
+            let error = CalendarBannerError(
+                type: .permissionRevoked,
+                title: "Calendar Access Required",
+                message: "Calendar access denied. Grant permission in Settings.",
+                actionTitle: "Open Settings",
+                canDismiss: true,
+                persistenceLevel: .session
+            )
+            bannerManager.showBanner(error)
+            return
+        }
+        
+        // Check if calendar is available (only if integration is enabled)
+        if appData.settings.calendarSettings.isEnabled {
+            if let calendarId = appData.settings.calendarSettings.selectedCalendarId,
+               !calendarService.availableCalendars.contains(where: { $0.calendarIdentifier == calendarId }) {
+                let error = CalendarBannerError(
+                    type: .calendarUnavailable,
+                    title: "Calendar Unavailable",
+                    message: "Selected calendar is no longer available.",
+                    actionTitle: "Choose Calendar",
+                    canDismiss: true,
+                    persistenceLevel: .session
+                )
+                bannerManager.showBanner(error)
+                return
+            }
+        }
+    }
+    
+    private func handleBannerAction(for errorType: CalendarBannerError.ErrorType) {
+        switch errorType {
+        case .permissionRevoked:
+            // Open Settings app
+            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(settingsURL)
+            }
+        case .calendarUnavailable:
+            // Navigate to calendar settings
+            showingSettings = true
+        case .syncFailed:
+            // Retry calendar sync
+            checkForCalendarErrors()
+        case .quotaExceeded:
+            // Show info or navigate to settings
+            showingSettings = true
+        }
     }
 }
 
