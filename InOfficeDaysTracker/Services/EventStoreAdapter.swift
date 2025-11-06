@@ -94,7 +94,7 @@ class ProductionEventStoreAdapter: EventStoreAdapterProtocol {
             return .notFound
         }
         
-        guard calendar.allowsContentModifications else { return .readOnly }
+        guard calendar.allowsContentModifications else { return .noWriteAccess }
         
         return .valid
     }
@@ -267,7 +267,7 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             }
         }
         
-        return .readOnly
+        return .noWriteAccess
     }
     
     func hasCalendarAccess() -> Bool {
