@@ -316,6 +316,7 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             return pooledStore.predicateForEvents(withStart: Date.distantPast, end: Date.distantFuture, calendars: [calendar])
         }
     }
+}
 
 // MARK: - Shared utility methods for both adapters
 
