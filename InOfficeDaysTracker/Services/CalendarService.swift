@@ -241,15 +241,80 @@ class CalendarService: ObservableObject {
     // MARK: - Calendar Management
     
     func loadAvailableCalendars() {
-        guard hasCalendarAccess else {
+        print("🔍 [CalendarService] loadAvailableCalendars called")
+        
+        // Use the same access check logic as other functions
+        if !hasCalendarAccess {
+            print("  - Initial access check failed, trying iOS Simulator fallback...")
+            
+            // iOS Simulator fallback: Try to access calendars directly
+            #if targetEnvironment(simulator)
+            do {
+                let testCalendars = eventStore.calendars(for: .event)
+                if !testCalendars.isEmpty {
+                    print("  - iOS Simulator fallback successful: found \(testCalendars.count) calendars")
+                    availableCalendars = testCalendars.filter { $0.allowsContentModifications }
+                    print("  - Writable calendars: \(availableCalendars.count)")
+                    return
+                }
+            } catch {
+                print("  - iOS Simulator fallback failed: \(error)")
+            }
+            
+            // Try fresh EventStore for iOS Simulator
+            let freshEventStore = EKEventStore()
+            do {
+                let freshCalendars = freshEventStore.calendars(for: .event)
+                if !freshCalendars.isEmpty {
+                    print("  - Fresh EventStore fallback successful: found \(freshCalendars.count) calendars")
+                    availableCalendars = freshCalendars.filter { $0.allowsContentModifications }
+                    print("  - Writable calendars: \(availableCalendars.count)")
+                    return
+                }
+            } catch {
+                print("  - Fresh EventStore fallback failed: \(error)")
+            }
+            #endif
+            
             availableCalendars = []
+            print("  - No calendars available")
             return
         }
         
-        // Get all writable calendars
-        availableCalendars = eventStore.calendars(for: .event).filter { calendar in
+        // Normal access case
+        #if targetEnvironment(simulator)
+        // iOS Simulator: Use fresh EventStore since main eventStore often returns empty
+        let freshEventStore = EKEventStore()
+        let allCalendars = freshEventStore.calendars(for: .event)
+        print("  - iOS Simulator: using fresh EventStore, found \(allCalendars.count) total calendars")
+        
+        // iOS Simulator: Be more lenient with calendar filtering
+        availableCalendars = allCalendars.filter { calendar in
+            // In simulator, some calendars may not properly report allowsContentModifications
+            // Include calendars that are not read-only or explicitly allow modifications
+            calendar.allowsContentModifications || calendar.type != .calDAV
+        }
+        print("  - iOS Simulator access: found \(availableCalendars.count) writable calendars out of \(allCalendars.count) total")
+        
+        // If still no calendars, include all local calendars as fallback
+        if availableCalendars.isEmpty {
+            availableCalendars = allCalendars.filter { $0.type == .local }
+            print("  - iOS Simulator fallback to local calendars: found \(availableCalendars.count)")
+        }
+        
+        // Final fallback for iOS Simulator: use any available calendar
+        if availableCalendars.isEmpty && !allCalendars.isEmpty {
+            availableCalendars = Array(allCalendars.prefix(3)) // Limit to first 3 to avoid clutter
+            print("  - iOS Simulator final fallback: using first \(availableCalendars.count) calendars")
+        }
+        #else
+        // Physical device: Use main eventStore with standard filtering
+        let allCalendars = eventStore.calendars(for: .event)
+        availableCalendars = allCalendars.filter { calendar in
             calendar.allowsContentModifications
         }
+        print("  - Normal access: found \(availableCalendars.count) writable calendars")
+        #endif
     }
     
     func setSelectedCalendar(_ calendar: EKCalendar?) {

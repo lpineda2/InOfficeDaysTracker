@@ -504,6 +504,16 @@ struct SetupView: View {
             
             if calendarPermissionHandler.hasAccess {
                 calendarService.loadAvailableCalendars()
+                print("  - Available calendars count: \(calendarService.availableCalendars.count)")
+            }
+        }
+        .onChange(of: calendarPermissionHandler.hasAccess) {
+            print("🔍 [SetupView] Calendar permission status changed to: \(calendarPermissionHandler.hasAccess)")
+            if calendarPermissionHandler.hasAccess {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    calendarService.loadAvailableCalendars()
+                    print("🔍 [SetupView] Reloaded calendars after permission change: \(calendarService.availableCalendars.count)")
+                }
             }
         }
     }
@@ -522,14 +532,17 @@ struct SetupView: View {
                     calendarService.updateAuthorizationStatus()
                     print("  - CalendarService updated status: \(calendarService.authorizationStatus.rawValue)")
                     
-                    calendarService.loadAvailableCalendars()
-                    
-                    // Auto-select default calendar if available
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        if let defaultCalendar = calendarService.availableCalendars.first {
-                            selectedCalendar = defaultCalendar
-                            calendarIntegrationEnabled = true
-                            print("🔍 [SetupView] Auto-selected default calendar: \(defaultCalendar.title)")
+                    // Load calendars with a slight delay and force refresh
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        calendarService.loadAvailableCalendars()
+                        print("🔍 [SetupView] Calendars loaded: \(calendarService.availableCalendars.count)")
+                        
+                        // Force UI update and show calendar selection
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            if !calendarService.availableCalendars.isEmpty {
+                                print("🔍 [SetupView] Calendars available - should show selection UI")
+                                // Don't auto-select - let user choose
+                            }
                         }
                     }
                 },
@@ -554,10 +567,10 @@ struct SetupView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.orange)
                     
-                    Text("No Calendars Available")
+                    Text("Loading Calendars...")
                         .font(.headline)
                     
-                    Text("No writable calendars found. You can enable calendar integration now and configure it later in Settings when you have calendar accounts set up.")
+                    Text("Checking for available calendars. If none appear, you can enable calendar integration and configure it later in Settings.")
                         .font(.body)
                         .multilineTextAlignment(.center)
                         .foregroundColor(.secondary)
