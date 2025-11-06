@@ -72,9 +72,12 @@ enum CalendarError: Error, LocalizedError {
 class CalendarService: ObservableObject {
     static let shared = CalendarService()
     
-    private let eventStore = EKEventStore()
+    private let adapter: EventStoreAdapterProtocol
     private let userDefaults = UserDefaults.standard
     private let eventMappingKey = "CalendarEventMapping"
+    
+    // Legacy compatibility - expose eventStore for existing code
+    var eventStore: EKEventStore { adapter.eventStore }
     
     @Published var authorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var selectedCalendar: EKCalendar?
@@ -86,7 +89,9 @@ class CalendarService: ObservableObject {
     private let batchDelay: TimeInterval = 10.0 // 10-second batching
     
     private init() {
+        self.adapter = EventStoreAdapterFactory.shared
         updateAuthorizationStatus()
+        print("🔧 [CalendarService] Initialized with \(type(of: adapter)) adapter")
     }
     
     // MARK: - Event ID Mapping Management
@@ -198,123 +203,18 @@ class CalendarService: ObservableObject {
     }
     
     var hasCalendarAccess: Bool {
-        // First, ensure we have the latest status
         updateAuthorizationStatus()
-        
-        // Check the authorization status first
-        let hasFullAccess = authorizationStatus == .fullAccess
-        
-        print("🔍 [CalendarService] hasCalendarAccess check:")
-        print("  - authorizationStatus: \(authorizationStatus.rawValue)")
-        print("  - hasFullAccess: \(hasFullAccess)")
-        
-        // Simulator fallback: If status check fails, try more comprehensive checks
-        if !hasFullAccess {
-            print("  - Checking simulator fallbacks...")
-            
-            // iOS Simulator workaround: Try to create a new event store and check again
-            let testEventStore = EKEventStore()
-            let freshStatus = EKEventStore.authorizationStatus(for: .event)
-            
-            print("  - Fresh status check: \(freshStatus.rawValue)")
-            
-            if freshStatus == .fullAccess {
-                print("🔍 [CalendarService] Simulator fallback - fresh status shows fullAccess")
-                authorizationStatus = freshStatus  // Update our cached status
-                return true
-            }
-            
-            // Final fallback: Try to access calendars directly
-            if authorizationStatus == .notDetermined || freshStatus == .notDetermined {
-                let calendars = testEventStore.calendars(for: .event)
-                if !calendars.isEmpty {
-                    print("🔍 [CalendarService] Simulator fallback - can access calendars (\(calendars.count) found)")
-                    return true
-                }
-            }
-        }
-        
-        print("  - Final result: \(hasFullAccess)")
-        return hasFullAccess
+        let hasAccess = adapter.hasCalendarAccess()
+        print("🔍 [CalendarService] hasCalendarAccess via adapter: \(hasAccess)")
+        return hasAccess
     }
     
     // MARK: - Calendar Management
     
     func loadAvailableCalendars() {
-        print("🔍 [CalendarService] loadAvailableCalendars called")
-        
-        // Use the same access check logic as other functions
-        if !hasCalendarAccess {
-            print("  - Initial access check failed, trying iOS Simulator fallback...")
-            
-            // iOS Simulator fallback: Try to access calendars directly
-            #if targetEnvironment(simulator)
-            do {
-                let testCalendars = eventStore.calendars(for: .event)
-                if !testCalendars.isEmpty {
-                    print("  - iOS Simulator fallback successful: found \(testCalendars.count) calendars")
-                    availableCalendars = testCalendars.filter { $0.allowsContentModifications }
-                    print("  - Writable calendars: \(availableCalendars.count)")
-                    return
-                }
-            } catch {
-                print("  - iOS Simulator fallback failed: \(error)")
-            }
-            
-            // Try fresh EventStore for iOS Simulator
-            let freshEventStore = EKEventStore()
-            do {
-                let freshCalendars = freshEventStore.calendars(for: .event)
-                if !freshCalendars.isEmpty {
-                    print("  - Fresh EventStore fallback successful: found \(freshCalendars.count) calendars")
-                    availableCalendars = freshCalendars.filter { $0.allowsContentModifications }
-                    print("  - Writable calendars: \(availableCalendars.count)")
-                    return
-                }
-            } catch {
-                print("  - Fresh EventStore fallback failed: \(error)")
-            }
-            #endif
-            
-            availableCalendars = []
-            print("  - No calendars available")
-            return
-        }
-        
-        // Normal access case
-        #if targetEnvironment(simulator)
-        // iOS Simulator: Use fresh EventStore since main eventStore often returns empty
-        let freshEventStore = EKEventStore()
-        let allCalendars = freshEventStore.calendars(for: .event)
-        print("  - iOS Simulator: using fresh EventStore, found \(allCalendars.count) total calendars")
-        
-        // iOS Simulator: Be more lenient with calendar filtering
-        availableCalendars = allCalendars.filter { calendar in
-            // In simulator, some calendars may not properly report allowsContentModifications
-            // Include calendars that are not read-only or explicitly allow modifications
-            calendar.allowsContentModifications || calendar.type != .calDAV
-        }
-        print("  - iOS Simulator access: found \(availableCalendars.count) writable calendars out of \(allCalendars.count) total")
-        
-        // If still no calendars, include all local calendars as fallback
-        if availableCalendars.isEmpty {
-            availableCalendars = allCalendars.filter { $0.type == .local }
-            print("  - iOS Simulator fallback to local calendars: found \(availableCalendars.count)")
-        }
-        
-        // Final fallback for iOS Simulator: use any available calendar
-        if availableCalendars.isEmpty && !allCalendars.isEmpty {
-            availableCalendars = Array(allCalendars.prefix(3)) // Limit to first 3 to avoid clutter
-            print("  - iOS Simulator final fallback: using first \(availableCalendars.count) calendars")
-        }
-        #else
-        // Physical device: Use main eventStore with standard filtering
-        let allCalendars = eventStore.calendars(for: .event)
-        availableCalendars = allCalendars.filter { calendar in
-            calendar.allowsContentModifications
-        }
-        print("  - Normal access: found \(availableCalendars.count) writable calendars")
-        #endif
+        print("🔍 [CalendarService] loadAvailableCalendars called - using adapter")
+        availableCalendars = adapter.loadAvailableCalendars()
+        print("🔍 [CalendarService] Loaded \(availableCalendars.count) calendars via adapter")
     }
     
     func setSelectedCalendar(_ calendar: EKCalendar?) {
@@ -322,225 +222,40 @@ class CalendarService: ObservableObject {
     }
     
     func validateCalendar(_ calendar: EKCalendar?, force: Bool = false) -> CalendarValidationResult {
-        guard hasCalendarAccess else {
-            print("🔍 [CalendarService] validateCalendar: No calendar access")
-            return .permissionDenied
-        }
-        
         guard let calendar = calendar else {
             print("🔍 [CalendarService] validateCalendar: No calendar provided")
             return .notFound
         }
         
-        print("🔍 [CalendarService] validateCalendar: Checking calendar '\(calendar.title)' (ID: \(calendar.calendarIdentifier))")
-        
-        // Check if calendar still exists - try multiple approaches for iOS Simulator
-        var currentCalendars: [EKCalendar] = []
-        
-        currentCalendars = eventStore.calendars(for: .event)
-        print("  - Found \(currentCalendars.count) calendars via eventStore")
-        
-        // iOS Simulator fallback: If no calendars found but we have access, try fresh event store
-        if currentCalendars.isEmpty && hasCalendarAccess {
-            print("  - No calendars found via main eventStore, trying fresh eventStore...")
-            let testEventStore = EKEventStore()
-            currentCalendars = testEventStore.calendars(for: .event)
-            print("  - Found \(currentCalendars.count) calendars via fresh eventStore")
-            
-            // Final fallback for simulator: assume calendar is valid if we have access
-            if currentCalendars.isEmpty {
-                print("  - No calendars found via any method, using force validation")
-                if force {
-                    print("  - Force validation - assuming calendar is valid")
-                    return .valid
-                } else {
-                    // Try force validation anyway for iOS Simulator
-                    print("  - iOS Simulator fallback - assuming calendar is valid despite not finding it in calendar list")
-                    return .valid
-                }
-            }
-        }
-        
-        let calendarExists = currentCalendars.contains(where: { $0.calendarIdentifier == calendar.calendarIdentifier })
-        print("  - Calendar exists in available calendars: \(calendarExists)")
-        
-        guard calendarExists else {
-            return .notFound
-        }
-        
-        // Check write access
-        let canModify = calendar.allowsContentModifications
-        print("  - Calendar allows modifications: \(canModify)")
-        
-        guard canModify else {
-            return .noWriteAccess
-        }
-        
-        print("  ✅ Calendar validation passed")
-        return .valid
+        print("🔍 [CalendarService] validateCalendar: Using adapter for '\(calendar.title)'")
+        let result = adapter.validateCalendar(calendar)
+        print("🔍 [CalendarService] Validation result via adapter: \(result)")
+        return result
     }
     
     // MARK: - Event Creation & Management
     
     func createEvent(data: CalendarEventData, calendar: EKCalendar) throws -> String {
-        print("🔍 [CalendarService] createEvent called for: \(data.title)")
+        print("🔍 [CalendarService] createEvent called for: \(data.title) - using adapter")
         
         guard hasCalendarAccess else {
             print("  ❌ No calendar access")
             throw CalendarError.permissionDenied
         }
         
-        let validationResult = validateCalendar(calendar)
+        let validationResult = adapter.validateCalendar(calendar)
         if validationResult != .valid {
             print("  ❌ Calendar validation failed: \(validationResult)")
-            // iOS Simulator fallback: Try force validation
-            let forceResult = validateCalendar(calendar, force: true)
-            if forceResult != .valid {
-                throw CalendarError.calendarNotFound
-            }
-            print("  ✅ Force validation succeeded")
+            throw CalendarError.calendarNotFound
         }
         
-        let event = EKEvent(eventStore: eventStore)
-        event.title = data.title
-        event.startDate = data.startDate
-        event.endDate = data.endDate
-        event.isAllDay = data.isAllDay
-        event.location = data.location
-        event.notes = createEventNotes(data: data)
-        event.calendar = calendar
+        let eventIdentifier = try adapter.createEvent(data, in: calendar)
         
-        // iOS Simulator fix: Multiple approaches to prevent alarm-related errors
-        #if targetEnvironment(simulator)
-        print("🔧 iOS Simulator detected - applying alarm workarounds")
+        // Store mapping for future operations
+        storeEventMapping(uid: data.uid, eventIdentifier: eventIdentifier)
         
-        // Approach 1: Clear any existing alarms
-        event.alarms = []
-        
-        // Approach 2: Ensure no alarms are set (iOS Simulator compatibility)
-        print("  - Ensuring no alarms are set for iOS Simulator compatibility")
-        #else
-        // On physical devices, allow normal alarm behavior
-        event.alarms = []
-        #endif
-        
-        print("📅 Saving calendar event with title: '\(data.title)' to calendar: '\(calendar.title)'")
-        print("  - Event alarms count: \(event.alarms?.count ?? 0)")
-        
-        // iOS Simulator: Use fresh EventStore to avoid alarm-related issues
-        #if targetEnvironment(simulator)
-        let saveEventStore = EKEventStore()
-        let saveEvent = EKEvent(eventStore: saveEventStore)
-        saveEvent.title = data.title
-        saveEvent.startDate = data.startDate
-        saveEvent.endDate = data.endDate
-        saveEvent.isAllDay = data.isAllDay
-        
-        // Try to add details - location and notes are usually safe
-        if let location = data.location, !location.isEmpty {
-            saveEvent.location = location
-            print("🔧 Added location: \(location)")
-        }
-        
-        // Add notes with management info
-        saveEvent.notes = createEventNotes(data: data)
-        print("🔧 Added notes and management metadata")
-        
-        // Find the calendar in the fresh event store
-        let freshCalendars = saveEventStore.calendars(for: .event)
-        if let freshCalendar = freshCalendars.first(where: { $0.calendarIdentifier == calendar.calendarIdentifier }) {
-            saveEvent.calendar = freshCalendar
-            print("🔧 Using fresh EventStore and calendar for iOS Simulator")
-        } else {
-            // Fallback to default calendar
-            saveEvent.calendar = saveEventStore.defaultCalendarForNewEvents
-            print("🔧 Using default calendar in fresh EventStore for iOS Simulator")
-        }
-        
-        do {
-            try saveEventStore.save(saveEvent, span: .thisEvent)
-            storeEventMapping(uid: data.uid, eventIdentifier: saveEvent.eventIdentifier)
-            print("✅ Created calendar event with fresh EventStore (iOS Simulator): \(data.title) - \(data.uid)")
-            print("  📍 Location: \(saveEvent.location ?? "none")")
-            print("  📝 Notes: \(saveEvent.notes?.count ?? 0) characters")
-            return saveEvent.eventIdentifier
-        } catch {
-            print("❌ Fresh EventStore with details failed: \(error)")
-            
-            // If adding details caused issues, try minimal event as fallback
-            let minimalEvent = EKEvent(eventStore: saveEventStore)
-            minimalEvent.title = data.title
-            minimalEvent.startDate = data.startDate
-            minimalEvent.endDate = data.endDate
-            minimalEvent.isAllDay = data.isAllDay
-            minimalEvent.calendar = saveEvent.calendar
-            
-            do {
-                try saveEventStore.save(minimalEvent, span: .thisEvent)
-                storeEventMapping(uid: data.uid, eventIdentifier: minimalEvent.eventIdentifier)
-                print("✅ Created minimal calendar event (iOS Simulator fallback): \(data.title) - \(data.uid)")
-                return minimalEvent.eventIdentifier
-            } catch {
-                print("❌ Even minimal fresh EventStore creation failed: \(error)")
-                // Continue to original attempt
-            }
-        }
-        #endif
-        
-        do {
-            try eventStore.save(event, span: .thisEvent)
-            
-            // Store mapping
-            storeEventMapping(uid: data.uid, eventIdentifier: event.eventIdentifier)
-            
-            print("✅ Created calendar event: \(data.title) - \(data.uid)")
-            return event.eventIdentifier
-        } catch {
-            // iOS Simulator specific error handling
-            if let ekError = error as? EKError, ekError.code == EKError.alarmGreaterThanRecurrence {
-                print("🔧 iOS Simulator alarm error detected - attempting workaround")
-                
-                // Try creating event without any alarms or properties that might trigger alarm issues
-                let simpleEvent = EKEvent(eventStore: eventStore)
-                simpleEvent.title = data.title
-                simpleEvent.startDate = data.startDate
-                simpleEvent.endDate = data.endDate
-                simpleEvent.isAllDay = data.isAllDay
-                simpleEvent.calendar = calendar
-                // Minimal event - no location, notes, or alarms
-                
-                do {
-                    try eventStore.save(simpleEvent, span: .thisEvent)
-                    storeEventMapping(uid: data.uid, eventIdentifier: simpleEvent.eventIdentifier)
-                    print("✅ Created simplified calendar event (iOS Simulator workaround): \(data.title) - \(data.uid)")
-                    return simpleEvent.eventIdentifier
-                } catch {
-                    print("❌ Even simplified event creation failed: \(error)")
-                    throw CalendarError.eventCreationFailed("iOS Simulator event creation failed: \(error.localizedDescription)")
-                }
-            } else if error.localizedDescription.contains("Alarms cannot be changed") {
-                print("🔧 iOS Simulator 'Alarms cannot be changed' error - attempting minimal event creation")
-                
-                // Create the most minimal event possible
-                let minimalEvent = EKEvent(eventStore: eventStore)
-                minimalEvent.title = data.title
-                minimalEvent.startDate = data.startDate
-                minimalEvent.endDate = data.endDate
-                minimalEvent.calendar = calendar
-                
-                do {
-                    try eventStore.save(minimalEvent, span: .thisEvent)
-                    storeEventMapping(uid: data.uid, eventIdentifier: minimalEvent.eventIdentifier)
-                    print("✅ Created minimal calendar event (iOS Simulator alarm workaround): \(data.title) - \(data.uid)")
-                    return minimalEvent.eventIdentifier
-                } catch {
-                    print("❌ Minimal event creation also failed: \(error)")
-                    throw CalendarError.eventCreationFailed("iOS Simulator minimal event creation failed: \(error.localizedDescription)")
-                }
-            } else {
-                throw CalendarError.eventCreationFailed(error.localizedDescription)
-            }
-        }
+        print("✅ [CalendarService] Created calendar event via adapter: \(data.title) - \(data.uid)")
+        return eventIdentifier
     }
     
     func updateEvent(uid: String, data: CalendarEventData) throws {
