@@ -195,25 +195,24 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
                 print("🔧 [SimulatorAdapter] Using default calendar in pooled EventStore")
             }
             
-                do {
-                    try pooledStore.save(saveEvent, span: .thisEvent)
-                    print("✅ [SimulatorAdapter] Created event with pooled EventStore: \(data.title)")
-                    return saveEvent.eventIdentifier
-                } catch {
-                    print("❌ [SimulatorAdapter] Pooled EventStore creation failed: \(error)")
-                    
-                    // Final fallback: create minimal event with same pooled store
-                    let minimalEvent = EKEvent(eventStore: pooledStore)
-                    minimalEvent.title = data.title
-                    minimalEvent.startDate = data.startDate
-                    minimalEvent.endDate = data.endDate
-                    minimalEvent.isAllDay = data.isAllDay
-                    minimalEvent.calendar = saveEvent.calendar
-                    
-                    try pooledStore.save(minimalEvent, span: .thisEvent)
-                    print("✅ [SimulatorAdapter] Created minimal event as fallback")
-                    return minimalEvent.eventIdentifier
-                }
+            do {
+                try pooledStore.save(saveEvent, span: .thisEvent)
+                print("✅ [SimulatorAdapter] Created event with pooled EventStore: \(data.title)")
+                return saveEvent.eventIdentifier
+            } catch {
+                print("❌ [SimulatorAdapter] Pooled EventStore creation failed: \(error)")
+                
+                // Final fallback: create minimal event with same pooled store
+                let minimalEvent = EKEvent(eventStore: pooledStore)
+                minimalEvent.title = data.title
+                minimalEvent.startDate = data.startDate
+                minimalEvent.endDate = data.endDate
+                minimalEvent.isAllDay = data.isAllDay
+                minimalEvent.calendar = saveEvent.calendar
+                
+                try pooledStore.save(minimalEvent, span: .thisEvent)
+                print("✅ [SimulatorAdapter] Created minimal event as fallback")
+                return minimalEvent.eventIdentifier
             }
         }
     }
