@@ -136,9 +136,9 @@ struct CalendarPermissionView: View {
         .onAppear {
             permissionHandler.updateAuthorizationStatus()
         }
-        .onChange(of: permissionHandler.hasAccess) { hasAccess in
-            print("🔍 [CalendarPermissionView] onChange triggered - hasAccess: \(hasAccess)")
-            if hasAccess {
+        .onChange(of: permissionHandler.hasAccess) {
+            print("🔍 [CalendarPermissionView] onChange triggered - hasAccess: \(permissionHandler.hasAccess)")
+            if permissionHandler.hasAccess {
                 print("🔍 [CalendarPermissionView] Permission granted detected via onChange - calling onGranted()")
                 onGranted()
             }

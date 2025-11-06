@@ -517,6 +517,11 @@ struct SetupView: View {
                     print("  - Permission handler hasAccess: \(calendarPermissionHandler.hasAccess)")
                     print("  - Authorization status: \(calendarPermissionHandler.authorizationStatus.rawValue)")
                     hasSeenCalendarSetup = true
+                    
+                    // Update CalendarService authorization status
+                    calendarService.updateAuthorizationStatus()
+                    print("  - CalendarService updated status: \(calendarService.authorizationStatus.rawValue)")
+                    
                     calendarService.loadAvailableCalendars()
                     
                     // Auto-select default calendar if available
