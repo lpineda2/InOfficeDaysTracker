@@ -31,6 +31,7 @@ struct SetupView: View {
     @StateObject private var calendarPermissionHandler = CalendarPermissionHandler()
     @State private var selectedCalendar: EKCalendar?
     @State private var calendarIntegrationEnabled = false
+    @State private var hasSeenCalendarSetup = false
     
     @State private var isLoading = false
     @State private var showingError = false
@@ -477,11 +478,30 @@ struct SetupView: View {
                 calendarPermissionView
             }
             
+            // Skip option for users who don't want calendar integration
+            if !hasSeenCalendarSetup {
+                Button("Skip Calendar Integration") {
+                    calendarIntegrationEnabled = false
+                    hasSeenCalendarSetup = true
+                    print("🔍 [SetupView] User chose to skip calendar integration")
+                }
+                .buttonStyle(.bordered)
+                .foregroundColor(.secondary)
+            }
+            
             Spacer()
         }
         .padding()
         .onAppear {
+            print("🔍 [SetupView] Calendar setup step appeared")
+            print("  - Current step: \(currentStep)")
+            print("  - hasSeenCalendarSetup: \(hasSeenCalendarSetup)")
+            print("  - calendarIntegrationEnabled: \(calendarIntegrationEnabled)")
+            
             calendarPermissionHandler.updateAuthorizationStatus()
+            print("  - Permission status after update: \(calendarPermissionHandler.authorizationStatus.rawValue)")
+            print("  - hasAccess: \(calendarPermissionHandler.hasAccess)")
+            
             if calendarPermissionHandler.hasAccess {
                 calendarService.loadAvailableCalendars()
             }
@@ -493,11 +513,25 @@ struct SetupView: View {
             CalendarPermissionView(
                 permissionHandler: calendarPermissionHandler,
                 onGranted: {
+                    print("🔍 [SetupView] Calendar permission granted - loading calendars")
+                    print("  - Permission handler hasAccess: \(calendarPermissionHandler.hasAccess)")
+                    print("  - Authorization status: \(calendarPermissionHandler.authorizationStatus.rawValue)")
+                    hasSeenCalendarSetup = true
                     calendarService.loadAvailableCalendars()
+                    
+                    // Auto-select default calendar if available
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if let defaultCalendar = calendarService.availableCalendars.first {
+                            selectedCalendar = defaultCalendar
+                            calendarIntegrationEnabled = true
+                            print("🔍 [SetupView] Auto-selected default calendar: \(defaultCalendar.title)")
+                        }
+                    }
                 },
                 onSkipped: {
                     // Mark as seen but not enabled
                     calendarIntegrationEnabled = false
+                    hasSeenCalendarSetup = true
                 }
             )
         }
@@ -509,40 +543,123 @@ struct SetupView: View {
                 .font(.headline)
                 .foregroundColor(.green)
             
-            CalendarPickerView(
-                calendarService: calendarService,
-                selectedCalendar: $selectedCalendar,
-                title: "Choose Your Calendar",
-                subtitle: "Select a calendar where office visit events will be created",
-                showSkipOption: true,
-                onCalendarSelected: { calendar in
-                    selectedCalendar = calendar
-                    calendarIntegrationEnabled = true
-                },
-                onSkipped: {
-                    selectedCalendar = nil
-                    calendarIntegrationEnabled = false
+            if calendarService.availableCalendars.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .font(.system(size: 48))
+                        .foregroundColor(.orange)
+                    
+                    Text("No Calendars Available")
+                        .font(.headline)
+                    
+                    Text("No writable calendars found. You can enable calendar integration now and configure it later in Settings when you have calendar accounts set up.")
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.secondary)
+                    
+                    VStack(spacing: 12) {
+                        if calendarIntegrationEnabled {
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.title2)
+                                    Text("Calendar Integration Enabled")
+                                        .font(.headline)
+                                        .foregroundColor(.green)
+                                }
+                                .padding()
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(12)
+                                
+                                Text("You can configure specific calendars later in Settings")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                        } else {
+                            VStack(spacing: 8) {
+                                Button("✓ Enable Calendar Integration") {
+                                    calendarIntegrationEnabled = true
+                                    hasSeenCalendarSetup = true
+                                    print("🔍 [SetupView] Calendar integration enabled despite no calendars")
+                                    print("  ✅ calendarIntegrationEnabled is now: \(calendarIntegrationEnabled)")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                                
+                                Text("Tap above to enable • Configure calendars later in Settings")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                    }
                 }
-            )
+            } else {
+                Text("Select a calendar where office visit events will be created:")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+                
+                CalendarPickerView(
+                    calendarService: calendarService,
+                    selectedCalendar: $selectedCalendar,
+                    title: "", // No title - already shown above
+                    subtitle: nil, // No subtitle - context is clear
+                    showSkipOption: false, // Use main Complete Setup button instead
+                    onCalendarSelected: { calendar in
+                        print("🔍 [SetupView] Calendar selected callback fired: \(calendar?.title ?? "none")")
+                        selectedCalendar = calendar
+                        calendarIntegrationEnabled = true
+                        print("  ✅ Calendar integration enabled: \(calendarIntegrationEnabled)")
+                    },
+                    onSkipped: nil // Not used since showSkipOption is false
+                )
+            }
         }
     }
     
     private var canProceed: Bool {
+        let result: Bool
         switch currentStep {
         case 1:
-            return !officeAddress.isEmpty
+            result = !officeAddress.isEmpty
         case 2:
-            return !trackingDays.isEmpty
+            result = !trackingDays.isEmpty
+        case 6: // Calendar setup step
+            // Can proceed if user has made a decision about calendar integration
+            result = calendarPermissionHandler.hasAccess || calendarPermissionHandler.wasdenied || hasSeenCalendarSetup
+            print("🔍 [SetupView] Calendar step canProceed check:")
+            print("  - hasAccess: \(calendarPermissionHandler.hasAccess)")
+            print("  - wasdenied: \(calendarPermissionHandler.wasdenied)")
+            print("  - hasSeenCalendarSetup: \(hasSeenCalendarSetup)")
+            print("  - result: \(result)")
         default:
-            return true
+            result = true
         }
+        return result
     }
     
     private var canCompleteSetup: Bool {
         // Allow completion with "When in Use" permission, but prefer "Always"
         let hasLocationPermission = locationService.authorizationStatus == .authorizedAlways || 
                                    locationService.authorizationStatus == .authorizedWhenInUse
-        return hasLocationPermission && !officeAddress.isEmpty
+        
+        // On calendar step, require calendar decision to be made
+        let hasCalendarDecision = currentStep != 6 || 
+                                 calendarPermissionHandler.hasAccess || 
+                                 calendarPermissionHandler.wasdenied || 
+                                 hasSeenCalendarSetup
+        
+        print("🔍 [SetupView] canCompleteSetup check:")
+        print("  - Current step: \(currentStep)")
+        print("  - hasLocationPermission: \(hasLocationPermission)")
+        print("  - hasCalendarDecision: \(hasCalendarDecision)")
+        print("  - hasSeenCalendarSetup: \(hasSeenCalendarSetup)")
+        
+        return hasLocationPermission && !officeAddress.isEmpty && hasCalendarDecision
     }
     
     private var locationPermissionStatus: PermissionStatus {
@@ -574,9 +691,21 @@ struct SetupView: View {
     }
     
     private func nextStep() {
+        print("🔍 [SetupView] Attempting to advance from step \(currentStep) to \(currentStep + 1)")
+        print("  - canProceed: \(canProceed)")
+        if currentStep == 6 {
+            print("  - Calendar step validation:")
+            print("    - hasAccess: \(calendarPermissionHandler.hasAccess)")
+            print("    - wasdenied: \(calendarPermissionHandler.wasdenied)")
+            print("    - hasSeenCalendarSetup: \(hasSeenCalendarSetup)")
+            print("    - calendarIntegrationEnabled: \(calendarIntegrationEnabled)")
+        }
+        
         withAnimation {
             currentStep += 1
         }
+        
+        print("🔍 [SetupView] Advanced to step \(currentStep)")
     }
     
     private func useCurrentLocation() {
@@ -630,6 +759,11 @@ struct SetupView: View {
                 newSettings.notificationsEnabled = notificationsEnabled
                 
                 // Calendar Integration Settings
+                print("🔍 [SetupView] Setting calendar integration settings:")
+                print("  - calendarIntegrationEnabled: \(calendarIntegrationEnabled)")
+                print("  - selectedCalendar: \(selectedCalendar?.title ?? "none")")
+                print("  - selectedCalendar ID: \(selectedCalendar?.calendarIdentifier ?? "none")")
+                
                 newSettings.calendarSettings.isEnabled = calendarIntegrationEnabled
                 newSettings.calendarSettings.selectedCalendarId = selectedCalendar?.calendarIdentifier
                 newSettings.hasSeenCalendarSetup = true

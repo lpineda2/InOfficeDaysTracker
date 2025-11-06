@@ -75,8 +75,31 @@ class AppData: ObservableObject {
     // MARK: - Settings Management
     
     func updateSettings(_ newSettings: AppSettings) {
+        print("🔧 [AppData] updateSettings called")
+        print("  - Calendar enabled: \(newSettings.calendarSettings.isEnabled)")
+        print("  - Calendar ID: \(newSettings.calendarSettings.selectedCalendarId ?? "none")")
+        
+        let wasCalendarEnabled = settings.calendarSettings.isEnabled
+        let isCalendarNowEnabled = newSettings.calendarSettings.isEnabled
+        
         settings = newSettings
         saveSettings()
+        
+        // If calendar integration was just enabled and there's an active office visit,
+        // create a calendar event for the current visit
+        if !wasCalendarEnabled && isCalendarNowEnabled {
+            print("  📅 Calendar integration was just enabled!")
+            if let activeVisit = currentVisit, activeVisit.isActiveSession {
+                print("  📅 Found active office visit - creating calendar event")
+                Task {
+                    await calendarEventManager.handleVisitStart(activeVisit, settings: settings)
+                }
+            } else {
+                print("  📅 No active visit to create calendar event for")
+            }
+        }
+        
+        print("  ✅ Settings updated and saved")
     }
     
     func completeSetup() {
@@ -85,15 +108,53 @@ class AppData: ObservableObject {
     }
     
     private func saveSettings() {
+        print("💾 [AppData] saveSettings called")
+        print("  📋 Settings to save:")
+        print("    - Calendar enabled: \(settings.calendarSettings.isEnabled)")
+        print("    - Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
+        print("    - Setup complete: \(settings.isSetupComplete)")
+        
         if let encoded = try? JSONEncoder().encode(settings) {
             sharedUserDefaults.set(encoded, forKey: settingsKey)
+            print("  ✅ Settings encoded and saved to UserDefaults")
+            
+            // Verify the data was actually written
+            if let savedData = sharedUserDefaults.data(forKey: settingsKey) {
+                print("  📄 Saved data size: \(savedData.count) bytes")
+                if let jsonString = String(data: savedData, encoding: .utf8) {
+                    print("  📄 JSON preview: \(String(jsonString.prefix(200)))...")
+                }
+            } else {
+                print("  ❌ No data found immediately after saving!")
+            }
+        } else {
+            print("  ❌ Failed to encode settings")
         }
     }
     
     private func loadSettings() {
-        if let data = sharedUserDefaults.data(forKey: settingsKey),
-           let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
-            settings = decoded
+        print("🔍 [AppData] loadSettings called")
+        
+        if let data = sharedUserDefaults.data(forKey: settingsKey) {
+            print("  📄 Found settings data: \(data.count) bytes")
+            
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("  📄 JSON preview: \(String(jsonString.prefix(200)))...")
+            }
+            
+            if let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
+                settings = decoded
+                print("  ✅ Settings loaded successfully")
+                print("  📅 Calendar enabled: \(settings.calendarSettings.isEnabled)")
+                print("  📅 Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
+                print("  📅 Setup complete: \(settings.isSetupComplete)")
+            } else {
+                print("  ❌ Failed to decode settings JSON!")
+                settings = AppSettings()
+            }
+        } else {
+            print("  ⚠️ No settings data found in UserDefaults")
+            settings = AppSettings()
         }
     }
     
@@ -117,6 +178,11 @@ class AppData: ObservableObject {
                 print("[AppData] Cleared stale visit from previous day")
             } else {
                 print("[AppData] Restored current visit from: \(visit.entryTime)")
+                
+                // Check if calendar event should be created for current visit
+                Task {
+                    await ensureCalendarEventForCurrentVisit(visit)
+                }
             }
         }
     }
@@ -228,6 +294,7 @@ class AppData: ObservableObject {
         saveVisits()
         
         // Handle calendar event creation
+        print("[AppData] About to call calendar event manager...")
         Task {
             await calendarEventManager.handleVisitStart(newVisit, settings: settings)
         }
@@ -654,6 +721,46 @@ class AppData: ObservableObject {
         let lastSyncDate = sharedUserDefaults.object(forKey: lastSyncKey) as? Date ?? Date().addingTimeInterval(-7 * 24 * 3600) // Default to 7 days ago
         
         await calendarEventManager.performCatchUpSync(since: lastSyncDate, visits: visits, settings: settings)
+    }
+    
+    private func ensureCalendarEventForCurrentVisit(_ visit: OfficeVisit) async {
+        guard settings.calendarSettings.isEnabled,
+              visit.isActiveSession else {
+            return
+        }
+        
+        print("📅 [AppData] Checking if calendar event exists for current visit")
+        
+        // Check if calendar event already exists for this visit
+        let eventData = CalendarEventData(
+            title: settings.calendarSettings.officeEventTitle,
+            startDate: visit.entryTime,
+            endDate: Date(),
+            isAllDay: settings.calendarSettings.createAllDayEvents,
+            location: settings.officeAddress.isEmpty ? nil : settings.officeAddress,
+            notes: "",
+            uid: CalendarEventUID.generate(
+                date: visit.date,
+                type: .office,
+                workHours: (settings.officeHours.startTime, settings.officeHours.endTime)
+            )
+        )
+        
+        print("📅 [AppData] Generated UID for current visit check: \(eventData.uid)")
+        print("📅 [AppData] Visit date: \(visit.date)")
+        print("📅 [AppData] Entry time: \(visit.entryTime)")
+        
+        let eventExists = await CalendarService.shared.eventExists(uid: eventData.uid)
+        
+        print("📅 [AppData] Event exists check result: \(eventExists)")
+        
+        if !eventExists {
+            print("📅 [AppData] Creating calendar event for current office visit")
+            await calendarEventManager.handleVisitStart(visit, settings: settings)
+        } else {
+            print("📅 [AppData] Calendar event exists - updating with current logic for ongoing visit")
+            await calendarEventManager.handleVisitUpdate(visit, settings: settings)
+        }
     }
     
     #if DEBUG

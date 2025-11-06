@@ -18,14 +18,14 @@ struct CalendarSettings: Codable {
     var selectedCalendarId: String?
     
     // Event Customization
-    var officeEventTitle: String = "Office Day"
+    var officeEventTitle: String = "In Office Day"
     var remoteEventTitle: String = "Remote Work"
     
     // Timing & Display
     var useActualTimes: Bool = true // true = actual visit times, false = standard work hours
     var showAsBusy: Bool = false // false = Free (default), true = Busy
     var createAllDayEvents: Bool = false
-    var includeRemoteEvents: Bool = true
+    var includeRemoteEvents: Bool = false // false = office only (default), true = include remote work events
     
     // Time Zone Handling
     var timeZoneMode: TimeZoneMode = .device
@@ -133,11 +133,17 @@ struct CalendarEventUID {
         
         let typeString = type == .office ? "office" : "remote"
         
-        // Create hash from work hours for deterministic UIDs
+        // Create deterministic hash from work hours
         let hoursHash: String
         if let hours = workHours {
-            let combined = "\(hours.start.timeIntervalSince1970)|\(hours.end.timeIntervalSince1970)"
-            hoursHash = String(combined.hashValue % 10000) // Keep it short
+            // Use a simple deterministic approach based on hour components
+            let calendar = Calendar.current
+            let startHour = calendar.component(.hour, from: hours.start)
+            let startMinute = calendar.component(.minute, from: hours.start)
+            let endHour = calendar.component(.hour, from: hours.end)
+            let endMinute = calendar.component(.minute, from: hours.end)
+            
+            hoursHash = String(format: "%02d%02d%02d%02d", startHour, startMinute, endHour, endMinute)
         } else {
             hoursHash = "std"
         }

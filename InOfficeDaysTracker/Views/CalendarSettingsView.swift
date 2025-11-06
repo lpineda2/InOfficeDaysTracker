@@ -12,6 +12,7 @@ struct CalendarSettingsView: View {
     @ObservedObject var appData: AppData
     @StateObject private var calendarService = CalendarService.shared
     @StateObject private var permissionHandler = CalendarPermissionHandler()
+    @Environment(\.dismiss) private var dismiss
     
     @State private var calendarSettings: CalendarSettings
     @State private var tempSettings: CalendarSettings
@@ -39,6 +40,7 @@ struct CalendarSettingsView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Save") {
                     saveSettings()
+                    dismiss()
                 }
                 .disabled(!tempSettings.isValidConfiguration)
             }
@@ -46,6 +48,16 @@ struct CalendarSettingsView: View {
         .onAppear {
             loadCurrentSettings()
             permissionHandler.updateAuthorizationStatus()
+        }
+        .onChange(of: selectedCalendar) { oldCalendar, newCalendar in
+            print("📅 [CalendarSettings] Selected calendar changed")
+            if let calendar = newCalendar {
+                print("  - New calendar: \(calendar.title) (ID: \(calendar.calendarIdentifier))")
+                tempSettings.selectedCalendarId = calendar.calendarIdentifier
+            } else {
+                print("  - Calendar deselected")
+                tempSettings.selectedCalendarId = nil
+            }
         }
         .alert("Reset Calendar Settings", isPresented: $showingResetConfirmation) {
             Button("Reset", role: .destructive) {
@@ -133,15 +145,17 @@ struct CalendarSettingsView: View {
                     HStack {
                         Text("Office Event")
                             .frame(width: 100, alignment: .leading)
-                        TextField("Office Day", text: $tempSettings.officeEventTitle)
+                        TextField("In Office Day", text: $tempSettings.officeEventTitle)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
                     
-                    HStack {
-                        Text("Remote Event")
-                            .frame(width: 100, alignment: .leading)
-                        TextField("Remote Work", text: $tempSettings.remoteEventTitle)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    if tempSettings.includeRemoteEvents {
+                        HStack {
+                            Text("Remote Event")
+                                .frame(width: 100, alignment: .leading)
+                            TextField("Remote Work", text: $tempSettings.remoteEventTitle)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
                     }
                 }
             }
@@ -149,24 +163,34 @@ struct CalendarSettingsView: View {
         } header: {
             Text("Event Customization")
         } footer: {
-            Text("Customize how your work events appear in your calendar.")
+            if tempSettings.includeRemoteEvents {
+                Text("Customize how your office and remote work events appear in your calendar.")
+            } else {
+                Text("Customize how your office events appear in your calendar. Enable remote work events below to add remote event customization.")
+            }
         }
     }
     
     private var timingSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                Toggle("Use actual visit times", isOn: $tempSettings.useActualTimes)
+                Toggle("Create all-day events", isOn: $tempSettings.createAllDayEvents)
                     .disabled(!tempSettings.isEnabled)
                 
-                if !tempSettings.useActualTimes {
-                    Text("Events will use your standard work hours (9:00 AM - 5:00 PM)")
+                if !tempSettings.createAllDayEvents {
+                    Toggle("Use actual visit times", isOn: $tempSettings.useActualTimes)
+                        .disabled(!tempSettings.isEnabled)
+                    
+                    if !tempSettings.useActualTimes {
+                        Text("Events will use your standard work hours (9:00 AM - 5:00 PM)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Text("All-day events don't use specific times")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
-                Toggle("Create all-day events", isOn: $tempSettings.createAllDayEvents)
-                    .disabled(!tempSettings.isEnabled)
                 
                 Toggle("Include remote work events", isOn: $tempSettings.includeRemoteEvents)
                     .disabled(!tempSettings.isEnabled)
@@ -174,26 +198,12 @@ struct CalendarSettingsView: View {
         } header: {
             Text("Event Timing")
         } footer: {
-            Text("Choose how event times are calculated and which events to create.")
+            Text("All-day events span the entire day without specific times. Timed events can use either your actual visit times or standard work hours.")
         }
     }
     
     private var advancedSection: some View {
         Section {
-            Picker("Time Zone", selection: $tempSettings.timeZoneMode) {
-                ForEach(CalendarSettings.TimeZoneMode.allCases, id: \.self) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .disabled(!tempSettings.isEnabled)
-            
-            Picker("Update Frequency", selection: $tempSettings.batchMode) {
-                ForEach(CalendarSettings.BatchMode.allCases, id: \.self) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .disabled(!tempSettings.isEnabled)
-            
             Button("Reset to Defaults") {
                 showingResetConfirmation = true
             }
@@ -203,32 +213,64 @@ struct CalendarSettingsView: View {
         } header: {
             Text("Advanced Options")
         } footer: {
-            Text("Configure time zones and event update behavior.")
+            Text("Reset all calendar settings to their default values.")
         }
     }
     
     // MARK: - Helper Methods
     
     private func loadCurrentSettings() {
+        print("📖 [CalendarSettings] Loading current settings...")
         tempSettings = appData.settings.calendarSettings
+        print("  - Loaded enabled: \(tempSettings.isEnabled)")
+        print("  - Loaded calendar ID: \(tempSettings.selectedCalendarId ?? "none")")
         
         // Load selected calendar if available
         if let calendarId = tempSettings.selectedCalendarId,
            calendarService.hasCalendarAccess {
+            print("  - Loading available calendars...")
             calendarService.loadAvailableCalendars()
+            print("  - Available calendars: \(calendarService.availableCalendars.count)")
+            
             selectedCalendar = calendarService.availableCalendars.first { calendar in
                 calendar.calendarIdentifier == calendarId
             }
+            
+            if let calendar = selectedCalendar {
+                print("  ✅ Found matching calendar: \(calendar.title)")
+            } else {
+                print("  ❌ No matching calendar found for ID: \(calendarId)")
+            }
+        } else {
+            print("  - No calendar ID or no access")
         }
     }
     
     private func saveSettings() {
-        // Update the calendar settings
+        print("💾 [CalendarSettings] Saving settings...")
+        print("  - Enabled: \(tempSettings.isEnabled)")
+        print("  - Selected calendar ID: \(tempSettings.selectedCalendarId ?? "none")")
+        print("  - Office title: '\(tempSettings.officeEventTitle)'")
+        
+        // Make sure selected calendar ID is set if we have a selected calendar
+        if let calendar = selectedCalendar {
+            tempSettings.selectedCalendarId = calendar.calendarIdentifier
+            print("  - Updated calendar ID from selected calendar: \(calendar.calendarIdentifier)")
+        }
+        
+        // Update the calendar settings using tempSettings
         var updatedSettings = appData.settings
-        updatedSettings.calendarSettings = calendarSettings
+        updatedSettings.calendarSettings = tempSettings
+        
+        print("  - Calling appData.updateSettings...")
         
         // Save using the public method
         appData.updateSettings(updatedSettings)
+        
+        // Update the local copy to match what we just saved
+        calendarSettings = tempSettings
+        
+        print("  ✅ Settings saved successfully")
     }
     
     private func resetSettings() {

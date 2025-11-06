@@ -139,7 +139,7 @@ struct MainProgressView: View {
                     currentTime = Date() // Just trigger UI update
                 }
             }
-            .onChange(of: scenePhase) { newPhase in
+            .onChange(of: scenePhase) { oldPhase, newPhase in
                 if newPhase == .active {
                     self.checkForCalendarErrors()
                 }
@@ -243,7 +243,13 @@ struct MainProgressView: View {
         
         // Check if calendar is available (only if integration is enabled)
         if appData.settings.calendarSettings.isEnabled {
+            // Ensure calendars are loaded before checking availability
+            if calendarService.availableCalendars.isEmpty && calendarService.hasCalendarAccess {
+                calendarService.loadAvailableCalendars()
+            }
+            
             if let calendarId = appData.settings.calendarSettings.selectedCalendarId,
+               !calendarService.availableCalendars.isEmpty, // Only check if calendars are loaded
                !calendarService.availableCalendars.contains(where: { $0.calendarIdentifier == calendarId }) {
                 let error = CalendarBannerError(
                     type: .calendarUnavailable,

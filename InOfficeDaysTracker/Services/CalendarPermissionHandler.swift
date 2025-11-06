@@ -59,17 +59,34 @@ class CalendarPermissionHandler: ObservableObject {
     }
     
     func requestPermission() async -> Bool {
+        print("🔍 [CalendarPermissionHandler] Starting permission request")
+        print("  - Initial status: \(authorizationStatus.rawValue)")
+        
         await MainActor.run {
             isRequestingPermission = true
             permissionError = nil
         }
         
         do {
+            print("🔍 [CalendarPermissionHandler] Calling requestFullAccessToEvents()")
             let granted = try await eventStore.requestFullAccessToEvents()
+            print("🔍 [CalendarPermissionHandler] Request completed - granted: \(granted)")
             
             await MainActor.run {
+                print("🔍 [CalendarPermissionHandler] Updating status...")
+                print("  - Status before update: \(authorizationStatus.rawValue)")
                 updateAuthorizationStatus()
+                print("  - Status after update: \(authorizationStatus.rawValue)")
+                print("  - hasAccess: \(hasAccess)")
+                
                 isRequestingPermission = false
+                
+                // Simulator fallback: if permission was granted but status didn't update,
+                // manually set to fullAccess to work around simulator EventKit issues
+                if granted && authorizationStatus == .notDetermined {
+                    print("🔍 [CalendarPermissionHandler] Simulator fallback - manually setting fullAccess")
+                    authorizationStatus = .fullAccess
+                }
                 
                 if !granted && authorizationStatus == .denied {
                     permissionError = "Calendar access is required to create events for your office visits"
@@ -119,19 +136,18 @@ struct CalendarPermissionView: View {
         .onAppear {
             permissionHandler.updateAuthorizationStatus()
         }
+        .onChange(of: permissionHandler.hasAccess) { hasAccess in
+            print("🔍 [CalendarPermissionView] onChange triggered - hasAccess: \(hasAccess)")
+            if hasAccess {
+                print("🔍 [CalendarPermissionView] Permission granted detected via onChange - calling onGranted()")
+                onGranted()
+            }
+        }
     }
     
     private var requestPermissionView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
-            
-            Text("Calendar Integration")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Create calendar events for your office visits and remote work days to visualize your work patterns.")
+            Text("Create calendar events for your office visits to visualize your work patterns.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -144,15 +160,9 @@ struct CalendarPermissionView: View {
                 )
                 
                 PermissionFeatureRow(
-                    icon: "house.circle",
-                    title: "Remote Work Tracking", 
-                    description: "Track work-from-home days too"
-                )
-                
-                PermissionFeatureRow(
                     icon: "lock.shield",
                     title: "Privacy First",
-                    description: "All events stored locally in your calendar"
+                    description: "Events stored in your calendar app"
                 )
             }
             
@@ -163,18 +173,30 @@ struct CalendarPermissionView: View {
                 VStack(spacing: 12) {
                     Button("Grant Calendar Access") {
                         Task {
+                            print("🔍 [CalendarPermissionView] Grant button tapped")
+                            print("  - Before request - Status: \(permissionHandler.authorizationStatus.rawValue)")
+                            
                             let granted = await permissionHandler.requestPermission()
-                            if granted {
-                                onGranted()
+                            print("  - Request result: \(granted)")
+                            print("  - After request - Status: \(permissionHandler.authorizationStatus.rawValue)")
+                            
+                            // Add a delay to allow system to update, then refresh status
+                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                            
+                            await MainActor.run {
+                                // Don't call updateAuthorizationStatus here as it may override 
+                                // the simulator fallback that was set in requestPermission()
+                                print("  - Status after request: \(permissionHandler.authorizationStatus.rawValue)")
+                                print("  - hasAccess: \(permissionHandler.hasAccess)")
                             }
                         }
                     }
                     .buttonStyle(.borderedProminent)
                     
-                    Button("Skip Calendar Setup") {
-                        onSkipped()
-                    }
-                    .buttonStyle(.bordered)
+                    Text("Or continue to complete setup without calendar integration")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
             }
             

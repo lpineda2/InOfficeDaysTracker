@@ -50,6 +50,9 @@ struct CalendarPickerView: View {
                 skipButtonView
             }
         }
+        .onChange(of: calendarService.availableCalendars) { _, calendars in
+            print("🔍 [CalendarPickerView] Available calendars changed: \(calendars.count)")
+        }
         .onAppear {
             calendarService.loadAvailableCalendars()
         }
@@ -57,9 +60,11 @@ struct CalendarPickerView: View {
     
     private var headerView: some View {
         VStack(spacing: 8) {
-            Text(title)
-                .font(.title2)
-                .fontWeight(.semibold)
+            if !title.isEmpty {
+                Text(title)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            }
             
             if let subtitle = subtitle {
                 Text(subtitle)
@@ -94,8 +99,11 @@ struct CalendarPickerView: View {
                     calendar: calendar,
                     isSelected: selectedCalendar?.calendarIdentifier == calendar.calendarIdentifier,
                     onTap: {
+                        print("🔍 [CalendarPickerView] Calendar row tapped: \(calendar.title)")
                         selectedCalendar = calendar
+                        print("🔍 [CalendarPickerView] Calling onCalendarSelected callback")
                         onCalendarSelected(calendar)
+                        print("🔍 [CalendarPickerView] Callback completed")
                     }
                 )
             }

@@ -25,10 +25,27 @@ class CalendarEventManager: ObservableObject {
     // MARK: - Office Visit Event Management
     
     func handleVisitStart(_ visit: OfficeVisit, settings: AppSettings) async {
-        guard settings.calendarSettings.isEnabled,
-              await getSelectedCalendar(settings: settings) != nil else {
+        print("🔍 [CalendarEventManager] handleVisitStart called")
+        print("  - Calendar enabled: \(settings.calendarSettings.isEnabled)")
+        print("  - Selected calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
+        print("  - Visit active: \(visit.isActiveSession)")
+        print("  - Visit date: \(visit.date)")
+        
+        guard settings.calendarSettings.isEnabled else {
+            print("  ❌ Calendar integration disabled - no event will be created")
             return
         }
+        
+        let selectedCalendar = await getSelectedCalendar(settings: settings)
+        guard let calendar = selectedCalendar else {
+            print("  ❌ No calendar found - no event will be created")
+            return
+        }
+        
+        print("  ✅ All guards passed - proceeding with event creation")
+        
+        // Run duplicate cleanup to prevent issues
+        await calendarService.cleanupDuplicateEvents(calendar: calendar)
         
         // Create tentative office event
         let eventData = createOfficeEventData(
@@ -36,6 +53,8 @@ class CalendarEventManager: ObservableObject {
             settings: settings,
             isOngoing: true
         )
+        
+        print("  📅 Event data created: \(eventData.title) - \(eventData.uid)")
         
         let update = CalendarEventUpdate(
             uid: eventData.uid,
@@ -45,15 +64,24 @@ class CalendarEventManager: ObservableObject {
             data: eventData
         )
         
+        print("  📤 Scheduling calendar update with batch mode: \(settings.calendarSettings.batchMode)")
+        
         calendarService.scheduleEventUpdate(
             update,
             batchMode: settings.calendarSettings.batchMode == .immediate ? .immediate : .standard
         )
+        
+        print("  ✅ Calendar update scheduled successfully")
     }
     
     func handleVisitUpdate(_ visit: OfficeVisit, settings: AppSettings) async {
+        print("🔍 [CalendarEventManager] handleVisitUpdate called")
+        print("  - Calendar enabled: \(settings.calendarSettings.isEnabled)")
+        print("  - Visit active: \(visit.isActiveSession)")
+        
         guard settings.calendarSettings.isEnabled,
               visit.isActiveSession else {
+            print("  ❌ Calendar integration disabled or visit not active - no event will be updated")
             return
         }
         
@@ -63,22 +91,39 @@ class CalendarEventManager: ObservableObject {
             isOngoing: true
         )
         
+        print("  📅 Event UID: \(eventData.uid)")
+        
+        // Check if event exists before trying to update
+        let eventExists = await calendarService.eventExists(uid: eventData.uid)
+        let operation: CalendarEventUpdate.Operation = eventExists ? .update : .create
+        
+        print("  📋 Event exists: \(eventExists) - Operation: \(operation)")
+        
         let update = CalendarEventUpdate(
             uid: eventData.uid,
             type: .office,
-            operation: .update,
+            operation: operation,
             date: visit.date,
             data: eventData
         )
         
+        print("  📤 Scheduling calendar \(operation) with immediate processing")
+        
         calendarService.scheduleEventUpdate(
             update,
-            batchMode: settings.calendarSettings.batchMode == .immediate ? .immediate : .standard
+            batchMode: .immediate  // Force immediate update for visit updates
         )
+        
+        print("  ✅ Calendar \(operation) scheduled successfully")
     }
     
     func handleVisitEnd(_ visit: OfficeVisit, settings: AppSettings) async {
+        print("🔍 [CalendarEventManager] handleVisitEnd called")
+        print("  - Calendar enabled: \(settings.calendarSettings.isEnabled)")
+        print("  - Visit valid: \(visit.isValidVisit)")
+        
         guard settings.calendarSettings.isEnabled else {
+            print("  ❌ Calendar integration disabled - no event will be updated")
             return
         }
         
@@ -90,6 +135,8 @@ class CalendarEventManager: ObservableObject {
                 isOngoing: false
             )
             
+            print("  📅 Finalizing office event: \(eventData.uid)")
+            
             let update = CalendarEventUpdate(
                 uid: eventData.uid,
                 type: .office,
@@ -97,6 +144,8 @@ class CalendarEventManager: ObservableObject {
                 date: visit.date,
                 data: eventData
             )
+            
+            print("  📤 Scheduling office event finalization")
             
             calendarService.scheduleEventUpdate(
                 update,
@@ -198,6 +247,15 @@ class CalendarEventManager: ObservableObject {
         
         let eventData = createRemoteEventData(date: date, settings: settings)
         
+        // Check if event already exists before creating
+        let eventExists = await calendarService.eventExists(uid: eventData.uid)
+        if eventExists {
+            print("  ⚠️ Remote work event already exists for \(eventData.uid) - skipping")
+            return
+        }
+        
+        print("  📅 Creating remote work event for \(eventData.uid)")
+        
         let update = CalendarEventUpdate(
             uid: eventData.uid,
             type: .remote,
@@ -225,7 +283,21 @@ class CalendarEventManager: ObservableObject {
         if settings.calendarSettings.useActualTimes {
             // Use actual visit times
             startDate = visit.entryTime
-            endDate = isOngoing ? Date() : (visit.exitTime ?? Date())
+            
+            if isOngoing {
+                // For ongoing visits, extend to expected end time (office hours end)
+                // This makes the event appear active in calendar widgets
+                let dayStart = calendar.startOfDay(for: visit.date)
+                endDate = calendar.date(
+                    byAdding: calendar.dateComponents([.hour, .minute], from: settings.officeHours.endTime),
+                    to: dayStart
+                ) ?? startDate.addingTimeInterval(8 * 3600) // 8 hours fallback
+                print("  📅 [CalendarEventManager] Ongoing visit: extending end time to office hours end (\(endDate))")
+            } else {
+                // For completed visits, use actual exit time
+                endDate = visit.exitTime ?? Date()
+                print("  📅 [CalendarEventManager] Completed visit: using actual exit time (\(endDate))")
+            }
         } else {
             // Use standard work hours
             let dayStart = calendar.startOfDay(for: visit.date)
@@ -352,20 +424,34 @@ class CalendarEventManager: ObservableObject {
     // MARK: - Helper Methods
     
     private func getSelectedCalendar(settings: AppSettings) async -> EKCalendar? {
-        guard let calendarId = settings.calendarSettings.selectedCalendarId else {
-            return nil
-        }
-        
-        if calendarService.selectedCalendar?.calendarIdentifier != calendarId {
-            // Load available calendars and find the selected one
-            calendarService.loadAvailableCalendars()
-            let calendar = calendarService.availableCalendars.first { cal in
-                cal.calendarIdentifier == calendarId
+        if let calendarId = settings.calendarSettings.selectedCalendarId {
+            // User has selected a specific calendar
+            if calendarService.selectedCalendar?.calendarIdentifier != calendarId {
+                // Load available calendars and find the selected one
+                calendarService.loadAvailableCalendars()
+                let calendar = calendarService.availableCalendars.first { cal in
+                    cal.calendarIdentifier == calendarId
+                }
+                calendarService.setSelectedCalendar(calendar)
             }
-            calendarService.setSelectedCalendar(calendar)
+            return calendarService.selectedCalendar
+        } else {
+            // No specific calendar selected - try to use default calendar as fallback
+            print("  🔍 No specific calendar selected, attempting to use default calendar")
+            
+            // Create event store to access default calendar
+            let eventStore = EKEventStore()
+            let defaultCalendar = eventStore.defaultCalendarForNewEvents
+            
+            print("  - Default calendar available: \(defaultCalendar != nil)")
+            if let calendar = defaultCalendar {
+                print("  - Default calendar: \(calendar.title) (ID: \(calendar.calendarIdentifier))")
+                print("  - Setting as selected calendar in CalendarService")
+                calendarService.setSelectedCalendar(calendar)
+            }
+            
+            return defaultCalendar
         }
-        
-        return calendarService.selectedCalendar
     }
     
     private func formatTime(_ date: Date) -> String {
@@ -383,10 +469,19 @@ class CalendarEventManager: ObservableObject {
     // MARK: - Catch-up Sync
     
     func performCatchUpSync(since lastSyncDate: Date, visits: [OfficeVisit], settings: AppSettings) async {
+        print("🔄 [CalendarEventManager] Starting catch-up sync")
+        
+        // Run duplicate cleanup before catch-up sync
+        if let selectedCalendar = await getSelectedCalendar(settings: settings) {
+            await calendarService.cleanupDuplicateEvents(calendar: selectedCalendar)
+        }
+        
         let calendar = Calendar.current
         let today = Date()
         let daysSince = today.timeIntervalSince(lastSyncDate)
         let daysToProcess = min(Int(daysSince / 86400), 7) // Max 7 days catch-up
+        
+        print("  📅 Processing \(daysToProcess) days of catch-up sync")
         
         for i in 1...daysToProcess {
             if let date = calendar.date(byAdding: .day, value: -i, to: today) {

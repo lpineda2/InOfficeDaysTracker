@@ -191,7 +191,10 @@ struct AddressAutocompleteField: View {
     
     // MARK: - Actions
     private func handleTextChange(_ newValue: String) {
-        print("🔍 Text changed: '\(newValue)'")
+        // Only log when text field is focused (user interaction) to avoid noise from programmatic updates
+        if isTextFieldFocused {
+            print("🔍 Text changed: '\(newValue)'")
+        }
         if newValue != selectedAddress {
             autocompleteService.searchForLocations(matching: newValue)
             showingSuggestions = !newValue.isEmpty && isTextFieldFocused

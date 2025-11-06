@@ -42,6 +42,7 @@ struct AppSettings: Codable {
     enum CodingKeys: String, CodingKey {
         case officeAddress, detectionRadius, trackingDays, officeHours, monthlyGoal, notificationsEnabled, isSetupComplete
         case officeLatitude, officeLongitude
+        case calendarSettings, hasSeenCalendarSetup
     }
     
     init() {}
@@ -63,6 +64,10 @@ struct AppSettings: Codable {
            longitude >= -180 && longitude <= 180 {
             officeLocation = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         }
+        
+        // Calendar settings (added in v1.8.0)
+        calendarSettings = try container.decodeIfPresent(CalendarSettings.self, forKey: .calendarSettings) ?? CalendarSettings.default
+        hasSeenCalendarSetup = try container.decodeIfPresent(Bool.self, forKey: .hasSeenCalendarSetup) ?? false
     }
     
     func encode(to encoder: Encoder) throws {
@@ -82,6 +87,10 @@ struct AppSettings: Codable {
             try container.encode(location.latitude, forKey: .officeLatitude)
             try container.encode(location.longitude, forKey: .officeLongitude)
         }
+        
+        // Calendar settings (added in v1.8.0)
+        try container.encode(calendarSettings, forKey: .calendarSettings)
+        try container.encode(hasSeenCalendarSetup, forKey: .hasSeenCalendarSetup)
     }
     
     var trackingDaysFormatted: String {

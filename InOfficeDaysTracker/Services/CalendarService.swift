@@ -112,6 +112,61 @@ class CalendarService: ObservableObject {
         eventMapping = mapping
     }
     
+    func eventExists(uid: String) async -> Bool {
+        print("🔍 [CalendarService] Checking if event exists for UID: \(uid)")
+        
+        // First check the mapping
+        if let eventId = getEventIdentifier(for: uid) {
+            print("  ✅ Found in mapping: \(eventId)")
+            
+            // Validate that the mapped event actually still exists in the calendar
+            if let actualEvent = eventStore.event(withIdentifier: eventId) {
+                let title = actualEvent.title ?? "No title"
+                print("  ✅ Validated: Event still exists in calendar: \(title)")
+                return true
+            } else {
+                print("  ⚠️ Mapped event no longer exists in calendar - removing from mapping")
+                removeEventMapping(for: uid)
+                // Continue to search for the event by UID
+            }
+        }
+        
+        print("  🔍 Not in mapping, checking actual calendar events")
+        
+        // If not in mapping, check actual calendar events (in case mapping is out of sync)
+        guard let calendar = selectedCalendar, hasCalendarAccess else {
+            print("  ❌ No calendar access or selected calendar")
+            return false
+        }
+        
+        let now = Date()
+        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
+        let endDate = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
+        
+        print("  🔍 Searching events from \(startDate) to \(endDate) in calendar: \(calendar.title)")
+        
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
+        let events = eventStore.events(matching: predicate)
+        
+        print("  📊 Found \(events.count) events in date range")
+        
+        for event in events {
+            if let notes = event.notes {
+                let uidSearchString = "UID: \(uid)"
+                if notes.contains(uidSearchString) {
+                    let title = event.title ?? "No title"
+                    let eventIdString = event.eventIdentifier ?? "Unknown"
+                    print("  ✅ Found matching event: \(title) (ID: \(eventIdString))")
+                    // Found the event, update mapping
+                    storeEventMapping(uid: uid, eventIdentifier: event.eventIdentifier)
+                    return true
+                }
+            }
+        }
+        
+        return false
+    }
+    
     // MARK: - Authorization & Permissions
     
     func requestCalendarAccess() async -> Bool {
@@ -138,7 +193,26 @@ class CalendarService: ObservableObject {
     }
     
     var hasCalendarAccess: Bool {
-        return authorizationStatus == .fullAccess
+        // Check the authorization status first
+        let hasFullAccess = authorizationStatus == .fullAccess
+        
+        print("🔍 [CalendarService] hasCalendarAccess check:")
+        print("  - authorizationStatus: \(authorizationStatus.rawValue)")
+        print("  - hasFullAccess: \(hasFullAccess)")
+        
+        // Simulator fallback: If status check fails but we're in a simulator environment
+        if !hasFullAccess && authorizationStatus == .notDetermined {
+            print("  - Checking simulator fallbacks...")
+            
+            // Check if we can access default calendar (simulator workaround)
+            if let _ = eventStore.defaultCalendarForNewEvents {
+                print("🔍 [CalendarService] Simulator fallback - assuming access based on default calendar availability")
+                return true
+            }
+        }
+        
+        print("  - Final result: \(hasFullAccess)")
+        return hasFullAccess
     }
     
     // MARK: - Calendar Management
@@ -300,14 +374,23 @@ class CalendarService: ObservableObject {
     // MARK: - Batch Processing
     
     func scheduleEventUpdate(_ update: CalendarEventUpdate, batchMode: BatchMode = .standard) {
+        print("📤 [CalendarService] scheduleEventUpdate called")
+        print("  - Update UID: \(update.uid)")
+        print("  - Operation: \(update.operation)")
+        print("  - Batch mode: \(batchMode)")
+        
         pendingUpdates.append(update)
+        print("  - Pending updates count: \(pendingUpdates.count)")
         
         switch batchMode {
         case .immediate:
+            print("  - Processing immediately...")
             processBatch()
         case .standard:
+            print("  - Starting batch timer...")
             startBatchTimer()
         case .endOfVisit:
+            print("  - Waiting for end of visit...")
             // Processed when visit state changes - caller responsibility
             break
         }
@@ -318,20 +401,31 @@ class CalendarService: ObservableObject {
     }
     
     private func startBatchTimer() {
+        print("⏰ [CalendarService] Starting batch timer (\(batchDelay) seconds)")
         batchTimer?.invalidate()
         batchTimer = Timer.scheduledTimer(withTimeInterval: batchDelay, repeats: false) { _ in
+            print("⏰ [CalendarService] Batch timer fired - processing batch")
             Task { @MainActor in
                 self.processBatch()
             }
         }
+        print("  ✅ Timer scheduled successfully")
     }
     
     func processBatch() {
-        guard !pendingUpdates.isEmpty else { return }
+        print("🔄 [CalendarService] processBatch called")
+        print("  - Pending updates: \(pendingUpdates.count)")
+        
+        guard !pendingUpdates.isEmpty else { 
+            print("  - No updates to process")
+            return 
+        }
         
         let updates = pendingUpdates
         pendingUpdates.removeAll()
         batchTimer?.invalidate()
+        
+        print("  - Processing \(updates.count) updates...")
         
         Task {
             await processUpdates(updates)
@@ -339,20 +433,33 @@ class CalendarService: ObservableObject {
     }
     
     private func processUpdates(_ updates: [CalendarEventUpdate]) async {
+        print("⚙️ [CalendarService] processUpdates called with \(updates.count) updates")
+        
         guard let calendar = selectedCalendar else {
             print("⚠️ No calendar selected, skipping updates")
             return
         }
         
+        print("  - Using calendar: \(calendar.title)")
+        
         for update in updates {
+            print("  - Processing update: \(update.uid) (\(update.operation))")
             do {
                 switch update.operation {
                 case .create:
-                    _ = try createEvent(data: update.data, calendar: calendar)
+                    // Check if event already exists before creating
+                    if let existingEventId = getEventIdentifier(for: update.uid) {
+                        print("  ⚠️ Event already exists: \(update.uid) (ID: \(existingEventId)) - skipping creation")
+                    } else {
+                        let eventId = try createEvent(data: update.data, calendar: calendar)
+                        print("  ✅ Created event: \(update.data.title) (ID: \(eventId))")
+                    }
                 case .update:
                     try updateEvent(uid: update.uid, data: update.data)
+                    print("  ✅ Updated event: \(update.data.title)")
                 case .delete:
                     try deleteEvent(uid: update.uid)
+                    print("  ✅ Deleted event: \(update.uid)")
                 }
             } catch {
                 print("❌ Calendar operation failed: \(error.localizedDescription)")
@@ -391,6 +498,64 @@ class CalendarService: ObservableObject {
         currentMapping.merge(recoveredMappings) { _, new in new }
         eventMapping = currentMapping
         
-        print("✅ Recovered \(recoveredMappings.count) event mappings")
+        print("Recovered \(recoveredMappings.count) event mappings")
+    }
+    
+    // MARK: - Duplicate Detection & Cleanup
+    
+    func cleanupDuplicateEvents(calendar: EKCalendar) async {
+        guard hasCalendarAccess else { return }
+        
+        print("🧹 [CalendarService] Starting duplicate cleanup for calendar: \(calendar.title)")
+        
+        let now = Date()
+        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
+        let endDate = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
+        
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
+        let events = eventStore.events(matching: predicate)
+        
+        // Group events by UID found in notes
+        var eventsByUID: [String: [EKEvent]] = [:]
+        
+        for event in events {
+            // Only process our app's events (those with UID in notes)
+            guard let notes = event.notes,
+                  notes.contains("InOfficeDaysTracker"),
+                  let uidRange = notes.range(of: "UID: "),
+                  let newlineRange = notes[uidRange.upperBound...].range(of: "\n") else {
+                continue
+            }
+            
+            let uid = String(notes[uidRange.upperBound..<newlineRange.lowerBound])
+            eventsByUID[uid, default: []].append(event)
+        }
+        
+        // Find and remove duplicates
+        var duplicatesRemoved = 0
+        for (uid, duplicateEvents) in eventsByUID {
+            if duplicateEvents.count > 1 {
+                print("  🔍 Found \(duplicateEvents.count) duplicates for UID: \(uid)")
+                
+                // Keep the first event, remove the rest
+                let eventsToRemove = Array(duplicateEvents.dropFirst())
+                for event in eventsToRemove {
+                    do {
+                        try eventStore.remove(event, span: .thisEvent)
+                        duplicatesRemoved += 1
+                        print("    ❌ Removed duplicate event: \(event.title ?? "Unknown")")
+                    } catch {
+                        print("    ⚠️ Failed to remove duplicate: \(error)")
+                    }
+                }
+                
+                // Update mapping to point to the remaining event
+                if let remainingEvent = duplicateEvents.first {
+                    storeEventMapping(uid: uid, eventIdentifier: remainingEvent.eventIdentifier)
+                }
+            }
+        }
+        
+        print("🧹 [CalendarService] Cleanup complete: removed \(duplicatesRemoved) duplicate events")
     }
 }
