@@ -11,6 +11,7 @@ import EventKit
 /// Protocol for abstracting EventKit operations with platform-specific implementations
 protocol EventStoreAdapterProtocol {
     var eventStore: EKEventStore { get }
+    var performanceMonitor: EventStorePerformanceMonitor { get }
     
     // Core operations
     func requestAccess() async throws -> Bool
@@ -28,7 +29,7 @@ protocol EventStoreAdapterProtocol {
 /// Production implementation using standard EventKit behavior
 class ProductionEventStoreAdapter: EventStoreAdapterProtocol {
     let eventStore = EKEventStore()
-    private let performanceMonitor = EventStorePerformanceMonitor.shared
+    let performanceMonitor = EventStorePerformanceMonitor.shared
     
     func requestAccess() async throws -> Bool {
         return try await performanceMonitor.measureAsyncOperation("requestAccess_production") {
@@ -118,7 +119,7 @@ class ProductionEventStoreAdapter: EventStoreAdapterProtocol {
 /// iOS Simulator implementation with workarounds for EventKit limitations
 class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
     let eventStore = EKEventStore()
-    private let performanceMonitor = EventStorePerformanceMonitor.shared
+    let performanceMonitor = EventStorePerformanceMonitor.shared
     
     func requestAccess() async throws -> Bool {
         let granted = try await eventStore.requestFullAccessToEvents()
@@ -315,7 +316,6 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             return pooledStore.predicateForEvents(withStart: Date.distantPast, end: Date.distantFuture, calendars: [calendar])
         }
     }
-}
 
 // MARK: - Shared utility methods for both adapters
 
