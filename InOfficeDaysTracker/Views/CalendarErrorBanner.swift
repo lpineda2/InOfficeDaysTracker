@@ -174,6 +174,58 @@ class CalendarBannerManager: ObservableObject {
     
     init() {
         loadDismissedBanners()
+        setupErrorNotificationListener()
+    }
+    
+    private func setupErrorNotificationListener() {
+        NotificationCenter.default.addObserver(
+            forName: CalendarErrorNotificationCenter.errorNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let error = notification.object as? CalendarOperationError else { return }
+            
+            // Convert CalendarOperationError to CalendarBannerError
+            let bannerError = self.createBannerError(from: error)
+            self.showBanner(bannerError)
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: CalendarErrorNotificationCenter.errorNotification, object: nil)
+    }
+    
+    private func createBannerError(from operationError: CalendarOperationError) -> CalendarBannerError {
+        switch operationError.type {
+        case .permissionDenied:
+            return CalendarBannerError(
+                type: .permissionRevoked,
+                title: "Calendar Access Required",
+                message: "Calendar permissions needed for \(operationError.operation)",
+                actionTitle: "Grant Access",
+                canDismiss: true,
+                persistenceLevel: .untilFixed
+            )
+        case .calendarNotFound, .noWriteAccess:
+            return CalendarBannerError(
+                type: .calendarUnavailable,
+                title: "Calendar Issue",
+                message: "Problem with calendar during \(operationError.operation)",
+                actionTitle: "Fix Calendar",
+                canDismiss: true,
+                persistenceLevel: .untilFixed
+            )
+        case .eventCreationFailed(let details), .eventUpdateFailed(let details), .eventNotFound(let details):
+            return CalendarBannerError(
+                type: .syncFailed,
+                title: "Calendar Sync Failed",
+                message: operationError.canRetry ? "Tap to retry \(operationError.operation)" : details,
+                actionTitle: operationError.canRetry ? "Retry" : "OK",
+                canDismiss: true,
+                persistenceLevel: .session
+            )
+        }
     }
     
     func showBanner(_ banner: CalendarBannerError) {

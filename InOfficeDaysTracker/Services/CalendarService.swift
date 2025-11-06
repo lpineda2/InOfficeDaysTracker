@@ -117,6 +117,11 @@ class CalendarService: ObservableObject {
         eventMapping = mapping
     }
     
+    // Public method to check if event mapping exists (used by error recovery)
+    func hasEventMapping(for uid: String) -> Bool {
+        return eventMapping[uid] != nil
+    }
+    
     func eventExists(uid: String) async -> Bool {
         print("🔍 [CalendarService] Checking if event exists for UID: \(uid)")
         
@@ -186,6 +191,13 @@ class CalendarService: ObservableObject {
             return granted
         } catch {
             print("Calendar permission error: \(error)")
+            CalendarErrorNotificationCenter.shared.reportError(
+                type: .permissionDenied,
+                operation: "Request Calendar Permission",
+                context: ["originalError": error.localizedDescription],
+                canRetry: true,
+                suggestedAction: .checkPermissions
+            )
             await MainActor.run {
                 updateAuthorizationStatus()
             }
@@ -240,13 +252,29 @@ class CalendarService: ObservableObject {
         
         guard hasCalendarAccess else {
             print("  ❌ No calendar access")
-            throw CalendarError.permissionDenied
+            let error = CalendarError.permissionDenied
+            CalendarErrorNotificationCenter.shared.reportError(
+                type: error,
+                operation: "Create Calendar Event - \(data.title)",
+                context: ["calendarId": calendar.calendarIdentifier],
+                canRetry: false,
+                suggestedAction: .checkPermissions
+            )
+            throw error
         }
         
         let validationResult = adapter.validateCalendar(calendar)
         if validationResult != .valid {
             print("  ❌ Calendar validation failed: \(validationResult)")
-            throw CalendarError.calendarNotFound
+            let error = CalendarError.calendarNotFound
+            CalendarErrorNotificationCenter.shared.reportError(
+                type: error,
+                operation: "Create Calendar Event - \(data.title)",
+                context: ["calendarId": calendar.calendarIdentifier, "validationResult": "\(validationResult)"],
+                canRetry: false,
+                suggestedAction: .selectDifferentCalendar
+            )
+            throw error
         }
         
         let eventIdentifier = try adapter.createEvent(data, in: calendar)
@@ -286,7 +314,15 @@ class CalendarService: ObservableObject {
             try eventStore.save(event, span: .thisEvent)
             print("✅ Updated calendar event: \(data.title) - \(uid)")
         } catch {
-            throw CalendarError.eventUpdateFailed(error.localizedDescription)
+            let calendarError = CalendarError.eventUpdateFailed(error.localizedDescription)
+            CalendarErrorNotificationCenter.shared.reportError(
+                type: calendarError,
+                operation: "Update Calendar Event - \(data.title)",
+                context: ["eventUID": uid, "originalError": error.localizedDescription],
+                canRetry: true,
+                suggestedAction: .retryOperation
+            )
+            throw calendarError
         }
     }
     
@@ -305,7 +341,15 @@ class CalendarService: ObservableObject {
             removeEventMapping(for: uid)
             print("✅ Deleted calendar event: \(uid)")
         } catch {
-            throw CalendarError.eventUpdateFailed(error.localizedDescription)
+            let calendarError = CalendarError.eventUpdateFailed(error.localizedDescription)
+            CalendarErrorNotificationCenter.shared.reportError(
+                type: calendarError,
+                operation: "Delete Calendar Event",
+                context: ["eventUID": uid, "originalError": error.localizedDescription],
+                canRetry: true,
+                suggestedAction: .retryOperation
+            )
+            throw calendarError
         }
     }
     
@@ -432,7 +476,7 @@ class CalendarService: ObservableObject {
                 }
             } catch {
                 print("❌ Calendar operation failed: \(error.localizedDescription)")
-                // TODO: Add error reporting/banner system
+                handleOperationError(error, operation: "\(update.operation) - \(update.data.title)")
             }
         }
     }

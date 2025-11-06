@@ -276,11 +276,35 @@ struct MainProgressView: View {
             // Navigate to calendar settings
             showingSettings = true
         case .syncFailed:
-            // Retry calendar sync
-            checkForCalendarErrors()
+            // Retry calendar sync and recent operations
+            retryCalendarOperations()
         case .quotaExceeded:
             // Show info or navigate to settings
             showingSettings = true
+        }
+    }
+    
+    private func retryCalendarOperations() {
+        // First check for basic calendar errors
+        checkForCalendarErrors()
+        
+        // Then attempt simple recovery checks
+        Task {
+            let calendarService = appData.calendarService
+            
+            // Give some time for the user action to take effect
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            
+            // Re-check calendar status
+            calendarService.updateAuthorizationStatus()
+            calendarService.loadAvailableCalendars()
+            
+            // Dismiss the current banner if recovery was successful
+            await MainActor.run {
+                if calendarService.hasCalendarAccess && calendarService.selectedCalendar != nil {
+                    bannerManager.dismissBanner()
+                }
+            }
         }
     }
 }
