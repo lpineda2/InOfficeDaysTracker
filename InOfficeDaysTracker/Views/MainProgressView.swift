@@ -290,7 +290,7 @@ struct MainProgressView: View {
         
         // Then attempt simple recovery checks
         Task {
-            let calendarService = appData.calendarService
+            let calendarService = CalendarService.shared
             
             // Give some time for the user action to take effect
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second

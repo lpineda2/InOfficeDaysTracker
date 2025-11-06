@@ -101,8 +101,8 @@ extension CalendarService {
         let suggestedAction: CalendarOperationError.SuggestedAction
         
         // Convert error to CalendarError with appropriate recovery strategy
-        if let ekError = error as? NSError, ekError.domain == EKErrorDomain {
-            switch EKError.Code(rawValue: ekError.code) {
+        if let nsError = error as? NSError, nsError.domain == EKErrorDomain {
+            switch EKError.Code(rawValue: nsError.code) {
             case .eventNotMutable:
                 calendarError = .noWriteAccess
                 suggestedAction = .selectDifferentCalendar

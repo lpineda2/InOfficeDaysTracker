@@ -183,12 +183,14 @@ class CalendarBannerManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self = self,
-                  let error = notification.object as? CalendarOperationError else { return }
-            
-            // Convert CalendarOperationError to CalendarBannerError
-            let bannerError = self.createBannerError(from: error)
-            self.showBanner(bannerError)
+            Task { @MainActor in
+                guard let self = self,
+                      let error = notification.object as? CalendarOperationError else { return }
+                
+                // Convert CalendarOperationError to CalendarBannerError
+                let bannerError = self.createBannerError(from: error)
+                self.showBanner(bannerError)
+            }
         }
     }
     
