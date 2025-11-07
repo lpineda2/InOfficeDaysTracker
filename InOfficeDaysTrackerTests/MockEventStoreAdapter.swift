@@ -180,6 +180,15 @@ final class MockEventStoreAdapter: EventStoreAdapterProtocol, @unchecked Sendabl
             self?._updateEventCalls.append((eventId: eventIdentifier, data: data, calendar: calendar))
         }
         
+        // Check simulation flags first
+        if simulatePermissionDenied {
+            throw CalendarError.permissionDenied
+        }
+        
+        if simulateCalendarNotFound {
+            throw CalendarError.calendarNotFound
+        }
+        
         if shouldFailOperations {
             throw CalendarError.eventUpdateFailed("Mock failure")
         }

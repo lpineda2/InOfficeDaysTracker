@@ -109,11 +109,11 @@ class CalendarIntegrationTests: XCTestCase {
         let settings = CalendarSettings()
         
         XCTAssertFalse(settings.isEnabled, "Should default to disabled")
-        XCTAssertEqual(settings.officeEventTitle, "Office Day", "Should have default office title")
+        XCTAssertEqual(settings.officeEventTitle, "In Office Day", "Should have default office title")
         XCTAssertEqual(settings.remoteEventTitle, "Remote Work", "Should have default remote title")
         XCTAssertTrue(settings.useActualTimes, "Should default to actual times")
         XCTAssertEqual(settings.batchMode, .standard, "Should default to standard batch mode")
-        XCTAssertTrue(settings.includeRemoteEvents, "Should default to remote work enabled")
+        XCTAssertFalse(settings.includeRemoteEvents, "Should default to office events only")
     }
     
     // MARK: - Event Data Tests
