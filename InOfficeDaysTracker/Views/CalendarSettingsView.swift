@@ -77,7 +77,10 @@ struct CalendarSettingsView: View {
                 permissionHandler: permissionHandler,
                 onGranted: {
                     permissionHandler.updateAuthorizationStatus()
-                    calendarService.loadAvailableCalendars()
+                    // Use enhanced loading method with retry logic instead of immediate loading
+                    Task {
+                        await calendarService.loadCalendarsAfterPermissionGrant()
+                    }
                 },
                 onSkipped: { }
             )

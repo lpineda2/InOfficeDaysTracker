@@ -229,6 +229,72 @@ class CalendarService: ObservableObject {
         print("🔍 [CalendarService] Loaded \(availableCalendars.count) calendars via adapter")
     }
     
+    // MARK: - Enhanced Calendar Loading with Retry Logic
+    
+    /// Loads available calendars with retry logic and proper timing
+    /// - Parameter retryAttempts: Number of retry attempts (default: 3)
+    /// - Parameter delayBetweenRetries: Delay between retries in seconds (default: 1.0)
+    func loadAvailableCalendarsWithRetry(
+        retryAttempts: Int = 3,
+        delayBetweenRetries: TimeInterval = 1.0
+    ) async {
+        print("🔍 [CalendarService] Starting calendar loading with retry logic")
+        
+        for attempt in 1...retryAttempts {
+            print("🔍 [CalendarService] Calendar loading attempt \(attempt)/\(retryAttempts)")
+            
+            // Check permission status first
+            guard hasCalendarAccess else {
+                print("❌ [CalendarService] No calendar access - aborting load")
+                return
+            }
+            
+            // Load calendars
+            await MainActor.run {
+                availableCalendars = adapter.loadAvailableCalendars()
+                print("🔍 [CalendarService] Loaded \(availableCalendars.count) calendars on attempt \(attempt)")
+            }
+            
+            // Success case
+            if !availableCalendars.isEmpty {
+                print("✅ [CalendarService] Successfully loaded \(availableCalendars.count) calendars")
+                return
+            }
+            
+            // If this isn't the last attempt, wait before retrying
+            if attempt < retryAttempts {
+                print("⏳ [CalendarService] No calendars found, waiting \(delayBetweenRetries)s before retry...")
+                try? await Task.sleep(nanoseconds: UInt64(delayBetweenRetries * 1_000_000_000))
+            }
+        }
+        
+        // All attempts failed
+        print("❌ [CalendarService] Failed to load calendars after \(retryAttempts) attempts")
+        
+        // Report error for potential banner display
+        CalendarErrorNotificationCenter.shared.reportError(
+            type: .calendarNotFound,
+            operation: "Load Available Calendars",
+            context: [
+                "retryAttempts": "\(retryAttempts)",
+                "hasAccess": "\(hasCalendarAccess)"
+            ],
+            canRetry: true,
+            suggestedAction: .retryOperation
+        )
+    }
+    
+    /// Enhanced calendar loading triggered after permission grant
+    func loadCalendarsAfterPermissionGrant() async {
+        print("🔍 [CalendarService] Loading calendars after permission grant")
+        
+        // Small delay to allow EventKit to fully initialize after permission grant
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        
+        // Use retry logic for robust loading
+        await loadAvailableCalendarsWithRetry(retryAttempts: 3, delayBetweenRetries: 1.0)
+    }
+    
     func setSelectedCalendar(_ calendar: EKCalendar?) {
         selectedCalendar = calendar
     }

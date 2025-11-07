@@ -18,6 +18,9 @@ struct CalendarPickerView: View {
     let onCalendarSelected: (EKCalendar?) -> Void
     let onSkipped: (() -> Void)?
     
+    // Loading state for calendar refresh operations
+    @State private var isLoadingCalendars = false
+    
     init(
         calendarService: CalendarService,
         selectedCalendar: Binding<EKCalendar?>,
@@ -40,7 +43,9 @@ struct CalendarPickerView: View {
         VStack(spacing: 20) {
             headerView
             
-            if calendarService.availableCalendars.isEmpty {
+            if isLoadingCalendars {
+                loadingStateView
+            } else if calendarService.availableCalendars.isEmpty {
                 emptyStateView
             } else {
                 calendarListView
@@ -54,7 +59,16 @@ struct CalendarPickerView: View {
             print("🔍 [CalendarPickerView] Available calendars changed: \(calendars.count)")
         }
         .onAppear {
-            calendarService.loadAvailableCalendars()
+            if calendarService.availableCalendars.isEmpty {
+                isLoadingCalendars = true
+                
+                Task {
+                    await calendarService.loadAvailableCalendarsWithRetry()
+                    await MainActor.run {
+                        isLoadingCalendars = false
+                    }
+                }
+            }
         }
     }
     
@@ -75,6 +89,18 @@ struct CalendarPickerView: View {
         }
     }
     
+    private var loadingStateView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.2)
+            
+            Text("Loading calendars...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+    }
+    
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "calendar.badge.exclamationmark")
@@ -88,6 +114,18 @@ struct CalendarPickerView: View {
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
+            
+            // Add retry button
+            Button("Retry Loading") {
+                Task {
+                    isLoadingCalendars = true
+                    await calendarService.loadAvailableCalendarsWithRetry()
+                    await MainActor.run {
+                        isLoadingCalendars = false
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
         }
         .padding()
     }
@@ -238,12 +276,16 @@ struct CalendarSettingsRow: View {
         }
         .onAppear {
             if isEnabled && calendarService.hasCalendarAccess {
-                calendarService.loadAvailableCalendars()
+                Task {
+                    await calendarService.loadCalendarsAfterPermissionGrant()
+                }
             }
         }
         .onChange(of: isEnabled) { _, enabled in
             if enabled && calendarService.hasCalendarAccess {
-                calendarService.loadAvailableCalendars()
+                Task {
+                    await calendarService.loadCalendarsAfterPermissionGrant()
+                }
             }
         }
     }
