@@ -69,7 +69,9 @@ class CalendarEventManager: ObservableObject {
         calendarService.scheduleEventUpdate(
             update,
             batchMode: .immediate  // Force immediate for location-triggered events
-        )        print("  ✅ Calendar update scheduled successfully")
+        )
+        
+        print("  ✅ Calendar update scheduled successfully")
     }
     
     func handleVisitUpdate(_ visit: OfficeVisit, settings: AppSettings) async {
