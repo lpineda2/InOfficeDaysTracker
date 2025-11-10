@@ -64,14 +64,12 @@ class CalendarEventManager: ObservableObject {
             data: eventData
         )
         
-        print("  📤 Scheduling calendar update with batch mode: \(settings.calendarSettings.batchMode)")
-        
+        print("  📤 Scheduling calendar update with immediate processing for location triggers")
+
         calendarService.scheduleEventUpdate(
             update,
-            batchMode: settings.calendarSettings.batchMode == .immediate ? .immediate : .standard
-        )
-        
-        print("  ✅ Calendar update scheduled successfully")
+            batchMode: .immediate  // Force immediate for location-triggered events
+        )        print("  ✅ Calendar update scheduled successfully")
     }
     
     func handleVisitUpdate(_ visit: OfficeVisit, settings: AppSettings) async {
