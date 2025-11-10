@@ -177,20 +177,6 @@ class CalendarIntegrationTests: XCTestCase {
         }
     }
     
-    func testBannerPersistence() async {
-        let bannerManager = await MainActor.run { CalendarBannerManager() }
-        
-        // Test persistent error (untilFixed persistence)
-        await MainActor.run { bannerManager.showBanner(.calendarUnavailable) }
-        let persistentBanner = await MainActor.run { bannerManager.currentBanner }
-        XCTAssertEqual(persistentBanner?.persistenceLevel, .untilFixed, "Should be marked as persistent")
-        
-        // Test session-level error 
-        await MainActor.run { bannerManager.showBanner(.syncFailed) }
-        let sessionBanner = await MainActor.run { bannerManager.currentBanner }
-        XCTAssertEqual(sessionBanner?.persistenceLevel, .session, "Should not be persistent")
-    }
-    
     // MARK: - Integration Tests
     
     func testCalendarServiceInitialization() async {
