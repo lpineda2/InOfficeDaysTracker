@@ -284,15 +284,71 @@ class CalendarService: ObservableObject {
         )
     }
     
-    /// Enhanced calendar loading triggered after permission grant
+    /// Enhanced calendar loading triggered after permission grant - ROBUST PHYSICAL DEVICE FIX
     func loadCalendarsAfterPermissionGrant() async {
-        print("🔍 [CalendarService] Loading calendars after permission grant")
+        print("🔍 [CalendarService] Loading calendars after permission grant - ROBUST FIX")
         
-        // Small delay to allow EventKit to fully initialize after permission grant
+        #if targetEnvironment(simulator)
+        // Simulator: Use simple approach since it works fine
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
-        // Use retry logic for robust loading
         await loadAvailableCalendarsWithRetry(retryAttempts: 3, delayBetweenRetries: 1.0)
+        #else
+        // Physical Device: Use robust exponential backoff approach
+        await loadCalendarsAfterPermissionGrantRobust()
+        #endif
+    }
+    
+    /// Robust calendar loading with exponential backoff for physical devices
+    private func loadCalendarsAfterPermissionGrantRobust() async {
+        print("🔍 [CalendarService] Starting robust calendar loading for physical device")
+        
+        let maxAttempts = 6
+        var delay: TimeInterval = 0.5 // Start with 0.5 seconds
+        
+        for attempt in 1...maxAttempts {
+            print("🔍 [CalendarService] Attempt \(attempt)/\(maxAttempts) with \(delay)s delay")
+            
+            // Progressive delay for physical devices
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            
+            guard hasCalendarAccess else {
+                print("❌ [CalendarService] Permission lost during loading")
+                return
+            }
+            
+            // Force EventStore refresh on physical device
+            let freshEventStore = EKEventStore()
+            let calendars = freshEventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+            
+            await MainActor.run {
+                availableCalendars = calendars
+                print("🔍 [CalendarService] Loaded \(calendars.count) calendars on attempt \(attempt)")
+            }
+            
+            if !availableCalendars.isEmpty {
+                print("✅ [CalendarService] Success after \(attempt) attempts with \(delay)s delay")
+                return
+            }
+            
+            // Exponential backoff: 0.5s, 1s, 2s, 4s, 8s, 16s
+            delay = min(delay * 2, 16.0)
+        }
+        
+        print("❌ [CalendarService] Failed after all attempts - reporting error")
+        
+        // Report error for potential banner display
+        CalendarErrorNotificationCenter.shared.reportError(
+            type: .calendarNotFound,
+            operation: "Robust Calendar Loading After Permission Grant",
+            context: [
+                "maxAttempts": "\(maxAttempts)",
+                "finalDelay": "\(delay)",
+                "hasAccess": "\(hasCalendarAccess)",
+                "deviceType": "physical"
+            ],
+            canRetry: true,
+            suggestedAction: .retryOperation
+        )
     }
     
     func setSelectedCalendar(_ calendar: EKCalendar?) {
