@@ -280,7 +280,12 @@ class CalendarEventManager: ObservableObject {
         var startDate: Date
         var endDate: Date
         
-        if settings.calendarSettings.useActualTimes {
+        if settings.calendarSettings.createAllDayEvents {
+            // For all-day events, use start and end of day regardless of actual times
+            startDate = calendar.startOfDay(for: visit.date)
+            endDate = startDate.addingTimeInterval(24 * 3600 - 1) // End of day
+            print("  📅 [CalendarEventManager] All-day event: \(startDate) to \(endDate)")
+        } else if settings.calendarSettings.useActualTimes {
             // Use actual visit times
             startDate = visit.entryTime
             
