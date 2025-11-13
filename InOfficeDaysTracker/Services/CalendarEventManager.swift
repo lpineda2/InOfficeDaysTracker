@@ -236,8 +236,8 @@ class CalendarEventManager: ObservableObject {
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: date)
         
-        // Check if it's a tracking day
-        return settings.trackingDays.contains(weekday)
+        // Check if remote events are enabled and it's a tracking day
+        return settings.calendarSettings.includeRemoteEvents && settings.trackingDays.contains(weekday)
     }
     
     private func createRemoteWorkEvent(for date: Date, settings: AppSettings) async {
