@@ -51,7 +51,7 @@ class AppData: ObservableObject {
         loadCurrentStatus()
         
         // Setup calendar integration
-        AppDataAccess.shared.appData = self
+        // Note: AppDataAccess removed in simplification
         
         // CRITICAL: Clean up any duplicate entries on startup
         cleanupDuplicateEntries()
@@ -65,11 +65,7 @@ class AppData: ObservableObject {
         #endif
         
         // Perform calendar catch-up sync if enabled
-        if settings.calendarSettings.isEnabled {
-            Task {
-                await performCalendarCatchUpSync()
-            }
-        }
+        // Note: Catch-up sync removed in simplification
     }
     
     // MARK: - Settings Management
@@ -716,51 +712,14 @@ class AppData: ObservableObject {
     
     // MARK: - Calendar Integration
     
-    private func performCalendarCatchUpSync() async {
-        let lastSyncKey = "LastCalendarSync"
-        let lastSyncDate = sharedUserDefaults.object(forKey: lastSyncKey) as? Date ?? Date().addingTimeInterval(-7 * 24 * 3600) // Default to 7 days ago
-        
-        await calendarEventManager.performCatchUpSync(since: lastSyncDate, visits: visits, settings: settings)
-    }
-    
     private func ensureCalendarEventForCurrentVisit(_ visit: OfficeVisit) async {
         guard settings.calendarSettings.isEnabled,
               visit.isActiveSession else {
             return
         }
         
-        print("📅 [AppData] Checking if calendar event exists for current visit")
-        
-        // Check if calendar event already exists for this visit
-        let eventData = CalendarEventData(
-            title: settings.calendarSettings.officeEventTitle,
-            startDate: visit.entryTime,
-            endDate: Date(),
-            isAllDay: settings.calendarSettings.createAllDayEvents,
-            location: settings.officeAddress.isEmpty ? nil : settings.officeAddress,
-            notes: "",
-            uid: CalendarEventUID.generate(
-                date: visit.date,
-                type: .office,
-                workHours: (settings.officeHours.startTime, settings.officeHours.endTime)
-            )
-        )
-        
-        print("📅 [AppData] Generated UID for current visit check: \(eventData.uid)")
-        print("📅 [AppData] Visit date: \(visit.date)")
-        print("📅 [AppData] Entry time: \(visit.entryTime)")
-        
-        let eventExists = await CalendarService.shared.eventExists(uid: eventData.uid)
-        
-        print("📅 [AppData] Event exists check result: \(eventExists)")
-        
-        if !eventExists {
-            print("📅 [AppData] Creating calendar event for current office visit")
-            await calendarEventManager.handleVisitStart(visit, settings: settings)
-        } else {
-            print("📅 [AppData] Calendar event exists - updating with current logic for ongoing visit")
-            await calendarEventManager.handleVisitUpdate(visit, settings: settings)
-        }
+        print("📅 [AppData] Ensuring calendar event exists for current visit")
+        await calendarEventManager.handleVisitUpdate(visit, settings: settings)
     }
     
     #if DEBUG

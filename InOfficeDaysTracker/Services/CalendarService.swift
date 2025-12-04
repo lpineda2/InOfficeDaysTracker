@@ -2,26 +2,13 @@
 //  CalendarService.swift
 //  InOfficeDaysTracker
 //
-//  Calendar event management for office visits and remote work days
+//  Simplified calendar service for event management
 //
 
 import Foundation
 import EventKit
-import CoreLocation
 
-// MARK: - Calendar Event Models
-
-struct CalendarEventUpdate {
-    let uid: String
-    let type: CalendarEventType
-    let operation: Operation
-    let date: Date
-    let data: CalendarEventData
-    
-    enum Operation {
-        case create, update, delete
-    }
-}
+// MARK: - Calendar Event Data
 
 struct CalendarEventData {
     let title: String
@@ -31,7 +18,10 @@ struct CalendarEventData {
     let location: String?
     let notes: String
     let uid: String
+    let showAsBusy: Bool
 }
+
+// MARK: - Calendar Validation
 
 enum CalendarValidationResult {
     case valid
@@ -39,6 +29,8 @@ enum CalendarValidationResult {
     case noWriteAccess
     case permissionDenied
 }
+
+// MARK: - Calendar Errors
 
 enum CalendarError: Error, LocalizedError {
     case permissionDenied
@@ -51,17 +43,17 @@ enum CalendarError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            return "Calendar access permission is required to create events"
+            return "Calendar access permission required"
         case .calendarNotFound:
-            return "Selected calendar is no longer available"
+            return "Selected calendar not available"
         case .noWriteAccess:
-            return "Cannot write to the selected calendar"
+            return "Cannot write to selected calendar"
         case .eventCreationFailed(let details):
-            return "Failed to create calendar event: \(details)"
+            return "Failed to create event: \(details)"
         case .eventUpdateFailed(let details):
-            return "Failed to update calendar event: \(details)"
+            return "Failed to update event: \(details)"
         case .eventNotFound(let uid):
-            return "Calendar event not found: \(uid)"
+            return "Event not found: \(uid)"
         }
     }
 }
@@ -72,112 +64,17 @@ enum CalendarError: Error, LocalizedError {
 class CalendarService: ObservableObject {
     static let shared = CalendarService()
     
-    private let adapter: EventStoreAdapterProtocol
-    private let userDefaults = UserDefaults.standard
-    private let eventMappingKey = "CalendarEventMapping"
-    
-    // Legacy compatibility - expose eventStore for existing code
-    var eventStore: EKEventStore { adapter.eventStore }
+    let eventStore = EKEventStore()
     
     @Published var authorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var selectedCalendar: EKCalendar?
     @Published var availableCalendars: [EKCalendar] = []
     
-    // Batch processing
-    private var pendingUpdates: [CalendarEventUpdate] = []
-    private var batchTimer: Timer?
-    private let batchDelay: TimeInterval = 10.0 // 10-second batching
-    
     private init() {
-        self.adapter = EventStoreAdapterFactory.shared
         updateAuthorizationStatus()
-        print("🔧 [CalendarService] Initialized with \(type(of: adapter)) adapter")
     }
     
-    // MARK: - Event ID Mapping Management
-    
-    private var eventMapping: [String: String] {
-        get { userDefaults.object(forKey: eventMappingKey) as? [String: String] ?? [:] }
-        set { userDefaults.set(newValue, forKey: eventMappingKey) }
-    }
-    
-    private func storeEventMapping(uid: String, eventIdentifier: String) {
-        var mapping = eventMapping
-        mapping[uid] = eventIdentifier
-        eventMapping = mapping
-    }
-    
-    private func getEventIdentifier(for uid: String) -> String? {
-        return eventMapping[uid]
-    }
-    
-    private func removeEventMapping(for uid: String) {
-        var mapping = eventMapping
-        mapping.removeValue(forKey: uid)
-        eventMapping = mapping
-    }
-    
-    // Public method to check if event mapping exists (used by error recovery)
-    func hasEventMapping(for uid: String) -> Bool {
-        return eventMapping[uid] != nil
-    }
-    
-    func eventExists(uid: String) async -> Bool {
-        print("🔍 [CalendarService] Checking if event exists for UID: \(uid)")
-        
-        // First check the mapping
-        if let eventId = getEventIdentifier(for: uid) {
-            print("  ✅ Found in mapping: \(eventId)")
-            
-            // Validate that the mapped event actually still exists in the calendar
-            if let actualEvent = eventStore.event(withIdentifier: eventId) {
-                let title = actualEvent.title ?? "No title"
-                print("  ✅ Validated: Event still exists in calendar: \(title)")
-                return true
-            } else {
-                print("  ⚠️ Mapped event no longer exists in calendar - removing from mapping")
-                removeEventMapping(for: uid)
-                // Continue to search for the event by UID
-            }
-        }
-        
-        print("  🔍 Not in mapping, checking actual calendar events")
-        
-        // If not in mapping, check actual calendar events (in case mapping is out of sync)
-        guard let calendar = selectedCalendar, hasCalendarAccess else {
-            print("  ❌ No calendar access or selected calendar")
-            return false
-        }
-        
-        let now = Date()
-        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
-        let endDate = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        
-        print("  🔍 Searching events from \(startDate) to \(endDate) in calendar: \(calendar.title)")
-        
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
-        let events = eventStore.events(matching: predicate)
-        
-        print("  📊 Found \(events.count) events in date range")
-        
-        for event in events {
-            if let notes = event.notes {
-                let uidSearchString = "UID: \(uid)"
-                if notes.contains(uidSearchString) {
-                    let title = event.title ?? "No title"
-                    let eventIdString = event.eventIdentifier ?? "Unknown"
-                    print("  ✅ Found matching event: \(title) (ID: \(eventIdString))")
-                    // Found the event, update mapping
-                    storeEventMapping(uid: uid, eventIdentifier: event.eventIdentifier)
-                    return true
-                }
-            }
-        }
-        
-        return false
-    }
-    
-    // MARK: - Authorization & Permissions
+    // MARK: - Authorization
     
     func requestCalendarAccess() async -> Bool {
         do {
@@ -190,14 +87,7 @@ class CalendarService: ObservableObject {
             }
             return granted
         } catch {
-            print("Calendar permission error: \(error)")
-            CalendarErrorNotificationCenter.shared.reportError(
-                type: .permissionDenied,
-                operation: "Request Calendar Permission",
-                context: ["originalError": error.localizedDescription],
-                canRetry: true,
-                suggestedAction: .checkPermissions
-            )
+            print("📅 [Calendar] Permission error: \(error.localizedDescription)")
             await MainActor.run {
                 updateAuthorizationStatus()
             }
@@ -206,491 +96,107 @@ class CalendarService: ObservableObject {
     }
     
     func updateAuthorizationStatus() {
-        let previousStatus = authorizationStatus
         authorizationStatus = EKEventStore.authorizationStatus(for: .event)
-        
-        if previousStatus != authorizationStatus {
-            print("🔍 [CalendarService] Authorization status changed: \(previousStatus.rawValue) → \(authorizationStatus.rawValue)")
-        }
     }
     
     var hasCalendarAccess: Bool {
         updateAuthorizationStatus()
-        let hasAccess = adapter.hasCalendarAccess()
-        print("🔍 [CalendarService] hasCalendarAccess via adapter: \(hasAccess)")
-        return hasAccess
+        return authorizationStatus == .fullAccess || authorizationStatus == .writeOnly
     }
     
     // MARK: - Calendar Management
     
     func loadAvailableCalendars() {
-        print("🔍 [CalendarService] loadAvailableCalendars called - using adapter")
-        availableCalendars = adapter.loadAvailableCalendars()
-        print("🔍 [CalendarService] Loaded \(availableCalendars.count) calendars via adapter")
-    }
-    
-    // MARK: - Enhanced Calendar Loading with Retry Logic
-    
-    /// Loads available calendars with retry logic and proper timing
-    /// - Parameter retryAttempts: Number of retry attempts (default: 3)
-    /// - Parameter delayBetweenRetries: Delay between retries in seconds (default: 1.0)
-    func loadAvailableCalendarsWithRetry(
-        retryAttempts: Int = 3,
-        delayBetweenRetries: TimeInterval = 1.0
-    ) async {
-        print("🔍 [CalendarService] Starting calendar loading with retry logic")
-        
-        for attempt in 1...retryAttempts {
-            print("🔍 [CalendarService] Calendar loading attempt \(attempt)/\(retryAttempts)")
-            
-            // Check permission status first
-            guard hasCalendarAccess else {
-                print("❌ [CalendarService] No calendar access - aborting load")
-                return
-            }
-            
-            // Load calendars
-            await MainActor.run {
-                availableCalendars = adapter.loadAvailableCalendars()
-                print("🔍 [CalendarService] Loaded \(availableCalendars.count) calendars on attempt \(attempt)")
-            }
-            
-            // Success case
-            if !availableCalendars.isEmpty {
-                print("✅ [CalendarService] Successfully loaded \(availableCalendars.count) calendars")
-                return
-            }
-            
-            // If this isn't the last attempt, wait before retrying
-            if attempt < retryAttempts {
-                print("⏳ [CalendarService] No calendars found, waiting \(delayBetweenRetries)s before retry...")
-                try? await Task.sleep(nanoseconds: UInt64(delayBetweenRetries * 1_000_000_000))
-            }
-        }
-        
-        // All attempts failed
-        print("❌ [CalendarService] Failed to load calendars after \(retryAttempts) attempts")
-        
-        // Report error for potential banner display
-        CalendarErrorNotificationCenter.shared.reportError(
-            type: .calendarNotFound,
-            operation: "Load Available Calendars",
-            context: [
-                "retryAttempts": "\(retryAttempts)",
-                "hasAccess": "\(hasCalendarAccess)"
-            ],
-            canRetry: true,
-            suggestedAction: .retryOperation
-        )
-    }
-    
-    /// Enhanced calendar loading triggered after permission grant - ROBUST PHYSICAL DEVICE FIX
-    func loadCalendarsAfterPermissionGrant() async {
-        print("🔍 [CalendarService] Loading calendars after permission grant - ROBUST FIX")
-        
-        #if targetEnvironment(simulator)
-        // Simulator: Use simple approach since it works fine
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        await loadAvailableCalendarsWithRetry(retryAttempts: 3, delayBetweenRetries: 1.0)
-        #else
-        // Physical Device: Use robust exponential backoff approach
-        await loadCalendarsAfterPermissionGrantRobust()
-        #endif
-    }
-    
-    /// Robust calendar loading with exponential backoff for physical devices
-    private func loadCalendarsAfterPermissionGrantRobust() async {
-        print("🔍 [CalendarService] Starting robust calendar loading for physical device")
-        
-        let maxAttempts = 6
-        var delay: TimeInterval = 0.5 // Start with 0.5 seconds
-        
-        for attempt in 1...maxAttempts {
-            print("🔍 [CalendarService] Attempt \(attempt)/\(maxAttempts) with \(delay)s delay")
-            
-            // Progressive delay for physical devices
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            
-            guard hasCalendarAccess else {
-                print("❌ [CalendarService] Permission lost during loading")
-                return
-            }
-            
-            // Force EventStore refresh on physical device
-            let freshEventStore = EKEventStore()
-            let calendars = freshEventStore.calendars(for: .event).filter { $0.allowsContentModifications }
-            
-            await MainActor.run {
-                availableCalendars = calendars
-                print("🔍 [CalendarService] Loaded \(calendars.count) calendars on attempt \(attempt)")
-            }
-            
-            if !availableCalendars.isEmpty {
-                print("✅ [CalendarService] Success after \(attempt) attempts with \(delay)s delay")
-                return
-            }
-            
-            // Exponential backoff: 0.5s, 1s, 2s, 4s, 8s, 16s
-            delay = min(delay * 2, 16.0)
-        }
-        
-        print("❌ [CalendarService] Failed after all attempts - reporting error")
-        
-        // Report error for potential banner display
-        CalendarErrorNotificationCenter.shared.reportError(
-            type: .calendarNotFound,
-            operation: "Robust Calendar Loading After Permission Grant",
-            context: [
-                "maxAttempts": "\(maxAttempts)",
-                "finalDelay": "\(delay)",
-                "hasAccess": "\(hasCalendarAccess)",
-                "deviceType": "physical"
-            ],
-            canRetry: true,
-            suggestedAction: .retryOperation
-        )
+        availableCalendars = eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+        print("📅 [Calendar] Loaded \(availableCalendars.count) writable calendars")
     }
     
     func setSelectedCalendar(_ calendar: EKCalendar?) {
         selectedCalendar = calendar
     }
     
-    func validateCalendar(_ calendar: EKCalendar?, force: Bool = false) -> CalendarValidationResult {
-        guard let calendar = calendar else {
-            print("🔍 [CalendarService] validateCalendar: No calendar provided")
-            return .notFound
-        }
-        
-        print("🔍 [CalendarService] validateCalendar: Using adapter for '\(calendar.title)'")
-        let result = adapter.validateCalendar(calendar)
-        print("🔍 [CalendarService] Validation result via adapter: \(result)")
-        return result
-    }
+    // MARK: - Event Operations
     
-    // MARK: - Event Creation & Management
-    
-    func createEvent(data: CalendarEventData, calendar: EKCalendar) throws -> String {
-        print("🔍 [CalendarService] createEvent called for: \(data.title) - using adapter")
-        
+    /// Create or update an event (finds existing by UID in notes)
+    func createOrUpdateEvent(data: CalendarEventData, in calendar: EKCalendar) async {
         guard hasCalendarAccess else {
-            print("  ❌ No calendar access")
-            let error = CalendarError.permissionDenied
-            CalendarErrorNotificationCenter.shared.reportError(
-                type: error,
-                operation: "Create Calendar Event - \(data.title)",
-                context: ["calendarId": calendar.calendarIdentifier],
-                canRetry: false,
-                suggestedAction: .checkPermissions
-            )
-            throw error
-        }
-        
-        let validationResult = adapter.validateCalendar(calendar)
-        if validationResult != .valid {
-            print("  ❌ Calendar validation failed: \(validationResult)")
-            let error = CalendarError.calendarNotFound
-            CalendarErrorNotificationCenter.shared.reportError(
-                type: error,
-                operation: "Create Calendar Event - \(data.title)",
-                context: ["calendarId": calendar.calendarIdentifier, "validationResult": "\(validationResult)"],
-                canRetry: false,
-                suggestedAction: .selectDifferentCalendar
-            )
-            throw error
-        }
-        
-        let eventIdentifier = try adapter.createEvent(data, in: calendar)
-        
-        // Store mapping for future operations
-        storeEventMapping(uid: data.uid, eventIdentifier: eventIdentifier)
-        
-        print("✅ [CalendarService] Created calendar event via adapter: \(data.title) - \(data.uid)")
-        return eventIdentifier
-    }
-    
-    func updateEvent(uid: String, data: CalendarEventData) throws {
-        guard hasCalendarAccess else {
-            throw CalendarError.permissionDenied
-        }
-        
-        guard let eventIdentifier = getEventIdentifier(for: uid),
-              let event = eventStore.event(withIdentifier: eventIdentifier) else {
-            throw CalendarError.eventNotFound(uid)
-        }
-        
-        // Check if event was manually modified (unmanaged)
-        if isEventUnmanaged(event, expectedData: data) {
-            print("⚠️ Event \(uid) is unmanaged, skipping update")
+            print("📅 [Calendar] No access - cannot create/update event")
             return
         }
         
-        // Update event properties
+        // Try to find existing event by UID
+        if let existingEvent = findEvent(uid: data.uid, in: calendar) {
+            // Update existing event
+            updateEvent(existingEvent, with: data)
+            do {
+                try eventStore.save(existingEvent, span: .thisEvent)
+                print("📅 [Calendar] Updated event: \(data.title)")
+            } catch {
+                print("📅 [Calendar] Failed to update event: \(error.localizedDescription)")
+            }
+        } else {
+            // Create new event
+            let event = EKEvent(eventStore: eventStore)
+            event.calendar = calendar
+            updateEvent(event, with: data)
+            
+            do {
+                try eventStore.save(event, span: .thisEvent)
+                print("📅 [Calendar] Created event: \(data.title)")
+            } catch {
+                print("📅 [Calendar] Failed to create event: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// Delete an event by UID
+    func deleteEvent(uid: String, from calendar: EKCalendar) async {
+        guard hasCalendarAccess else {
+            print("📅 [Calendar] No access - cannot delete event")
+            return
+        }
+        
+        if let event = findEvent(uid: uid, in: calendar) {
+            do {
+                try eventStore.remove(event, span: .thisEvent)
+                print("📅 [Calendar] Deleted event with UID: \(uid)")
+            } catch {
+                print("📅 [Calendar] Failed to delete event: \(error.localizedDescription)")
+            }
+        } else {
+            print("📅 [Calendar] No event found with UID: \(uid)")
+        }
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func findEvent(uid: String, in calendar: EKCalendar) -> EKEvent? {
+        let now = Date()
+        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
+        let endDate = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
+        
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
+        let events = eventStore.events(matching: predicate)
+        
+        // Find event by UID in notes
+        let uidMarker = "UID: \(uid)"
+        return events.first { event in
+            event.notes?.contains(uidMarker) == true
+        }
+    }
+    
+    private func updateEvent(_ event: EKEvent, with data: CalendarEventData) {
         event.title = data.title
         event.startDate = data.startDate
         event.endDate = data.endDate
         event.isAllDay = data.isAllDay
         event.location = data.location
-        event.notes = createEventNotes(data: data)
+        event.availability = data.showAsBusy ? .busy : .free
         
-        do {
-            try eventStore.save(event, span: .thisEvent)
-            print("✅ Updated calendar event: \(data.title) - \(uid)")
-        } catch {
-            let calendarError = CalendarError.eventUpdateFailed(error.localizedDescription)
-            CalendarErrorNotificationCenter.shared.reportError(
-                type: calendarError,
-                operation: "Update Calendar Event - \(data.title)",
-                context: ["eventUID": uid, "originalError": error.localizedDescription],
-                canRetry: true,
-                suggestedAction: .retryOperation
-            )
-            throw calendarError
-        }
-    }
-    
-    func deleteEvent(uid: String) throws {
-        guard hasCalendarAccess else {
-            throw CalendarError.permissionDenied
-        }
-        
-        guard let eventIdentifier = getEventIdentifier(for: uid),
-              let event = eventStore.event(withIdentifier: eventIdentifier) else {
-            throw CalendarError.eventNotFound(uid)
-        }
-        
-        do {
-            try eventStore.remove(event, span: .thisEvent)
-            removeEventMapping(for: uid)
-            print("✅ Deleted calendar event: \(uid)")
-        } catch {
-            let calendarError = CalendarError.eventUpdateFailed(error.localizedDescription)
-            CalendarErrorNotificationCenter.shared.reportError(
-                type: calendarError,
-                operation: "Delete Calendar Event",
-                context: ["eventUID": uid, "originalError": error.localizedDescription],
-                canRetry: true,
-                suggestedAction: .retryOperation
-            )
-            throw calendarError
-        }
-    }
-    
-    // MARK: - Event Notes & Checksum Management
-    
-    private func createEventNotes(data: CalendarEventData) -> String {
-        let checksum = calculateEventChecksum(data: data)
-        
+        // Store UID in notes for future lookups
         var notes = data.notes
-        notes += "\n\n--- Managed by In Office Days ---"
-        notes += "\nUID: \(data.uid)"
-        notes += "\nChecksum: \(checksum)"
-        
-        return notes
-    }
-    
-    private func calculateEventChecksum(data: CalendarEventData) -> String {
-        let combined = "\(data.title)|\(data.startDate.timeIntervalSince1970)|\(data.endDate.timeIntervalSince1970)|\(data.location ?? "")|\(data.isAllDay)"
-        return String(combined.hashValue)
-    }
-    
-    private func isEventUnmanaged(_ event: EKEvent, expectedData: CalendarEventData) -> Bool {
-        guard let notes = event.notes,
-              let checksumRange = notes.range(of: "Checksum: "),
-              let newlineRange = notes[checksumRange.upperBound...].range(of: "\n") else {
-            return false
-        }
-        
-        let storedChecksum = String(notes[checksumRange.upperBound..<newlineRange.lowerBound])
-        let expectedChecksum = calculateEventChecksum(data: expectedData)
-        
-        return storedChecksum != expectedChecksum
-    }
-    
-    // MARK: - Batch Processing
-    
-    func scheduleEventUpdate(_ update: CalendarEventUpdate, batchMode: BatchMode = .standard) {
-        print("📤 [CalendarService] scheduleEventUpdate called")
-        print("  - Update UID: \(update.uid)")
-        print("  - Operation: \(update.operation)")
-        print("  - Batch mode: \(batchMode)")
-        
-        pendingUpdates.append(update)
-        print("  - Pending updates count: \(pendingUpdates.count)")
-        
-        switch batchMode {
-        case .immediate:
-            print("  - Processing immediately...")
-            processBatch()
-        case .standard:
-            print("  - Starting batch timer...")
-            startBatchTimer()
-        case .endOfVisit:
-            print("  - Waiting for end of visit...")
-            // Processed when visit state changes - caller responsibility
-            break
-        }
-    }
-    
-    enum BatchMode {
-        case immediate, standard, endOfVisit
-    }
-    
-    private func startBatchTimer() {
-        print("⏰ [CalendarService] Starting batch timer (\(batchDelay) seconds)")
-        batchTimer?.invalidate()
-        batchTimer = Timer.scheduledTimer(withTimeInterval: batchDelay, repeats: false) { _ in
-            print("⏰ [CalendarService] Batch timer fired - processing batch")
-            Task { @MainActor in
-                self.processBatch()
-            }
-        }
-        print("  ✅ Timer scheduled successfully")
-    }
-    
-    func processBatch() {
-        print("🔄 [CalendarService] processBatch called")
-        print("  - Pending updates: \(pendingUpdates.count)")
-        
-        guard !pendingUpdates.isEmpty else { 
-            print("  - No updates to process")
-            return 
-        }
-        
-        let updates = pendingUpdates
-        pendingUpdates.removeAll()
-        batchTimer?.invalidate()
-        
-        print("  - Processing \(updates.count) updates...")
-        
-        Task {
-            await processUpdates(updates)
-        }
-    }
-    
-    private func processUpdates(_ updates: [CalendarEventUpdate]) async {
-        print("⚙️ [CalendarService] processUpdates called with \(updates.count) updates")
-        
-        guard let calendar = selectedCalendar else {
-            print("⚠️ No calendar selected, skipping updates")
-            return
-        }
-        
-        print("  - Using calendar: \(calendar.title)")
-        
-        for update in updates {
-            print("  - Processing update: \(update.uid) (\(update.operation))")
-            do {
-                switch update.operation {
-                case .create:
-                    // Check if event already exists before creating
-                    if let existingEventId = getEventIdentifier(for: update.uid) {
-                        print("  ⚠️ Event already exists: \(update.uid) (ID: \(existingEventId)) - skipping creation")
-                    } else {
-                        let eventId = try createEvent(data: update.data, calendar: calendar)
-                        print("  ✅ Created event: \(update.data.title) (ID: \(eventId))")
-                    }
-                case .update:
-                    try updateEvent(uid: update.uid, data: update.data)
-                    print("  ✅ Updated event: \(update.data.title)")
-                case .delete:
-                    try deleteEvent(uid: update.uid)
-                    print("  ✅ Deleted event: \(update.uid)")
-                }
-            } catch {
-                print("❌ Calendar operation failed: \(error.localizedDescription)")
-                handleOperationError(error, operation: "\(update.operation) - \(update.data.title)")
-            }
-        }
-    }
-    
-    // MARK: - Recovery & Sync
-    
-    func syncMappingWithExistingEvents(calendar: EKCalendar) async {
-        guard hasCalendarAccess else { return }
-        
-        let now = Date()
-        let startDate = Calendar.current.date(byAdding: .day, value: -90, to: now) ?? now
-        let endDate = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
-        let events = eventStore.events(matching: predicate)
-        
-        var recoveredMappings: [String: String] = [:]
-        
-        for event in events {
-            guard let notes = event.notes,
-                  let uidRange = notes.range(of: "UID: "),
-                  let newlineRange = notes[uidRange.upperBound...].range(of: "\n") else {
-                continue
-            }
-            
-            let uid = String(notes[uidRange.upperBound..<newlineRange.lowerBound])
-            recoveredMappings[uid] = event.eventIdentifier
-        }
-        
-        // Update mapping
-        var currentMapping = eventMapping
-        currentMapping.merge(recoveredMappings) { _, new in new }
-        eventMapping = currentMapping
-        
-        print("Recovered \(recoveredMappings.count) event mappings")
-    }
-    
-    // MARK: - Duplicate Detection & Cleanup
-    
-    func cleanupDuplicateEvents(calendar: EKCalendar) async {
-        guard hasCalendarAccess else { return }
-        
-        print("🧹 [CalendarService] Starting duplicate cleanup for calendar: \(calendar.title)")
-        
-        let now = Date()
-        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
-        let endDate = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
-        let events = eventStore.events(matching: predicate)
-        
-        // Group events by UID found in notes
-        var eventsByUID: [String: [EKEvent]] = [:]
-        
-        for event in events {
-            // Only process our app's events (those with UID in notes)
-            guard let notes = event.notes,
-                  notes.contains("InOfficeDaysTracker"),
-                  let uidRange = notes.range(of: "UID: "),
-                  let newlineRange = notes[uidRange.upperBound...].range(of: "\n") else {
-                continue
-            }
-            
-            let uid = String(notes[uidRange.upperBound..<newlineRange.lowerBound])
-            eventsByUID[uid, default: []].append(event)
-        }
-        
-        // Find and remove duplicates
-        var duplicatesRemoved = 0
-        for (uid, duplicateEvents) in eventsByUID {
-            if duplicateEvents.count > 1 {
-                print("  🔍 Found \(duplicateEvents.count) duplicates for UID: \(uid)")
-                
-                // Keep the first event, remove the rest
-                let eventsToRemove = Array(duplicateEvents.dropFirst())
-                for event in eventsToRemove {
-                    do {
-                        try eventStore.remove(event, span: .thisEvent)
-                        duplicatesRemoved += 1
-                        print("    ❌ Removed duplicate event: \(event.title ?? "Unknown")")
-                    } catch {
-                        print("    ⚠️ Failed to remove duplicate: \(error)")
-                    }
-                }
-                
-                // Update mapping to point to the remaining event
-                if let remainingEvent = duplicateEvents.first {
-                    storeEventMapping(uid: uid, eventIdentifier: remainingEvent.eventIdentifier)
-                }
-            }
-        }
-        
-        print("🧹 [CalendarService] Cleanup complete: removed \(duplicatesRemoved) duplicate events")
+        notes += "\n--- Managed by In Office Days ---\n"
+        notes += "UID: \(data.uid)\n"
+        event.notes = notes
     }
 }

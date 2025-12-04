@@ -2,152 +2,52 @@
 //  CalendarSettings.swift
 //  InOfficeDaysTracker
 //
-//  Calendar integration settings and configuration
+//  Simplified calendar integration settings
 //
 
 import Foundation
 import EventKit
 
-enum CalendarEventType {
-    case office, remote
-}
+// MARK: - Calendar Settings
 
 struct CalendarSettings: Codable {
-    // Core Settings
+    /// Whether calendar integration is enabled
     var isEnabled: Bool = false
+    
+    /// The identifier of the selected calendar
     var selectedCalendarId: String?
     
-    // Event Customization
+    /// Custom title for office events
     var officeEventTitle: String = "In Office Day"
-    var remoteEventTitle: String = "Remote Work"
     
-    // Timing & Display
-    var useActualTimes: Bool = true // true = actual visit times, false = standard work hours
-    var showAsBusy: Bool = false // false = Free (default), true = Busy
-    var createAllDayEvents: Bool = false
-    var includeRemoteEvents: Bool = false // false = office only (default), true = include remote work events
+    /// Whether to show event as busy (false = Free)
+    var showAsBusy: Bool = false
     
-    // Time Zone Handling
-    var timeZoneMode: TimeZoneMode = .device
-    var homeOfficeTimeZoneId: String?
+    // MARK: - Validation
     
-    // Batch Processing
-    var batchMode: BatchMode = .standard
-    
-    enum TimeZoneMode: String, Codable, CaseIterable {
-        case device = "device"
-        case homeOffice = "homeOffice"
-        
-        var displayName: String {
-            switch self {
-            case .device:
-                return "Device Time Zone"
-            case .homeOffice:
-                return "Home Office Time Zone"
-            }
-        }
-    }
-    
-    enum BatchMode: String, Codable, CaseIterable {
-        case immediate = "immediate"
-        case standard = "standard"
-        case endOfVisit = "endOfVisit"
-        
-        var displayName: String {
-            switch self {
-            case .immediate:
-                return "Immediate Updates"
-            case .standard:
-                return "Smart Batching (10s)"
-            case .endOfVisit:
-                return "End of Visit"
-            }
-        }
-    }
-    
-    // Computed Properties
-    var effectiveTimeZone: TimeZone {
-        switch timeZoneMode {
-        case .device:
-            return TimeZone.current
-        case .homeOffice:
-            if let tzId = homeOfficeTimeZoneId,
-               let homeTimeZone = TimeZone(identifier: tzId) {
-                return homeTimeZone
-            }
-            return TimeZone.current
-        }
-    }
-    
-    // Validation
     var isValidConfiguration: Bool {
-        return !officeEventTitle.isEmpty && 
-               !remoteEventTitle.isEmpty &&
-               officeEventTitle.count <= 50 &&
-               remoteEventTitle.count <= 50
+        return !officeEventTitle.isEmpty && officeEventTitle.count <= 50
     }
     
-    // Default Factory
+    // MARK: - Factory
+    
     static var `default`: CalendarSettings {
         return CalendarSettings()
     }
     
-    // Reset to defaults
     mutating func resetToDefaults() {
-        let defaults = CalendarSettings.default
-        self.officeEventTitle = defaults.officeEventTitle
-        self.remoteEventTitle = defaults.remoteEventTitle
-        self.useActualTimes = defaults.useActualTimes
-        self.showAsBusy = defaults.showAsBusy
-        self.createAllDayEvents = defaults.createAllDayEvents
-        self.includeRemoteEvents = defaults.includeRemoteEvents
-        self.timeZoneMode = defaults.timeZoneMode
-        self.batchMode = defaults.batchMode
-    }
-}
-
-// MARK: - Time Zone Detection Helper
-
-class TimeZoneDetectionHelper {
-    static func detectTimeZone(from address: String) async -> TimeZone? {
-        guard !address.isEmpty else { return nil }
-        
-        do {
-            let geocoder = CLGeocoder()
-            let placemarks = try await geocoder.geocodeAddressString(address)
-            return placemarks.first?.timeZone
-        } catch {
-            print("Time zone detection failed: \(error)")
-            return nil
-        }
+        self = CalendarSettings.default
     }
 }
 
 // MARK: - Calendar Event UID Generation
 
 struct CalendarEventUID {
-    static func generate(date: Date, type: CalendarEventType, workHours: (start: Date, end: Date)?) -> String {
+    /// Generate a simple date-based UID for office events
+    static func generate(for date: Date) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateString = dateFormatter.string(from: date)
-        
-        let typeString = type == .office ? "office" : "remote"
-        
-        // Create deterministic hash from work hours
-        let hoursHash: String
-        if let hours = workHours {
-            // Use a simple deterministic approach based on hour components
-            let calendar = Calendar.current
-            let startHour = calendar.component(.hour, from: hours.start)
-            let startMinute = calendar.component(.minute, from: hours.start)
-            let endHour = calendar.component(.hour, from: hours.end)
-            let endMinute = calendar.component(.minute, from: hours.end)
-            
-            hoursHash = String(format: "%02d%02d%02d%02d", startHour, startMinute, endHour, endMinute)
-        } else {
-            hoursHash = "std"
-        }
-        
-        return "iod-\(dateString)-\(typeString)-\(hoursHash)"
+        return "iod-\(dateString)-office"
     }
 }

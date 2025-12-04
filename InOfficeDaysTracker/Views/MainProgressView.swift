@@ -9,8 +9,6 @@ import SwiftUI
 
 struct MainProgressView: View {
     @ObservedObject var appData: AppData
-    @StateObject private var bannerManager = CalendarBannerManager()
-    @Environment(\.scenePhase) private var scenePhase
     
     @State private var showingHistory = false
     @State private var showingSettings = false
@@ -21,18 +19,6 @@ struct MainProgressView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                if let banner = bannerManager.currentBanner {
-                    CalendarErrorBanner(
-                        error: banner,
-                        onAction: {
-                            self.handleBannerAction(for: banner.type)
-                        },
-                        onDismiss: {
-                            self.bannerManager.dismissBanner()
-                        }
-                    )
-                }
-                
                 ScrollView(.vertical) {
                     VStack(spacing: 24) {
                     // Header
@@ -132,16 +118,10 @@ struct MainProgressView: View {
             }
             .onAppear {
                 currentTime = Date()
-                self.checkForCalendarErrors()
             }
             .onReceive(timer) { _ in
                 if appData.isCurrentlyInOffice {
                     currentTime = Date() // Just trigger UI update
-                }
-            }
-            .onChange(of: scenePhase) { oldPhase, newPhase in
-                if newPhase == .active {
-                    self.checkForCalendarErrors()
                 }
             }
         }
@@ -220,92 +200,6 @@ struct MainProgressView: View {
         date = calendar.date(byAdding: .day, value: 1, to: date)!
     }
     return count
-    }
-    
-    // MARK: - Calendar Error Handling
-    
-    private func checkForCalendarErrors() {
-        let calendarService = CalendarService.shared
-        
-        // Check permission status
-        if calendarService.authorizationStatus == .denied {
-            let error = CalendarBannerError(
-                type: .permissionRevoked,
-                title: "Calendar Access Required",
-                message: "Calendar access denied. Grant permission in Settings.",
-                actionTitle: "Open Settings",
-                canDismiss: true,
-                persistenceLevel: .session
-            )
-            bannerManager.showBanner(error)
-            return
-        }
-        
-        // Check if calendar is available (only if integration is enabled)
-        if appData.settings.calendarSettings.isEnabled {
-            // Ensure calendars are loaded before checking availability
-            if calendarService.availableCalendars.isEmpty && calendarService.hasCalendarAccess {
-                calendarService.loadAvailableCalendars()
-            }
-            
-            if let calendarId = appData.settings.calendarSettings.selectedCalendarId,
-               !calendarService.availableCalendars.isEmpty, // Only check if calendars are loaded
-               !calendarService.availableCalendars.contains(where: { $0.calendarIdentifier == calendarId }) {
-                let error = CalendarBannerError(
-                    type: .calendarUnavailable,
-                    title: "Calendar Unavailable",
-                    message: "Selected calendar is no longer available.",
-                    actionTitle: "Choose Calendar",
-                    canDismiss: true,
-                    persistenceLevel: .session
-                )
-                bannerManager.showBanner(error)
-                return
-            }
-        }
-    }
-    
-    private func handleBannerAction(for errorType: CalendarBannerError.ErrorType) {
-        switch errorType {
-        case .permissionRevoked:
-            // Open Settings app
-            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(settingsURL)
-            }
-        case .calendarUnavailable:
-            // Navigate to calendar settings
-            showingSettings = true
-        case .syncFailed:
-            // Retry calendar sync and recent operations
-            retryCalendarOperations()
-        case .quotaExceeded:
-            // Show info or navigate to settings
-            showingSettings = true
-        }
-    }
-    
-    private func retryCalendarOperations() {
-        // First check for basic calendar errors
-        checkForCalendarErrors()
-        
-        // Then attempt simple recovery checks
-        Task {
-            let calendarService = CalendarService.shared
-            
-            // Give some time for the user action to take effect
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            
-            // Re-check calendar status
-            calendarService.updateAuthorizationStatus()
-            calendarService.loadAvailableCalendars()
-            
-            // Dismiss the current banner if recovery was successful
-            await MainActor.run {
-                if calendarService.hasCalendarAccess && calendarService.selectedCalendar != nil {
-                    bannerManager.dismissBanner()
-                }
-            }
-        }
     }
 }
 

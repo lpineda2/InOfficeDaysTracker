@@ -520,38 +520,45 @@ struct SetupView: View {
     
     private var calendarPermissionView: some View {
         VStack(spacing: 20) {
-            CalendarPermissionView(
-                permissionHandler: calendarPermissionHandler,
-                onGranted: {
-                    print("🔍 [SetupView] Calendar permission granted - loading calendars")
-                    print("  - Permission handler hasAccess: \(calendarPermissionHandler.hasAccess)")
-                    print("  - Authorization status: \(calendarPermissionHandler.authorizationStatus.rawValue)")
-                    hasSeenCalendarSetup = true
-                    
-                    // Update CalendarService authorization status
-                    calendarService.updateAuthorizationStatus()
-                    print("  - CalendarService updated status: \(calendarService.authorizationStatus.rawValue)")
-                    
-                    // Load calendars with a slight delay and force refresh
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        calendarService.loadAvailableCalendars()
-                        print("🔍 [SetupView] Calendars loaded: \(calendarService.availableCalendars.count)")
-                        
-                        // Force UI update and show calendar selection
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            if !calendarService.availableCalendars.isEmpty {
-                                print("🔍 [SetupView] Calendars available - should show selection UI")
-                                // Don't auto-select - let user choose
-                            }
+            Image(systemName: "calendar.badge.plus")
+                .font(.system(size: 60))
+                .foregroundColor(.blue)
+            
+            Text("Calendar Integration")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("Grant calendar access to automatically create events for your office visits.")
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+                .padding(.horizontal)
+            
+            if calendarPermissionHandler.wasDenied {
+                Button("Open Settings") {
+                    calendarPermissionHandler.openSettings()
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button("Grant Calendar Access") {
+                    Task {
+                        let granted = await calendarPermissionHandler.requestPermission()
+                        if granted {
+                            hasSeenCalendarSetup = true
+                            calendarService.updateAuthorizationStatus()
+                            calendarService.loadAvailableCalendars()
                         }
                     }
-                },
-                onSkipped: {
-                    // Mark as seen but not enabled
-                    calendarIntegrationEnabled = false
-                    hasSeenCalendarSetup = true
                 }
-            )
+                .buttonStyle(.borderedProminent)
+                .disabled(calendarPermissionHandler.isRequestingPermission)
+            }
+            
+            Button("Skip for now") {
+                calendarIntegrationEnabled = false
+                hasSeenCalendarSetup = true
+            }
+            .foregroundColor(.secondary)
         }
     }
     
@@ -621,20 +628,25 @@ struct SetupView: View {
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
                 
-                CalendarPickerView(
-                    calendarService: calendarService,
-                    selectedCalendar: $selectedCalendar,
-                    title: "", // No title - already shown above
-                    subtitle: nil, // No subtitle - context is clear
-                    showSkipOption: false, // Use main Complete Setup button instead
-                    onCalendarSelected: { calendar in
-                        print("🔍 [SetupView] Calendar selected callback fired: \(calendar?.title ?? "none")")
-                        selectedCalendar = calendar
+                // Calendar picker
+                Picker("Calendar", selection: $selectedCalendar) {
+                    Text("Select Calendar").tag(nil as EKCalendar?)
+                    ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { calendar in
+                        HStack {
+                            Circle()
+                                .fill(Color(cgColor: calendar.cgColor))
+                                .frame(width: 12, height: 12)
+                            Text(calendar.title)
+                        }
+                        .tag(calendar as EKCalendar?)
+                    }
+                }
+                .pickerStyle(.inline)
+                .onChange(of: selectedCalendar) { _, calendar in
+                    if calendar != nil {
                         calendarIntegrationEnabled = true
-                        print("  ✅ Calendar integration enabled: \(calendarIntegrationEnabled)")
-                    },
-                    onSkipped: nil // Not used since showSkipOption is false
-                )
+                    }
+                }
             }
         }
     }
@@ -648,10 +660,10 @@ struct SetupView: View {
             result = !trackingDays.isEmpty
         case 6: // Calendar setup step
             // Can proceed if user has made a decision about calendar integration
-            result = calendarPermissionHandler.hasAccess || calendarPermissionHandler.wasdenied || hasSeenCalendarSetup
+            result = calendarPermissionHandler.hasAccess || calendarPermissionHandler.wasDenied || hasSeenCalendarSetup
             print("🔍 [SetupView] Calendar step canProceed check:")
             print("  - hasAccess: \(calendarPermissionHandler.hasAccess)")
-            print("  - wasdenied: \(calendarPermissionHandler.wasdenied)")
+            print("  - wasDenied: \(calendarPermissionHandler.wasDenied)")
             print("  - hasSeenCalendarSetup: \(hasSeenCalendarSetup)")
             print("  - result: \(result)")
         default:
@@ -668,7 +680,7 @@ struct SetupView: View {
         // On calendar step, require calendar decision to be made
         let hasCalendarDecision = currentStep != 6 || 
                                  calendarPermissionHandler.hasAccess || 
-                                 calendarPermissionHandler.wasdenied || 
+                                 calendarPermissionHandler.wasDenied || 
                                  hasSeenCalendarSetup
         
         print("🔍 [SetupView] canCompleteSetup check:")
@@ -714,7 +726,7 @@ struct SetupView: View {
         if currentStep == 6 {
             print("  - Calendar step validation:")
             print("    - hasAccess: \(calendarPermissionHandler.hasAccess)")
-            print("    - wasdenied: \(calendarPermissionHandler.wasdenied)")
+            print("    - wasDenied: \(calendarPermissionHandler.wasDenied)")
             print("    - hasSeenCalendarSetup: \(hasSeenCalendarSetup)")
             print("    - calendarIntegrationEnabled: \(calendarIntegrationEnabled)")
         }
@@ -785,13 +797,6 @@ struct SetupView: View {
                 newSettings.calendarSettings.isEnabled = calendarIntegrationEnabled
                 newSettings.calendarSettings.selectedCalendarId = selectedCalendar?.calendarIdentifier
                 newSettings.hasSeenCalendarSetup = true
-                
-                // Auto-detect home office time zone from address
-                if calendarIntegrationEnabled {
-                    if let homeTimeZone = await TimeZoneDetectionHelper.detectTimeZone(from: officeAddress) {
-                        newSettings.calendarSettings.homeOfficeTimeZoneId = homeTimeZone.identifier
-                    }
-                }
                 
                 await MainActor.run {
                     appData.updateSettings(newSettings)
