@@ -92,15 +92,21 @@ class LocationService: NSObject, ObservableObject {
             locationError = "Location services are restricted on this device."
             
         case .authorizedWhenInUse:
-            // Only request "Always" permission if we haven't already asked
-            // This prevents repeated prompts and follows Apple's recommendation
+            // For upgrading to "Always" permission, iOS behavior varies:
+            // - On first request, the system MAY show a dialog
+            // - On subsequent requests, it will NOT show a dialog
+            // The most reliable approach is to guide users to Settings
             if !hasRequestedAlwaysPermission {
+                // Try the system dialog first
                 requestAlwaysPermission()
-            } else {
-                // If user has already been asked and chose "When in Use", 
-                // guide them to Settings for manual upgrade
-                locationError = "To enable automatic background tracking, please manually set location access to 'Always' in Settings > Privacy & Security > Location Services > In Office Days Tracker"
-                openAppSettings()
+            }
+            // Always also open Settings since iOS upgrade behavior is inconsistent
+            // and the user may need to manually change it
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                // Only open Settings if we're still in "When in Use" mode
+                if self?.authorizationStatus == .authorizedWhenInUse {
+                    self?.openAppSettings()
+                }
             }
             
         case .authorizedAlways:

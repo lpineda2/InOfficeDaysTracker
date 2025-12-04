@@ -59,15 +59,11 @@ class CalendarPermissionHandler: ObservableObject {
         
         do {
             let granted = try await eventStore.requestFullAccessToEvents()
-            await MainActor.run {
-                updateAuthorizationStatus()
-            }
+            updateAuthorizationStatus()
             return granted
         } catch {
             print("📅 [Calendar] Permission request failed: \(error.localizedDescription)")
-            await MainActor.run {
-                updateAuthorizationStatus()
-            }
+            updateAuthorizationStatus()
             return false
         }
     }
