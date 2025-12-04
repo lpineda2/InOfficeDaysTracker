@@ -51,18 +51,25 @@ class CalendarPermissionHandler: ObservableObject {
     
     func updateAuthorizationStatus() {
         authorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        print("📅 [CalendarPermission] Status updated: \(authorizationStatus.rawValue), hasAccess: \(hasAccess)")
     }
     
     func requestPermission() async -> Bool {
+        print("📅 [CalendarPermission] requestPermission called")
         isRequestingPermission = true
-        defer { isRequestingPermission = false }
+        defer { 
+            isRequestingPermission = false 
+            print("📅 [CalendarPermission] requestPermission completed")
+        }
         
         do {
+            print("📅 [CalendarPermission] Requesting full access to events...")
             let granted = try await eventStore.requestFullAccessToEvents()
+            print("📅 [CalendarPermission] Permission result: \(granted)")
             updateAuthorizationStatus()
             return granted
         } catch {
-            print("📅 [Calendar] Permission request failed: \(error.localizedDescription)")
+            print("📅 [CalendarPermission] Permission request failed: \(error.localizedDescription)")
             updateAuthorizationStatus()
             return false
         }

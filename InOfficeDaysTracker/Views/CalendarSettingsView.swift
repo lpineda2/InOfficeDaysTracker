@@ -87,8 +87,12 @@ struct CalendarSettingsView: View {
                     .buttonStyle(.borderedProminent)
                 } else {
                     Button("Grant Access") {
+                        print("📅 [CalendarSettings] Grant Access button tapped")
+                        print("📅 [CalendarSettings] isRequestingPermission: \(permissionHandler.isRequestingPermission)")
                         Task {
+                            print("📅 [CalendarSettings] Starting permission request task")
                             let granted = await permissionHandler.requestPermission()
+                            print("📅 [CalendarSettings] Permission granted: \(granted)")
                             if granted {
                                 calendarService.loadAvailableCalendars()
                             }
