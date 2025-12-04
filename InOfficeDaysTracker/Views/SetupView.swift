@@ -629,25 +629,22 @@ struct SetupView: View {
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
                 
-                // Calendar picker
-                Picker("Calendar", selection: $selectedCalendar) {
-                    Text("Select Calendar").tag(nil as EKCalendar?)
-                    ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { calendar in
-                        HStack {
-                            Circle()
-                                .fill(Color(cgColor: calendar.cgColor))
-                                .frame(width: 12, height: 12)
-                            Text(calendar.title)
+                // Calendar list with color indicators
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { calendar in
+                            CalendarRowView(
+                                calendar: calendar,
+                                isSelected: selectedCalendar?.calendarIdentifier == calendar.calendarIdentifier
+                            ) {
+                                selectedCalendar = calendar
+                                calendarIntegrationEnabled = true
+                            }
                         }
-                        .tag(calendar as EKCalendar?)
                     }
+                    .padding(.horizontal)
                 }
-                .pickerStyle(.inline)
-                .onChange(of: selectedCalendar) { _, calendar in
-                    if calendar != nil {
-                        calendarIntegrationEnabled = true
-                    }
-                }
+                .frame(maxHeight: 280)
             }
         }
     }
@@ -963,6 +960,66 @@ struct PermissionRow: View {
                     .foregroundColor(.orange)
             }
         }
+    }
+}
+
+/// A row view for displaying a calendar option with color indicator
+struct CalendarRowView: View {
+    let calendar: EKCalendar
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                // Calendar color indicator
+                Circle()
+                    .fill(Color(cgColor: calendar.cgColor))
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.primary.opacity(0.2), lineWidth: 1)
+                    )
+                
+                // Calendar name and account info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(calendar.title)
+                        .font(.body)
+                        .fontWeight(isSelected ? .semibold : .regular)
+                        .foregroundColor(.primary)
+                    
+                    if let source = calendar.source?.title, !source.isEmpty {
+                        Text(source)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Selection indicator
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .font(.title3)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
