@@ -545,7 +545,8 @@ struct SetupView: View {
                         let granted = await calendarPermissionHandler.requestPermission()
                         if granted {
                             hasSeenCalendarSetup = true
-                            calendarService.updateAuthorizationStatus()
+                            // Refresh event store and load calendars after permission granted
+                            calendarService.setAccessGranted()
                             calendarService.loadAvailableCalendars()
                         }
                     }

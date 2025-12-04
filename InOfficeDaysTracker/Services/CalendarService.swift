@@ -64,7 +64,8 @@ enum CalendarError: Error, LocalizedError {
 class CalendarService: ObservableObject {
     static let shared = CalendarService()
     
-    let eventStore = EKEventStore()
+    // Use var so we can recreate after permission is granted
+    private(set) var eventStore = EKEventStore()
     
     @Published var authorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var selectedCalendar: EKCalendar?
@@ -72,6 +73,12 @@ class CalendarService: ObservableObject {
     
     private init() {
         updateAuthorizationStatus()
+    }
+    
+    /// Recreate the event store - needed after permission changes
+    func refreshEventStore() {
+        eventStore = EKEventStore()
+        print("📅 [CalendarService] Event store refreshed")
     }
     
     // MARK: - Authorization
@@ -115,7 +122,9 @@ class CalendarService: ObservableObject {
     /// Call this after permission is granted to ensure state is correct
     func setAccessGranted() {
         authorizationStatus = .fullAccess
-        print("📅 [CalendarService] Access granted, status set to fullAccess")
+        // Recreate event store to pick up new permission
+        refreshEventStore()
+        print("📅 [CalendarService] Access granted, status set to fullAccess, event store refreshed")
     }
     
     // MARK: - Calendar Management
