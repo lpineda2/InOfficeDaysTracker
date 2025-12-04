@@ -37,15 +37,14 @@ class AddressAutocompleteService: NSObject, ObservableObject {
         completer.resultTypes = .address
         completer.pointOfInterestFilter = .excludingAll
         
-        // Set region for better results (can be customized based on user location)
-        if let userLocation = getCurrentUserLocation() {
-            let region = MKCoordinateRegion(
-                center: userLocation,
-                latitudinalMeters: 50000, // 50km radius
-                longitudinalMeters: 50000
-            )
-            completer.region = region
-        }
+        // Set a default region centered on continental US for better results
+        // This prevents NaN issues when MapKit calculates distances without a region
+        let defaultRegion = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 39.8283, longitude: -98.5795), // Center of US
+            latitudinalMeters: 5_000_000, // ~5000km to cover continental US
+            longitudinalMeters: 5_000_000
+        )
+        completer.region = defaultRegion
     }
     
     // MARK: - Public Methods
@@ -133,12 +132,6 @@ class AddressAutocompleteService: NSObject, ObservableObject {
                 }
             }
         }
-    }
-    
-    private func getCurrentUserLocation() -> CLLocationCoordinate2D? {
-        // This could be enhanced to get actual user location if needed
-        // For now, return nil to use default behavior
-        return nil
     }
     
     private func formatAddress(from placemark: CLPlacemark) -> String {
