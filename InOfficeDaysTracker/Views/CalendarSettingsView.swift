@@ -10,7 +10,7 @@ import EventKit
 
 struct CalendarSettingsView: View {
     @ObservedObject var appData: AppData
-    @StateObject private var calendarService = CalendarService.shared
+    @ObservedObject private var calendarService = CalendarService.shared
     @StateObject private var permissionHandler = CalendarPermissionHandler()
     @Environment(\.dismiss) private var dismiss
     
@@ -46,6 +46,11 @@ struct CalendarSettingsView: View {
         }
         .onAppear {
             loadCurrentSettings()
+        }
+        .onChange(of: tempSettings.isEnabled) { _, isEnabled in
+            if isEnabled && calendarService.availableCalendars.isEmpty {
+                calendarService.loadAvailableCalendars()
+            }
         }
         .onChange(of: selectedCalendar) { _, newCalendar in
             tempSettings.selectedCalendarId = newCalendar?.calendarIdentifier
@@ -172,8 +177,11 @@ struct CalendarSettingsView: View {
     private func loadCurrentSettings() {
         tempSettings = appData.settings.calendarSettings
         
+        // Sync permission handler status
+        permissionHandler.updateAuthorizationStatus()
+        
         // Always load available calendars when we have access
-        if calendarService.hasCalendarAccess {
+        if permissionHandler.hasAccess {
             calendarService.loadAvailableCalendars()
             
             // If we have a previously selected calendar, find it

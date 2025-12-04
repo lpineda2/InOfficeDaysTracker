@@ -95,18 +95,14 @@ class LocationService: NSObject, ObservableObject {
             // For upgrading to "Always" permission, iOS behavior varies:
             // - On first request, the system MAY show a dialog
             // - On subsequent requests, it will NOT show a dialog
-            // The most reliable approach is to guide users to Settings
             if !hasRequestedAlwaysPermission {
-                // Try the system dialog first
+                // Try the system dialog first - iOS will show a prompt
+                // if it decides to. We'll check the result after.
                 requestAlwaysPermission()
-            }
-            // Always also open Settings since iOS upgrade behavior is inconsistent
-            // and the user may need to manually change it
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                // Only open Settings if we're still in "When in Use" mode
-                if self?.authorizationStatus == .authorizedWhenInUse {
-                    self?.openAppSettings()
-                }
+            } else {
+                // Already tried the system dialog, guide user to Settings
+                locationError = "To enable background tracking, set location access to 'Always' in Settings."
+                openAppSettings()
             }
             
         case .authorizedAlways:
