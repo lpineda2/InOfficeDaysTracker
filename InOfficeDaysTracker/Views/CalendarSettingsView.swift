@@ -94,6 +94,8 @@ struct CalendarSettingsView: View {
                             let granted = await permissionHandler.requestPermission()
                             print("📅 [CalendarSettings] Permission granted: \(granted)")
                             if granted {
+                                // Sync CalendarService status and load calendars
+                                calendarService.setAccessGranted()
                                 calendarService.loadAvailableCalendars()
                             }
                         }
@@ -184,9 +186,14 @@ struct CalendarSettingsView: View {
         // Sync permission handler status
         permissionHandler.updateAuthorizationStatus()
         
+        // Check both permission handler and calendar service for access
+        let hasAccess = permissionHandler.hasAccess || calendarService.hasCalendarAccess
+        print("📅 [CalendarSettings] loadCurrentSettings - permissionHandler.hasAccess: \(permissionHandler.hasAccess), calendarService.hasCalendarAccess: \(calendarService.hasCalendarAccess)")
+        
         // Always load available calendars when we have access
-        if permissionHandler.hasAccess {
+        if hasAccess {
             calendarService.loadAvailableCalendars()
+            print("📅 [CalendarSettings] Loaded \(calendarService.availableCalendars.count) calendars")
             
             // If we have a previously selected calendar, find it
             if let calendarId = tempSettings.selectedCalendarId {

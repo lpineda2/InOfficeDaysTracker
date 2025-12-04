@@ -96,12 +96,26 @@ class CalendarService: ObservableObject {
     }
     
     func updateAuthorizationStatus() {
-        authorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        let status = EKEventStore.authorizationStatus(for: .event)
+        // Only update if we're not already in a granted state
+        // (prevents stale system queries from reverting our state)
+        if authorizationStatus != .fullAccess && authorizationStatus != .writeOnly {
+            authorizationStatus = status
+        } else if status == .denied || status == .restricted {
+            // Allow revocation to take effect
+            authorizationStatus = status
+        }
+        print("📅 [CalendarService] Status: \(authorizationStatus.rawValue), hasAccess: \(hasCalendarAccess)")
     }
     
     var hasCalendarAccess: Bool {
-        updateAuthorizationStatus()
         return authorizationStatus == .fullAccess || authorizationStatus == .writeOnly
+    }
+    
+    /// Call this after permission is granted to ensure state is correct
+    func setAccessGranted() {
+        authorizationStatus = .fullAccess
+        print("📅 [CalendarService] Access granted, status set to fullAccess")
     }
     
     // MARK: - Calendar Management
