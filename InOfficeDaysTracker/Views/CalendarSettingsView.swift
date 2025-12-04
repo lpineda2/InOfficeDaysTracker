@@ -172,9 +172,14 @@ struct CalendarSettingsView: View {
     private func loadCurrentSettings() {
         tempSettings = appData.settings.calendarSettings
         
-        if let calendarId = tempSettings.selectedCalendarId, calendarService.hasCalendarAccess {
+        // Always load available calendars when we have access
+        if calendarService.hasCalendarAccess {
             calendarService.loadAvailableCalendars()
-            selectedCalendar = calendarService.availableCalendars.first { $0.calendarIdentifier == calendarId }
+            
+            // If we have a previously selected calendar, find it
+            if let calendarId = tempSettings.selectedCalendarId {
+                selectedCalendar = calendarService.availableCalendars.first { $0.calendarIdentifier == calendarId }
+            }
         }
     }
     
