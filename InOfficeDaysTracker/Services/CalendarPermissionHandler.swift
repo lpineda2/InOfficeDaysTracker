@@ -66,7 +66,17 @@ class CalendarPermissionHandler: ObservableObject {
             print("📅 [CalendarPermission] Requesting full access to events...")
             let granted = try await eventStore.requestFullAccessToEvents()
             print("📅 [CalendarPermission] Permission result: \(granted)")
-            updateAuthorizationStatus()
+            
+            // If granted, set status directly rather than re-querying
+            // (iOS may not have updated the class-level status yet)
+            if granted {
+                authorizationStatus = .fullAccess
+                print("📅 [CalendarPermission] Status set to fullAccess")
+            } else {
+                // Small delay to let iOS update the status
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                updateAuthorizationStatus()
+            }
             return granted
         } catch {
             print("📅 [CalendarPermission] Permission request failed: \(error.localizedDescription)")

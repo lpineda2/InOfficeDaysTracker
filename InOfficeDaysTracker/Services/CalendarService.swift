@@ -134,9 +134,13 @@ class CalendarService: ObservableObject {
             return
         }
         
+        print("📅 [Calendar] createOrUpdateEvent called with UID: \(data.uid)")
+        print("📅 [Calendar] Notes preview: \(String(data.notes.prefix(100)))...")
+        
         // Try to find existing event by UID
         if let existingEvent = findEvent(uid: data.uid, in: calendar) {
             // Update existing event
+            print("📅 [Calendar] Found existing event, updating...")
             updateEvent(existingEvent, with: data)
             do {
                 try eventStore.save(existingEvent, span: .thisEvent)
@@ -146,6 +150,7 @@ class CalendarService: ObservableObject {
             }
         } else {
             // Create new event
+            print("📅 [Calendar] No existing event found, creating new...")
             let event = EKEvent(eventStore: eventStore)
             event.calendar = calendar
             updateEvent(event, with: data)

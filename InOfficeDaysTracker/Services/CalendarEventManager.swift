@@ -50,22 +50,29 @@ class CalendarEventManager: ObservableObject {
     
     /// Called when user leaves the office geofence
     func handleVisitEnd(_ visit: OfficeVisit, settings: AppSettings) async {
+        print("📅 [CalendarManager] handleVisitEnd called")
+        print("📅 [CalendarManager] Visit details: date=\(visit.date), entry=\(visit.entryTime), exit=\(String(describing: visit.exitTime))")
+        print("📅 [CalendarManager] Visit isValidVisit=\(visit.isValidVisit), duration=\(String(describing: visit.duration))")
+        
         guard settings.calendarSettings.isEnabled else {
+            print("📅 [CalendarManager] Calendar integration disabled")
             return
         }
         
         guard let calendar = await getSelectedCalendar(settings: settings) else {
+            print("📅 [CalendarManager] No calendar selected")
             return
         }
         
         if visit.isValidVisit {
             // Finalize the event
-            print("📅 [Calendar] Finalizing office event for \(visit.date)")
+            print("📅 [CalendarManager] Finalizing office event for \(visit.date)")
             let eventData = createEventData(for: visit, settings: settings, isOngoing: false)
+            print("📅 [CalendarManager] Event notes: \(eventData.notes)")
             await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
         } else {
             // Visit was too short - delete the event
-            print("📅 [Calendar] Visit too short - deleting event for \(visit.date)")
+            print("📅 [CalendarManager] Visit too short - deleting event for \(visit.date)")
             let uid = CalendarEventUID.generate(for: visit.date)
             await calendarService.deleteEvent(uid: uid, from: calendar)
         }
