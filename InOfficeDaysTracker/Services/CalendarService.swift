@@ -107,8 +107,18 @@ class CalendarService: ObservableObject {
     // MARK: - Calendar Management
     
     func loadAvailableCalendars() {
-        availableCalendars = eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+        let allCalendars = eventStore.calendars(for: .event)
+        print("📅 [Calendar] Total calendars found: \(allCalendars.count)")
+        for cal in allCalendars {
+            print("📅 [Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue)")
+        }
+        availableCalendars = allCalendars.filter { $0.allowsContentModifications }
         print("📅 [Calendar] Loaded \(availableCalendars.count) writable calendars")
+        
+        if availableCalendars.isEmpty && allCalendars.isEmpty {
+            print("📅 [Calendar] ⚠️ No calendars found - this is normal on iOS Simulator")
+            print("📅 [Calendar] ⚠️ To test, open Calendar app in simulator and add an event (this creates a local calendar)")
+        }
     }
     
     func setSelectedCalendar(_ calendar: EKCalendar?) {
