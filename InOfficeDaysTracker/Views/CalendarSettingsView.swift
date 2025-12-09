@@ -34,7 +34,6 @@ struct CalendarSettingsView: View {
                 calendarSettingsSection
                 eventCustomizationSection
                 resetSection
-                debugSection // Temporary debug section
             } else {
                 permissionSection
             }
@@ -189,56 +188,6 @@ struct CalendarSettingsView: View {
                 showingResetConfirmation = true
             }
             .disabled(!tempSettings.isEnabled)
-        }
-    }
-    
-    // MARK: - Debug Section
-    
-    private var debugSection: some View {
-        let eventStore = EKEventStore()
-        let allCalendars = eventStore.calendars(for: .event)
-        
-        return Section {
-            Text("Total: \(allCalendars.count) calendars")
-                .font(.caption)
-            
-            ForEach(allCalendars, id: \.calendarIdentifier) { cal in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Circle()
-                            .fill(Color(cgColor: cal.cgColor))
-                            .frame(width: 10, height: 10)
-                        Text(cal.title)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                    Text("Source: \(cal.source.title)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Type: \(calendarTypeName(cal.type)) (\(cal.type.rawValue))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Writable: \(cal.allowsContentModifications ? "YES" : "NO")")
-                        .font(.caption)
-                        .foregroundColor(cal.allowsContentModifications ? .green : .red)
-                }
-                .padding(.vertical, 2)
-            }
-        } header: {
-            Text("🔧 Debug: All Calendars from iOS")
-        } footer: {
-            Text("This shows ALL calendars returned by EKEventStore, before any filtering.")
-        }
-    }
-    
-    private func calendarTypeName(_ type: EKCalendarType) -> String {
-        switch type {
-        case .local: return "Local"
-        case .calDAV: return "CalDAV"
-        case .exchange: return "Exchange"
-        case .subscription: return "Subscription"
-        case .birthday: return "Birthday"
-        @unknown default: return "Unknown"
         }
     }
     
