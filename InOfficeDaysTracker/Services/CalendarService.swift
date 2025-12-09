@@ -134,12 +134,15 @@ class CalendarService: ObservableObject {
         for cal in allCalendars {
             print("📅 [Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue) source=\(cal.source.title)")
         }
-        // Exclude only known read-only calendar types (subscriptions and birthdays)
-        // This ensures all potentially writable calendars are shown, including Exchange/M365
+        // Filter calendars:
+        // 1. Exclude subscription and birthday types (always read-only)
+        // 2. Must be writable (allowsContentModifications = true)
         availableCalendars = allCalendars.filter { 
-            $0.type != .subscription && $0.type != .birthday 
+            $0.type != .subscription && 
+            $0.type != .birthday && 
+            $0.allowsContentModifications
         }
-        print("📅 [Calendar] Loaded \(availableCalendars.count) calendars (excluded subscriptions/birthdays)")
+        print("📅 [Calendar] Loaded \(availableCalendars.count) writable calendars")
         
         if availableCalendars.isEmpty && allCalendars.isEmpty {
             print("📅 [Calendar] ⚠️ No calendars found - this is normal on iOS Simulator")
