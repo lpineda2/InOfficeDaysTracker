@@ -102,6 +102,8 @@ struct CalendarSettingsView: View {
                                 // Sync CalendarService status and load calendars
                                 calendarService.setAccessGranted()
                                 calendarService.loadAvailableCalendars()
+                                // Auto-enable calendar integration since user just granted access
+                                tempSettings.isEnabled = true
                             }
                         }
                     }
