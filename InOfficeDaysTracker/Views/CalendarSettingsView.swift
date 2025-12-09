@@ -23,9 +23,14 @@ struct CalendarSettingsView: View {
         self._tempSettings = State(initialValue: appData.settings.calendarSettings)
     }
     
+    /// Check both permission handler and calendar service for access
+    private var hasCalendarAccess: Bool {
+        permissionHandler.hasAccess || calendarService.hasCalendarAccess
+    }
+    
     var body: some View {
         Form {
-            if permissionHandler.hasAccess {
+            if hasCalendarAccess {
                 calendarSettingsSection
                 eventCustomizationSection
                 resetSection
