@@ -478,17 +478,6 @@ struct SetupView: View {
                 calendarPermissionView
             }
             
-            // Skip option for users who don't want calendar integration
-            if !hasSeenCalendarSetup {
-                Button("Skip Calendar Integration") {
-                    calendarIntegrationEnabled = false
-                    hasSeenCalendarSetup = true
-                    print("🔍 [SetupView] User chose to skip calendar integration")
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.secondary)
-            }
-            
             Spacer()
         }
         .padding()
