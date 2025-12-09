@@ -122,11 +122,25 @@ struct CalendarSettingsView: View {
             Toggle("Enable Calendar Integration", isOn: $tempSettings.isEnabled)
             
             if tempSettings.isEnabled {
-                Picker("Calendar", selection: $selectedCalendar) {
-                    Text("Select Calendar").tag(nil as EKCalendar?)
-                    ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { calendar in
-                        Text("\(calendar.title) · \(calendar.source.title)")
-                            .tag(calendar as EKCalendar?)
+                NavigationLink {
+                    CalendarPickerView(
+                        calendarService: calendarService,
+                        selectedCalendar: $selectedCalendar
+                    )
+                } label: {
+                    HStack {
+                        Text("Calendar")
+                        Spacer()
+                        if let calendar = selectedCalendar {
+                            Circle()
+                                .fill(Color(cgColor: calendar.cgColor))
+                                .frame(width: 10, height: 10)
+                            Text(calendar.title)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Select Calendar")
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 
