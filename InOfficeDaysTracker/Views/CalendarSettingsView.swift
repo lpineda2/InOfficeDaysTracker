@@ -122,7 +122,12 @@ struct CalendarSettingsView: View {
                             Circle()
                                 .fill(Color(cgColor: calendar.cgColor))
                                 .frame(width: 12, height: 12)
-                            Text(calendar.title)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(calendar.title)
+                                Text(calendar.source.title)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         .tag(calendar as EKCalendar?)
                     }
