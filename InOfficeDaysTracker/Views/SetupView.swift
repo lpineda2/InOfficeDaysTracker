@@ -465,7 +465,7 @@ struct SetupView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Connect your calendar to automatically track office visits and remote work days (Optional)")
+                Text("Connect your calendar to automatically track office visits (Optional)")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
@@ -548,7 +548,8 @@ struct SetupView: View {
                 calendarIntegrationEnabled = false
                 hasSeenCalendarSetup = true
             }
-            .foregroundColor(.secondary)
+            .buttonStyle(.bordered)
+            .tint(.secondary)
         }
     }
     
