@@ -20,9 +20,6 @@ struct CalendarSettings: Codable {
     /// Custom title for office events
     var officeEventTitle: String = "In Office Day"
     
-    /// Whether to show event as busy (false = Free)
-    var showAsBusy: Bool = false
-    
     // MARK: - Validation
     
     var isValidConfiguration: Bool {

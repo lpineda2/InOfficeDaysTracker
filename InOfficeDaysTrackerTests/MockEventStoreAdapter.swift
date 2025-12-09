@@ -353,8 +353,7 @@ extension MockEventStoreAdapter {
         isAllDay: Bool = false,
         location: String? = "Test Office",
         notes: String = "Test notes",
-        uid: String = "test-uid",
-        showAsBusy: Bool = true
+        uid: String = "test-uid"
     ) -> CalendarEventData {
         return CalendarEventData(
             title: title,
@@ -363,8 +362,7 @@ extension MockEventStoreAdapter {
             isAllDay: isAllDay,
             location: location,
             notes: notes,
-            uid: uid,
-            showAsBusy: showAsBusy
+            uid: uid
         )
     }
     
@@ -382,8 +380,7 @@ extension MockEventStoreAdapter {
                 isAllDay: false,
                 location: "Office Location \(index + 1)",
                 notes: "Test notes for event \(index + 1)",
-                uid: "test-uid-\(index)",
-                showAsBusy: true
+                uid: "test-uid-\(index)"
             )
         }
     }

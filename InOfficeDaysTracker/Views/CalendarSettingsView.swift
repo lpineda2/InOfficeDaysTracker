@@ -157,9 +157,6 @@ struct CalendarSettingsView: View {
                     .frame(maxWidth: 200)
             }
             .disabled(!tempSettings.isEnabled)
-            
-            Toggle("Show as Busy", isOn: $tempSettings.showAsBusy)
-                .disabled(!tempSettings.isEnabled)
         } header: {
             Text("Event Appearance")
         } footer: {

@@ -112,8 +112,7 @@ class CalendarEventManager: ObservableObject {
             isAllDay: true,
             location: settings.officeAddress,
             notes: notes,
-            uid: uid,
-            showAsBusy: settings.calendarSettings.showAsBusy
+            uid: uid
         )
     }
     

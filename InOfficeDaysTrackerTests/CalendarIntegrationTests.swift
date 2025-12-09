@@ -31,7 +31,6 @@ class CalendarIntegrationTests: XCTestCase {
         XCTAssertFalse(settings.isEnabled, "Should default to disabled")
         XCTAssertEqual(settings.officeEventTitle, "In Office Day", "Should have default office title")
         XCTAssertNil(settings.selectedCalendarId, "Should have no selected calendar by default")
-        XCTAssertFalse(settings.showAsBusy, "Should default to free")
     }
     
     func testCalendarSettingsValidation() {
@@ -49,13 +48,11 @@ class CalendarIntegrationTests: XCTestCase {
         var settings = CalendarSettings()
         settings.isEnabled = true
         settings.officeEventTitle = "Custom Title"
-        settings.showAsBusy = true
         
         settings.resetToDefaults()
         
         XCTAssertFalse(settings.isEnabled, "Should reset to disabled")
         XCTAssertEqual(settings.officeEventTitle, "In Office Day", "Should reset title")
-        XCTAssertFalse(settings.showAsBusy, "Should reset to free")
     }
     
     // MARK: - UID Generation Tests

@@ -18,7 +18,6 @@ struct CalendarEventData {
     let location: String?
     let notes: String
     let uid: String
-    let showAsBusy: Bool
 }
 
 // MARK: - Calendar Validation
@@ -229,7 +228,7 @@ class CalendarService: ObservableObject {
         event.endDate = data.endDate
         event.isAllDay = data.isAllDay
         event.location = data.location
-        event.availability = data.showAsBusy ? .busy : .free
+        event.availability = .free
         
         // Store UID in notes for future lookups
         var notes = data.notes
