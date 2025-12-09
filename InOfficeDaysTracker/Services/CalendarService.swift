@@ -132,9 +132,10 @@ class CalendarService: ObservableObject {
         let allCalendars = eventStore.calendars(for: .event)
         print("📅 [Calendar] Total calendars found: \(allCalendars.count)")
         for cal in allCalendars {
-            print("📅 [Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue)")
+            print("📅 [Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue) source=\(cal.source.title)")
         }
-        availableCalendars = allCalendars.filter { $0.allowsContentModifications }
+        // Include calendars that are writable OR are CalDAV/Exchange type (which may report as non-writable but still allow writes)
+        availableCalendars = allCalendars.filter { $0.allowsContentModifications || $0.type == .calDAV }
         print("📅 [Calendar] Loaded \(availableCalendars.count) writable calendars")
         
         if availableCalendars.isEmpty && allCalendars.isEmpty {
