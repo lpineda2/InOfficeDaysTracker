@@ -125,18 +125,8 @@ struct CalendarSettingsView: View {
                 Picker("Calendar", selection: $selectedCalendar) {
                     Text("Select Calendar").tag(nil as EKCalendar?)
                     ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { calendar in
-                        HStack {
-                            Circle()
-                                .fill(Color(cgColor: calendar.cgColor))
-                                .frame(width: 12, height: 12)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(calendar.title)
-                                Text(calendar.source.title)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .tag(calendar as EKCalendar?)
+                        Text("\(calendar.title) · \(calendar.source.title)")
+                            .tag(calendar as EKCalendar?)
                     }
                 }
                 
