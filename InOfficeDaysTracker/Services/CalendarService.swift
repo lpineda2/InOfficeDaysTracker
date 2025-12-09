@@ -135,7 +135,9 @@ class CalendarService: ObservableObject {
             print("📅 [Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue) source=\(cal.source.title)")
         }
         // Include calendars that are writable OR are CalDAV/Exchange type (which may report as non-writable but still allow writes)
-        availableCalendars = allCalendars.filter { $0.allowsContentModifications || $0.type == .calDAV }
+        availableCalendars = allCalendars.filter { 
+            $0.allowsContentModifications || $0.type == .calDAV || $0.type == .exchange 
+        }
         print("📅 [Calendar] Loaded \(availableCalendars.count) writable calendars")
         
         if availableCalendars.isEmpty && allCalendars.isEmpty {
