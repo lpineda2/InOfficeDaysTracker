@@ -17,6 +17,7 @@ struct CalendarSettingsView: View {
     @State private var tempSettings: CalendarSettings
     @State private var selectedCalendar: EKCalendar?
     @State private var showingResetConfirmation = false
+    @State private var hasLoadedInitialSettings = false
     
     init(appData: AppData) {
         self.appData = appData
@@ -50,7 +51,12 @@ struct CalendarSettingsView: View {
             }
         }
         .onAppear {
-            loadCurrentSettings()
+            // Only load settings on first appearance to preserve user's unsaved changes
+            // when navigating back from calendar picker
+            if !hasLoadedInitialSettings {
+                loadCurrentSettings()
+                hasLoadedInitialSettings = true
+            }
         }
         .onChange(of: tempSettings.isEnabled) { _, isEnabled in
             if isEnabled && calendarService.availableCalendars.isEmpty {
