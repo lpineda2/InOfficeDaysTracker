@@ -509,20 +509,6 @@ struct SetupView: View {
     
     private var calendarPermissionView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
-            
-            Text("Calendar Integration")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Grant calendar access to automatically create events for your office visits.")
-                .font(.body)
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-            
             if calendarPermissionHandler.wasDenied {
                 Button("Open Settings") {
                     calendarPermissionHandler.openSettings()
