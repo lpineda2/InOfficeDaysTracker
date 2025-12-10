@@ -87,7 +87,8 @@ class CalendarEventManager: ObservableObject {
     ) -> CalendarEventData {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: visit.date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        // For all-day events, use the same day for start and end to display as a single day
+        let endOfDay = startOfDay
         
         let uid = CalendarEventUID.generate(for: visit.date)
         
