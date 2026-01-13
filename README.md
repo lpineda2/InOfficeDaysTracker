@@ -60,6 +60,13 @@ This app is built following Apple's official development guidelines and best pra
 - **Detection Radius**: Adjust sensitivity based on your office building size
 - **Monthly Goals**: Set realistic targets (default: 12 days/month)
 
+### 🧮 **Smart Goal Calculation** *(v1.9.0)*
+- **Auto-Calculate Mode**: Let the app calculate required days based on your company policy
+- **Hybrid Policies**: Support for 40%, 50%, 60% hybrid, full office, or full remote
+- **Holiday Calendar**: Built-in US holiday presets (SIFMA, NYSE, Federal) with customization
+- **PTO & Sick Days**: Mark time off and goals adjust automatically
+- **Multiple Offices**: Configure up to 2 office locations - visits to either count toward your goal
+
 ### 🔔 **Smart Notifications**
 - **Visit Alerts**: Get notified when office visits are logged
 - **Goal Reminders**: Stay on track with progress notifications
@@ -121,14 +128,15 @@ Add these entries to your Info.plist file as per Apple's location services guide
 
 ### First-Time Setup
 
-The app guides you through a 6-step setup process following Apple's progressive disclosure principles:
+The app guides you through a 7-step setup process following Apple's progressive disclosure principles:
 
 1. **Welcome**: Overview of features and privacy policy
 2. **Office Location**: Enter your office address or use current location
 3. **Tracking Days**: Select which days to monitor (Mon-Fri recommended)
 4. **Office Hours**: Set your typical work schedule
-5. **Monthly Goal**: Choose your target in-office days per month
+5. **Monthly Goal**: Choose manual target or enable auto-calculate with your company's hybrid policy
 6. **Permissions**: Grant location and notification access following Apple's authorization guidelines
+7. **Calendar Integration**: Optionally sync office visits to your calendar
 
 ## 🏗️ Architecture
 
@@ -142,15 +150,22 @@ InOfficeDaysTracker/
 ├── 📊 Models/
 │   ├── AppData.swift                    # Main data model (ObservableObject)
 │   ├── AppSettings.swift               # User preferences
-│   └── OfficeVisit.swift               # Visit data structure
+│   ├── OfficeVisit.swift               # Visit data structure
+│   ├── CompanyPolicy.swift             # Hybrid work policy settings
+│   ├── HolidayCalendar.swift           # Holiday presets and calculations
+│   └── OfficeLocation.swift            # Multi-location support
 ├── 🔧 Services/
 │   ├── LocationService.swift           # Core Location & geofencing
-│   └── NotificationService.swift       # Local notifications
+│   ├── NotificationService.swift       # Local notifications
+│   └── CalendarService.swift           # Calendar integration
 ├── 🎨 Views/
 │   ├── SetupView.swift                 # Onboarding flow
 │   ├── MainProgressView.swift          # Dashboard
 │   ├── HistoryView.swift               # Visit history
-│   └── SettingsView.swift              # Configuration
+│   ├── SettingsView.swift              # Configuration
+│   ├── PolicySettingsView.swift        # Goal & policy settings
+│   ├── HolidaySettingsView.swift       # Holiday configuration
+│   └── OfficeLocationsView.swift       # Multi-office management
 └── 📋 Resources/
     ├── Info.plist                      # App configuration
     └── Assets.xcassets                  # Images and colors
