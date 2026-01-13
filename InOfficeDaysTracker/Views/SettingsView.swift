@@ -47,10 +47,10 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                locationSection
+                goalsSection
+                officeLocationsSection
                 trackingSection
                 calendarSection
-                goalsSection
                 notificationsSection
                 dataSection
             }
@@ -81,6 +81,88 @@ struct SettingsView: View {
             } message: {
                 Text("This will permanently delete all visit history and reset your settings. This action cannot be undone.")
             }
+        }
+    }
+    
+    // MARK: - Goals Section (Updated for Auto-Calculate)
+    
+    private var goalsSection: some View {
+        Section {
+            NavigationLink(destination: PolicySettingsView(appData: appData)) {
+                HStack {
+                    Image(systemName: "target")
+                        .foregroundColor(.blue)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Monthly Goal")
+                            .font(.body)
+                        
+                        Text(goalStatusText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+            }
+        } header: {
+            Text("Goals")
+        } footer: {
+            Text("Configure manual or policy-based goal calculation.")
+        }
+    }
+    
+    private var goalStatusText: String {
+        if appData.settings.autoCalculateGoal {
+            let goal = appData.getGoalForMonth(Date())
+            return "Auto-calculate: \(goal) days this month"
+        } else {
+            return "Manual: \(appData.settings.monthlyGoal) days"
+        }
+    }
+    
+    // MARK: - Office Locations Section (New)
+    
+    private var officeLocationsSection: some View {
+        Section {
+            NavigationLink(destination: OfficeLocationsView(appData: appData)) {
+                HStack {
+                    Image(systemName: "mappin.and.ellipse")
+                        .foregroundColor(.blue)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Office Locations")
+                            .font(.body)
+                        
+                        Text(locationsStatusText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+            }
+        } header: {
+            Text("Locations")
+        } footer: {
+            Text("Visits to any configured location count toward your goal.")
+        }
+    }
+    
+    private var locationsStatusText: String {
+        let count = appData.settings.officeLocations.count
+        if count == 0 {
+            // Check legacy single location
+            if appData.settings.officeLocation != nil {
+                return "1 location configured"
+            }
+            return "No locations configured"
+        } else if count == 1 {
+            return "1 location configured"
+        } else {
+            return "\(count) locations configured"
         }
     }
     
@@ -238,43 +320,6 @@ struct SettingsView: View {
             return "Enabled - Events will be created"
         } else {
             return "Tap to configure calendar integration"
-        }
-    }
-    
-    private var goalsSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Monthly Goal")
-                        .font(.body)
-                    Spacer()
-                    Text("\(monthlyGoal) days")
-                        .font(.body)
-                        .foregroundColor(.blue)
-                        .fontWeight(.medium)
-                }
-                
-                Slider(value: Binding(
-                    get: { Double(monthlyGoal) },
-                    set: { monthlyGoal = Int($0) }
-                ), in: 1...31, step: 1)
-                .tint(.blue)
-                
-                HStack {
-                    Text("1 day")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text("31 days")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
-        } header: {
-            Text("Goals")
-        } footer: {
-            Text("Set your target number of office days per month to track your progress.")
         }
     }
     

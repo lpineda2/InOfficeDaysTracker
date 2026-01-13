@@ -358,9 +358,140 @@ class AppData: ObservableObject {
         let visitsInProgress = allVisits.filter { $0.isActiveSession } // Currently in office
         
         let current = validVisits.count + visitsInProgress.count
-        let goal = settings.monthlyGoal
+        let goal = getGoalForMonth(currentMonth)
         let percentage = goal > 0 ? Double(current) / Double(goal) : 0.0
         return (current, goal, min(percentage, 1.0))
+    }
+    
+    // MARK: - Auto-Calculate Goal Methods
+    
+    /// Get the goal for a specific month, respecting locked historical goals
+    func getGoalForMonth(_ date: Date) -> Int {
+        let monthKey = monthKeyString(for: date)
+        
+        // Check if this is a past month with a locked goal
+        if let lockedGoal = settings.lockedMonthlyGoals[monthKey] {
+            return lockedGoal
+        }
+        
+        // For current/future months, calculate or use manual goal
+        if settings.autoCalculateGoal {
+            return calculateRequiredDays(for: date)
+        } else {
+            return settings.monthlyGoal
+        }
+    }
+    
+    /// Calculate required in-office days for a month based on company policy
+    func calculateRequiredDays(for month: Date) -> Int {
+        let businessDays = calculateBusinessDays(for: month)
+        let ptoCount = getPTODays(for: month).count
+        let workingDays = max(0, businessDays - ptoCount)
+        return settings.companyPolicy.calculateRequiredDays(workingDays: workingDays)
+    }
+    
+    /// Calculate business days (weekdays minus holidays) for a month
+    func calculateBusinessDays(for month: Date) -> Int {
+        let weekdays = getWeekdaysInMonth(month)
+        let holidays = getHolidaysInMonth(month)
+        return max(0, weekdays - holidays.count)
+    }
+    
+    /// Get all weekdays (based on tracking days setting) in a month
+    func getWeekdaysInMonth(_ month: Date) -> Int {
+        let calendar = Calendar.current
+        guard let range = calendar.range(of: .day, in: .month, for: month),
+              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: month)) else {
+            return 0
+        }
+        
+        var count = 0
+        for day in range {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstDay) {
+                let weekday = calendar.component(.weekday, from: date)
+                if settings.trackingDays.contains(weekday) {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+    
+    /// Get holidays that fall on tracking days in a month
+    func getHolidaysInMonth(_ month: Date) -> [Date] {
+        let calendar = Calendar.current
+        let allHolidays = settings.holidayCalendar.getHolidays(for: month)
+        
+        // Only count holidays that fall on tracking days (e.g., weekdays)
+        return allHolidays.filter { holiday in
+            let weekday = calendar.component(.weekday, from: holiday)
+            return settings.trackingDays.contains(weekday)
+        }
+    }
+    
+    /// Get PTO/sick days for a specific month
+    func getPTODays(for month: Date) -> [Date] {
+        let monthKey = monthKeyString(for: month)
+        return settings.ptoSickDays[monthKey] ?? []
+    }
+    
+    /// Add a PTO/sick day for a specific month
+    func addPTODay(_ date: Date) {
+        let monthKey = monthKeyString(for: date)
+        var days = settings.ptoSickDays[monthKey] ?? []
+        
+        // Avoid duplicates
+        let calendar = Calendar.current
+        if !days.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
+            days.append(date)
+            days.sort()
+            settings.ptoSickDays[monthKey] = days
+            saveSettings()
+        }
+    }
+    
+    /// Remove a PTO/sick day for a specific month
+    func removePTODay(_ date: Date) {
+        let monthKey = monthKeyString(for: date)
+        let calendar = Calendar.current
+        settings.ptoSickDays[monthKey]?.removeAll { calendar.isDate($0, inSameDayAs: date) }
+        saveSettings()
+    }
+    
+    /// Lock the goal for a specific month (called on month transition)
+    func lockGoalForMonth(_ date: Date) {
+        let monthKey = monthKeyString(for: date)
+        guard settings.lockedMonthlyGoals[monthKey] == nil else { return }
+        
+        settings.lockedMonthlyGoals[monthKey] = getGoalForMonth(date)
+        saveSettings()
+    }
+    
+    /// Generate a month key string (YYYY-MM format) for dictionary keys
+    private func monthKeyString(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.string(from: date)
+    }
+    
+    /// Get detailed calculation breakdown for UI display
+    func getGoalCalculationBreakdown(for month: Date) -> GoalCalculationBreakdown {
+        let weekdays = getWeekdaysInMonth(month)
+        let holidays = getHolidaysInMonth(month)
+        let businessDays = weekdays - holidays.count
+        let ptoDays = getPTODays(for: month)
+        let workingDays = max(0, businessDays - ptoDays.count)
+        let requiredDays = settings.companyPolicy.calculateRequiredDays(workingDays: workingDays)
+        
+        return GoalCalculationBreakdown(
+            weekdaysInMonth: weekdays,
+            holidays: holidays,
+            businessDays: businessDays,
+            ptoDays: ptoDays,
+            workingDays: workingDays,
+            policyPercentage: settings.companyPolicy.requiredPercentage,
+            requiredDays: requiredDays
+        )
     }
     
     private func saveVisits() {
@@ -661,6 +792,8 @@ class AppData: ObservableObject {
         // Check if migration already completed
         if sharedUserDefaults.bool(forKey: migrationKey) {
             print("[AppData] Data migration already completed")
+            // Still run v1.9.0 migration for office locations
+            migrateToMultipleOfficeLocations()
             return
         }
         
@@ -708,6 +841,69 @@ class AppData: ObservableObject {
         if migrationCount > 0 {
             print("[AppData] ✅ Your previous app data has been restored!")
         }
+        
+        // Run v1.9.0 migration for office locations
+        migrateToMultipleOfficeLocations()
+    }
+    
+    /// Migrate single office location to multiple office locations array (v1.9.0)
+    private func migrateToMultipleOfficeLocations() {
+        let migrationKey = "DataMigratedToMultipleLocations_v1.9.0"
+        
+        // Check if migration already completed
+        if sharedUserDefaults.bool(forKey: migrationKey) {
+            return
+        }
+        
+        print("[AppData] Starting v1.9.0 office location migration...")
+        
+        // If user has an existing single office location but no office locations array
+        if let existingLocation = settings.officeLocation,
+           settings.officeLocations.isEmpty {
+            let migratedLocation = OfficeLocation(
+                name: "Office",
+                coordinate: existingLocation,
+                address: settings.officeAddress,
+                detectionRadius: settings.detectionRadius,
+                isPrimary: true
+            )
+            settings.officeLocations = [migratedLocation]
+            saveSettings()
+            print("[AppData] Migrated single office location to locations array")
+        }
+        
+        // Mark migration as complete
+        sharedUserDefaults.set(true, forKey: migrationKey)
+        print("[AppData] v1.9.0 migration completed!")
+    }
+    
+    // MARK: - Multiple Office Location Helpers
+    
+    /// Check if a coordinate is within any configured office location
+    func isWithinAnyOfficeLocation(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        // Check new multiple locations first
+        if !settings.officeLocations.isEmpty {
+            return settings.officeLocations.contains { $0.contains(coordinate: coordinate) }
+        }
+        
+        // Fallback to legacy single location
+        guard let officeCoord = settings.officeLocation else { return false }
+        let officeLocation = CLLocation(latitude: officeCoord.latitude, longitude: officeCoord.longitude)
+        let checkLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return checkLocation.distance(from: officeLocation) <= settings.detectionRadius
+    }
+    
+    /// Get the primary office location (or first location if none marked primary)
+    func getPrimaryOfficeLocation() -> OfficeLocation? {
+        if let primary = settings.officeLocations.first(where: { $0.isPrimary }) {
+            return primary
+        }
+        return settings.officeLocations.first
+    }
+    
+    /// Get the office location that contains a given coordinate
+    func getOfficeLocation(containing coordinate: CLLocationCoordinate2D) -> OfficeLocation? {
+        return settings.officeLocations.first { $0.contains(coordinate: coordinate) }
     }
     
     // MARK: - Calendar Integration

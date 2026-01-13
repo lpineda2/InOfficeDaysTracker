@@ -399,6 +399,8 @@ struct GoalProgressSection: View {
     let daysLeft: Int
     let appData: AppData  // Add appData to access tracking settings
     
+    @State private var showingCalculationDetails = false
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Goal Progress")
@@ -437,6 +439,39 @@ struct GoalProgressSection: View {
                             .foregroundColor(.blue)
                     }
                 }
+                
+                // Show goal source (auto-calculated vs manual)
+                Divider()
+                
+                if appData.settings.autoCalculateGoal {
+                    Button {
+                        showingCalculationDetails = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "function")
+                                .foregroundColor(.blue)
+                            Text("Calculated Goal")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("\(goal) days")
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    HStack {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundColor(.secondary)
+                        Text("Manual Goal")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(goal) days")
+                            .fontWeight(.medium)
+                    }
+                }
             }
             .font(.subheadline)
         }
@@ -445,6 +480,9 @@ struct GoalProgressSection: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.systemGray6))
         )
+        .sheet(isPresented: $showingCalculationDetails) {
+            CalculationDetailsSheet(appData: appData)
+        }
     }
     
     private func calculatePace() -> String {
@@ -473,6 +511,109 @@ struct GoalProgressSection: View {
         } else {
             return String(format: "%.1f days/week", weeklyRate)
         }
+    }
+}
+
+// MARK: - Calculation Details Sheet
+
+struct CalculationDetailsSheet: View {
+    @ObservedObject var appData: AppData
+    @Environment(\.dismiss) private var dismiss
+    
+    private let currentMonth = Date()
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section {
+                    let breakdown = appData.getGoalCalculationBreakdown(for: currentMonth)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        CalculationDetailRow(label: "Weekdays in month", value: "\(breakdown.weekdaysInMonth)")
+                        
+                        if breakdown.holidayCount > 0 {
+                            CalculationDetailRow(label: "Holidays", value: "− \(breakdown.holidayCount)", color: .orange)
+                        }
+                        
+                        CalculationDetailRow(label: "Business days", value: "\(breakdown.businessDays)")
+                        
+                        if breakdown.ptoCount > 0 {
+                            CalculationDetailRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: .orange)
+                        }
+                        
+                        CalculationDetailRow(label: "Working days", value: "\(breakdown.workingDays)")
+                        
+                        CalculationDetailRow(label: "Policy (\(breakdown.percentageString))", value: "× \(breakdown.percentageString)", color: .blue)
+                        
+                        Divider()
+                        
+                        HStack {
+                            Text("Required days")
+                                .font(.headline)
+                            Spacer()
+                            Text("\(breakdown.requiredDays)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text(monthName)
+                }
+                
+                Section {
+                    HStack {
+                        Text("Policy")
+                        Spacer()
+                        Text(appData.settings.companyPolicy.displayName)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Holiday Calendar")
+                        Spacer()
+                        Text(appData.settings.holidayCalendar.preset.displayName)
+                            .foregroundColor(.secondary)
+                    }
+                } header: {
+                    Text("Settings")
+                }
+            }
+            .navigationTitle("Goal Calculation")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    private var monthName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: currentMonth)
+    }
+}
+
+struct CalculationDetailRow: View {
+    let label: String
+    let value: String
+    var color: Color = .primary
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.medium)
+                .foregroundColor(color)
+        }
+        .font(.subheadline)
     }
 }
 

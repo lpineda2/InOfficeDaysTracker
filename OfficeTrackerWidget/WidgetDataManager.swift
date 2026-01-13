@@ -302,7 +302,81 @@ class WidgetDataManager {
               let settings = try? JSONDecoder().decode(AppSettings.self, from: settingsData) else {
             return 10 // Default goal
         }
-        return settings.monthlyGoal
+        
+        // Check if auto-calculate is enabled
+        if settings.autoCalculateGoal {
+            // Check for locked goal first
+            let monthKey = getMonthKeyString(for: Date())
+            if let lockedGoal = settings.lockedMonthlyGoals[monthKey] {
+                return lockedGoal
+            }
+            
+            // Calculate the goal
+            return calculateRequiredDays(settings: settings)
+        } else {
+            return settings.monthlyGoal
+        }
+    }
+    
+    /// Calculate required in-office days based on company policy
+    private func calculateRequiredDays(settings: AppSettings) -> Int {
+        let businessDays = calculateBusinessDays(settings: settings)
+        let ptoCount = getPTODays(settings: settings).count
+        let workingDays = max(0, businessDays - ptoCount)
+        return settings.companyPolicy.calculateRequiredDays(workingDays: workingDays)
+    }
+    
+    /// Calculate business days (weekdays minus holidays) for current month
+    private func calculateBusinessDays(settings: AppSettings) -> Int {
+        let weekdays = getWeekdaysInMonth(settings: settings)
+        let holidays = getHolidaysInMonth(settings: settings)
+        return max(0, weekdays - holidays.count)
+    }
+    
+    /// Get all weekdays in current month based on tracking days
+    private func getWeekdaysInMonth(settings: AppSettings) -> Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let range = calendar.range(of: .day, in: .month, for: now),
+              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else {
+            return 0
+        }
+        
+        var count = 0
+        for day in range {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstDay) {
+                let weekday = calendar.component(.weekday, from: date)
+                if settings.trackingDays.contains(weekday) {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+    
+    /// Get holidays in current month that fall on tracking days
+    private func getHolidaysInMonth(settings: AppSettings) -> [Date] {
+        let calendar = Calendar.current
+        let now = Date()
+        let allHolidays = settings.holidayCalendar.getHolidays(for: now)
+        
+        return allHolidays.filter { holiday in
+            let weekday = calendar.component(.weekday, from: holiday)
+            return settings.trackingDays.contains(weekday)
+        }
+    }
+    
+    /// Get PTO days for current month
+    private func getPTODays(settings: AppSettings) -> [Date] {
+        let monthKey = getMonthKeyString(for: Date())
+        return settings.ptoSickDays[monthKey] ?? []
+    }
+    
+    /// Generate month key string (YYYY-MM format)
+    private func getMonthKeyString(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.string(from: date)
     }
     
     private func getTrackingDays() -> Set<Int> {

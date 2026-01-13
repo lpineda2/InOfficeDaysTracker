@@ -22,6 +22,14 @@ struct AppSettings: Codable {
     var calendarSettings: CalendarSettings = CalendarSettings.default
     var hasSeenCalendarSetup: Bool = false
     
+    // Auto-Calculate Goal Feature (v1.9.0)
+    var autoCalculateGoal: Bool = false  // Default OFF - manual goal is default
+    var companyPolicy: CompanyPolicy = CompanyPolicy()
+    var holidayCalendar: HolidayCalendar = HolidayCalendar()
+    var officeLocations: [OfficeLocation] = []  // Multiple locations (max 2)
+    var ptoSickDays: [String: [Date]] = [:]  // Keyed by "YYYY-MM"
+    var lockedMonthlyGoals: [String: Int] = [:]  // Historical goals keyed by "YYYY-MM"
+    
     struct OfficeHours: Codable {
         var startTime: Date = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
         var endTime: Date = Calendar.current.date(from: DateComponents(hour: 17, minute: 0)) ?? Date()
@@ -43,6 +51,8 @@ struct AppSettings: Codable {
         case officeAddress, detectionRadius, trackingDays, officeHours, monthlyGoal, notificationsEnabled, isSetupComplete
         case officeLatitude, officeLongitude
         case calendarSettings, hasSeenCalendarSetup
+        // Auto-Calculate Goal Feature (v1.9.0)
+        case autoCalculateGoal, companyPolicy, holidayCalendar, officeLocations, ptoSickDays, lockedMonthlyGoals
     }
     
     init() {}
@@ -68,6 +78,14 @@ struct AppSettings: Codable {
         // Calendar settings (added in v1.8.0)
         calendarSettings = try container.decodeIfPresent(CalendarSettings.self, forKey: .calendarSettings) ?? CalendarSettings.default
         hasSeenCalendarSetup = try container.decodeIfPresent(Bool.self, forKey: .hasSeenCalendarSetup) ?? false
+        
+        // Auto-Calculate Goal Feature (v1.9.0)
+        autoCalculateGoal = try container.decodeIfPresent(Bool.self, forKey: .autoCalculateGoal) ?? false
+        companyPolicy = try container.decodeIfPresent(CompanyPolicy.self, forKey: .companyPolicy) ?? CompanyPolicy()
+        holidayCalendar = try container.decodeIfPresent(HolidayCalendar.self, forKey: .holidayCalendar) ?? HolidayCalendar()
+        officeLocations = try container.decodeIfPresent([OfficeLocation].self, forKey: .officeLocations) ?? []
+        ptoSickDays = try container.decodeIfPresent([String: [Date]].self, forKey: .ptoSickDays) ?? [:]
+        lockedMonthlyGoals = try container.decodeIfPresent([String: Int].self, forKey: .lockedMonthlyGoals) ?? [:]
     }
     
     func encode(to encoder: Encoder) throws {
@@ -91,6 +109,14 @@ struct AppSettings: Codable {
         // Calendar settings (added in v1.8.0)
         try container.encode(calendarSettings, forKey: .calendarSettings)
         try container.encode(hasSeenCalendarSetup, forKey: .hasSeenCalendarSetup)
+        
+        // Auto-Calculate Goal Feature (v1.9.0)
+        try container.encode(autoCalculateGoal, forKey: .autoCalculateGoal)
+        try container.encode(companyPolicy, forKey: .companyPolicy)
+        try container.encode(holidayCalendar, forKey: .holidayCalendar)
+        try container.encode(officeLocations, forKey: .officeLocations)
+        try container.encode(ptoSickDays, forKey: .ptoSickDays)
+        try container.encode(lockedMonthlyGoals, forKey: .lockedMonthlyGoals)
     }
     
     var trackingDaysFormatted: String {
