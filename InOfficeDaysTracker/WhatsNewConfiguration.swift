@@ -62,7 +62,7 @@ struct WhatsNewConfiguration {
                 )
             ],
             primaryAction: WhatsNew.PrimaryAction(
-                title: "Get Started",
+                title: "Configure in Settings",
                 backgroundColor: .accentColor,
                 foregroundColor: .white,
                 hapticFeedback: .notification(.success),
