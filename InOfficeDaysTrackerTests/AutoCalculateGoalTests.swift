@@ -1166,4 +1166,166 @@ final class AutoCalculateGoalTests: XCTestCase {
         
         XCTAssertEqual(preferredOffice?.name, "Primary HQ", "Primary office should be preferred when both match")
     }
+    
+    // MARK: - Settings Change Reactivity Tests
+    
+    /// Tests that toggling autoCalculateGoal changes the effective goal
+    @MainActor
+    func testAutoCalculateToggleChangesGoal() async {
+        let appData = AppData()
+        
+        // Setup: Configure manual goal and policy
+        var settings = appData.settings
+        settings.monthlyGoal = 10
+        settings.autoCalculateGoal = false
+        settings.companyPolicy = CompanyPolicy(policyType: .hybrid50)
+        settings.holidayCalendar = HolidayCalendar(preset: .none)
+        appData.updateSettings(settings)
+        
+        let currentMonth = Date()
+        
+        // With auto-calculate OFF, should use manual goal
+        let manualGoal = appData.getGoalForMonth(currentMonth)
+        XCTAssertEqual(manualGoal, 10, "Manual goal should be 10")
+        
+        // Toggle auto-calculate ON
+        var newSettings = appData.settings
+        newSettings.autoCalculateGoal = true
+        appData.updateSettings(newSettings)
+        
+        // Now should use calculated goal (different from manual)
+        let calculatedGoal = appData.getGoalForMonth(currentMonth)
+        
+        // Verify settings actually changed
+        XCTAssertTrue(appData.settings.autoCalculateGoal, "autoCalculateGoal should be true after update")
+        
+        // Calculated goal should be based on business days (likely different from 10)
+        // For January 2026: ~23 weekdays, 50% hybrid = ~11-12 days
+        XCTAssertNotEqual(calculatedGoal, manualGoal, "Calculated goal should differ from manual goal")
+    }
+    
+    /// Tests that updateSettings properly persists the autoCalculateGoal setting
+    @MainActor
+    func testUpdateSettingsPersistsAutoCalculate() async {
+        let appData = AppData()
+        
+        // Start with auto-calculate OFF
+        var settings = appData.settings
+        settings.autoCalculateGoal = false
+        appData.updateSettings(settings)
+        XCTAssertFalse(appData.settings.autoCalculateGoal)
+        
+        // Turn ON using proper update pattern (copy, modify, update)
+        var newSettings = appData.settings
+        newSettings.autoCalculateGoal = true
+        appData.updateSettings(newSettings)
+        
+        // Verify the setting is now ON
+        XCTAssertTrue(appData.settings.autoCalculateGoal, "autoCalculateGoal should be true after update")
+    }
+    
+    /// Tests that getCurrentMonthProgress returns different goals based on autoCalculateGoal
+    @MainActor
+    func testGetCurrentMonthProgressReflectsSettingChange() async {
+        let appData = AppData()
+        
+        // Setup
+        var settings = appData.settings
+        settings.monthlyGoal = 8
+        settings.autoCalculateGoal = false
+        settings.companyPolicy = CompanyPolicy(policyType: .hybrid60)  // 60% = more days
+        settings.holidayCalendar = HolidayCalendar(preset: .none)
+        appData.updateSettings(settings)
+        
+        // Get progress with manual goal
+        let manualProgress = appData.getCurrentMonthProgress()
+        XCTAssertEqual(manualProgress.goal, 8, "Should use manual goal of 8")
+        
+        // Toggle to auto-calculate
+        var newSettings = appData.settings
+        newSettings.autoCalculateGoal = true
+        appData.updateSettings(newSettings)
+        
+        // Get progress with auto-calculated goal
+        let autoProgress = appData.getCurrentMonthProgress()
+        
+        // With hybrid60 and ~23 weekdays, should be ~14 days (not 8)
+        XCTAssertNotEqual(autoProgress.goal, 8, "Auto-calculated goal should differ from manual goal of 8")
+        XCTAssertGreaterThan(autoProgress.goal, 8, "Hybrid60 should require more than 8 days")
+    }
+    
+    /// Tests that toggling back to manual restores the manual goal
+    @MainActor
+    func testToggleBackToManualRestoresGoal() async {
+        let appData = AppData()
+        
+        // Setup with manual goal
+        var settings = appData.settings
+        settings.monthlyGoal = 12
+        settings.autoCalculateGoal = false
+        appData.updateSettings(settings)
+        
+        let initialGoal = appData.getCurrentMonthProgress().goal
+        XCTAssertEqual(initialGoal, 12)
+        
+        // Switch to auto-calculate
+        var autoSettings = appData.settings
+        autoSettings.autoCalculateGoal = true
+        appData.updateSettings(autoSettings)
+        
+        // Switch back to manual
+        var manualSettings = appData.settings
+        manualSettings.autoCalculateGoal = false
+        appData.updateSettings(manualSettings)
+        
+        let restoredGoal = appData.getCurrentMonthProgress().goal
+        XCTAssertEqual(restoredGoal, 12, "Should restore to manual goal of 12")
+    }
+    
+    /// Tests that policy type changes are reflected immediately
+    @MainActor
+    func testPolicyTypeChangeReflectedImmediately() async {
+        let appData = AppData()
+        
+        // Setup with auto-calculate ON
+        var settings = appData.settings
+        settings.autoCalculateGoal = true
+        settings.companyPolicy = CompanyPolicy(policyType: .hybrid40)
+        settings.holidayCalendar = HolidayCalendar(preset: .none)
+        appData.updateSettings(settings)
+        
+        let hybrid40Goal = appData.getCurrentMonthProgress().goal
+        
+        // Change to hybrid60 (should increase required days)
+        var newSettings = appData.settings
+        newSettings.companyPolicy = CompanyPolicy(policyType: .hybrid60)
+        appData.updateSettings(newSettings)
+        
+        let hybrid60Goal = appData.getCurrentMonthProgress().goal
+        
+        XCTAssertGreaterThan(hybrid60Goal, hybrid40Goal, "Hybrid60 should require more days than Hybrid40")
+    }
+    
+    /// Tests multiple rapid setting changes
+    @MainActor
+    func testRapidSettingChanges() async {
+        let appData = AppData()
+        
+        // Simulate rapid toggles (like a user tapping quickly)
+        for i in 1...5 {
+            var settings = appData.settings
+            settings.autoCalculateGoal = (i % 2 == 0)  // Toggle on even iterations
+            appData.updateSettings(settings)
+        }
+        
+        // After 5 iterations (1,2,3,4,5), should end with OFF (5 is odd)
+        XCTAssertFalse(appData.settings.autoCalculateGoal, "Should be OFF after odd number of toggles")
+        
+        // One more toggle
+        var finalSettings = appData.settings
+        finalSettings.autoCalculateGoal = true
+        appData.updateSettings(finalSettings)
+        
+        XCTAssertTrue(appData.settings.autoCalculateGoal, "Should be ON after final toggle")
+    }
 }
