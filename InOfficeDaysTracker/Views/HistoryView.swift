@@ -171,7 +171,7 @@ struct AddVisitSheet: View {
         NavigationView {
             Form {
                 Section(header: Text("Date")) {
-                    DatePicker("Visit Date", selection: $visitDate, displayedComponents: .date)
+                    DatePicker("Visit Date", selection: $visitDate, in: ...Date(), displayedComponents: .date)
                 }
                 Section(header: Text("Entry Time")) {
                     DatePicker("Entry Time", selection: $entryTime, displayedComponents: .hourAndMinute)

@@ -74,10 +74,6 @@ struct HolidaySettingsView: View {
     
     private var presetFooterText: String {
         switch selectedPreset {
-        case .sifma:
-            return "Standard 12-day schedule for brokerages and financial services."
-        case .sifmaModified:
-            return "SIFMA schedule excluding Columbus Day and Veterans Day."
         case .nyse:
             return "New York Stock Exchange market holiday schedule."
         case .usFederal:

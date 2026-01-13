@@ -9,7 +9,7 @@ import Foundation
 
 /// Represents a holiday calendar configuration with presets and custom overrides
 struct HolidayCalendar: Codable, Equatable {
-    var preset: HolidayPreset = .sifmaModified
+    var preset: HolidayPreset = .nyse
     var customRemovals: [HolidayDate] = []   // Holidays from preset to exclude
     var customAdditions: [HolidayDate] = []  // Custom holidays to add
     
@@ -88,8 +88,6 @@ struct HolidayDate: Codable, Equatable, Hashable {
 
 /// Holiday calendar presets
 enum HolidayPreset: String, Codable, CaseIterable, Identifiable {
-    case sifma = "sifma"
-    case sifmaModified = "sifma_modified"
     case nyse = "nyse"
     case usFederal = "us_federal"
     case none = "none"
@@ -98,8 +96,6 @@ enum HolidayPreset: String, Codable, CaseIterable, Identifiable {
     
     var displayName: String {
         switch self {
-        case .sifma: return "SIFMA Financial Markets"
-        case .sifmaModified: return "SIFMA Modified"
         case .nyse: return "NYSE / Stock Exchange"
         case .usFederal: return "US Federal"
         case .none: return "None"
@@ -108,9 +104,7 @@ enum HolidayPreset: String, Codable, CaseIterable, Identifiable {
     
     var description: String {
         switch self {
-        case .sifma: return "12 holidays - Standard for brokerages"
-        case .sifmaModified: return "10 holidays - Excludes Columbus & Veterans Day"
-        case .nyse: return "9 holidays - Stock exchange schedule"
+        case .nyse: return "10 holidays - Stock exchange schedule"
         case .usFederal: return "11 holidays - Government schedule"
         case .none: return "No preset holidays"
         }
@@ -118,9 +112,7 @@ enum HolidayPreset: String, Codable, CaseIterable, Identifiable {
     
     var holidayCount: String {
         switch self {
-        case .sifma: return "12 days"
-        case .sifmaModified: return "10 days"
-        case .nyse: return "9 days"
+        case .nyse: return "10 days"
         case .usFederal: return "11 days"
         case .none: return "0 days"
         }
@@ -129,14 +121,6 @@ enum HolidayPreset: String, Codable, CaseIterable, Identifiable {
     /// The holidays included in this preset
     var holidays: [USHoliday] {
         switch self {
-        case .sifma:
-            return [.newYearsDay, .mlkDay, .presidentsDay, .goodFriday,
-                    .memorialDay, .juneteenth, .independenceDay, .laborDay,
-                    .columbusDay, .veteransDay, .thanksgiving, .christmas]
-        case .sifmaModified:
-            return [.newYearsDay, .mlkDay, .presidentsDay, .goodFriday,
-                    .memorialDay, .juneteenth, .independenceDay, .laborDay,
-                    .thanksgiving, .christmas]
         case .nyse:
             return [.newYearsDay, .mlkDay, .presidentsDay, .goodFriday,
                     .memorialDay, .juneteenth, .independenceDay, .laborDay,

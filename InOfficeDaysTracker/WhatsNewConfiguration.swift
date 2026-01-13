@@ -38,7 +38,7 @@ struct WhatsNewConfiguration {
                         foregroundColor: .orange
                     ),
                     title: "Holiday Calendar",
-                    subtitle: "Built-in US holiday presets including SIFMA banking holidays. Customize to match your company"
+                    subtitle: "Built-in US holiday presets (NYSE, Federal). Customize to match your company"
                 ),
                 
                 // PTO Tracking

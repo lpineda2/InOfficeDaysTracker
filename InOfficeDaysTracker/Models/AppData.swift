@@ -171,11 +171,12 @@ class AppData: ObservableObject {
             // Validate that the current visit is from today
             let calendar = Calendar.current
             if !calendar.isDate(visit.date, inSameDayAs: Date()) {
-                // Current visit is from a previous day, clear it
+                // Current visit is from a previous day - auto-close the session
+                autoCloseStaleVisit(visit)
                 currentVisit = nil
                 isCurrentlyInOffice = false
                 clearCurrentVisit()
-                print("[AppData] Cleared stale visit from previous day")
+                print("[AppData] Auto-closed and cleared stale visit from previous day")
             } else {
                 print("[AppData] Restored current visit from: \(visit.entryTime)")
                 
@@ -199,6 +200,24 @@ class AppData: ObservableObject {
     
     private func clearCurrentVisit() {
         sharedUserDefaults.removeObject(forKey: currentVisitKey)
+    }
+    
+    /// Auto-close a stale visit from a previous day by setting exit time to end of that day
+    private func autoCloseStaleVisit(_ staleVisit: OfficeVisit) {
+        var visit = staleVisit
+        let calendar = Calendar.current
+        
+        // Set exit time to 11:59 PM on the visit's date (end of that day)
+        if let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: visit.date) {
+            visit.endCurrentSession(at: endOfDay)
+            
+            // Update the visit in the array
+            if let index = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
+                visits[index] = visit
+                saveVisits()
+                print("[AppData] Auto-closed stale visit with exit time: \(endOfDay)")
+            }
+        }
     }
     
     // MARK: - Visit Management

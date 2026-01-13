@@ -63,7 +63,7 @@ This app is built following Apple's official development guidelines and best pra
 ### 🧮 **Smart Goal Calculation** *(v1.9.0)*
 - **Auto-Calculate Mode**: Let the app calculate required days based on your company policy
 - **Hybrid Policies**: Support for 40%, 50%, 60% hybrid, full office, or full remote
-- **Holiday Calendar**: Built-in US holiday presets (SIFMA, NYSE, Federal) with customization
+- **Holiday Calendar**: Built-in US holiday presets (NYSE, Federal) with customization
 - **PTO & Sick Days**: Mark time off and goals adjust automatically
 - **Multiple Offices**: Configure up to 2 office locations - visits to either count toward your goal
 
