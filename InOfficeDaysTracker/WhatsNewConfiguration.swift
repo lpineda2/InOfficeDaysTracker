@@ -2,13 +2,78 @@
 //  WhatsNewConfiguration.swift
 //  InOfficeDaysTracker
 //
-//  WhatsNew configuration for showcasing lock screen widgets
+//  WhatsNew configuration for showcasing new features
 //
 
 import SwiftUI
 import WhatsNewKit
 
 struct WhatsNewConfiguration {
+    
+    // MARK: - Version 1.9.0: Auto-Calculate Office Days
+    
+    /// The WhatsNew instance for version 1.9.0 auto-calculate office days
+    static var autoCalculateGoal: WhatsNew {
+        WhatsNew(
+            version: "1.9.0",
+            title: WhatsNew.Title(
+                text: "Smart Goal Calculation",
+                foregroundColor: .primary
+            ),
+            features: [
+                // Auto-Calculate Feature
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "function",
+                        foregroundColor: .blue
+                    ),
+                    title: "Auto-Calculate Goals",
+                    subtitle: "Set your company's hybrid policy and let the app calculate your required office days automatically"
+                ),
+                
+                // Holiday Calendar
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "calendar.badge.clock",
+                        foregroundColor: .orange
+                    ),
+                    title: "Holiday Calendar",
+                    subtitle: "Built-in US holiday presets including SIFMA banking holidays. Customize to match your company"
+                ),
+                
+                // PTO Tracking
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "figure.walk",
+                        foregroundColor: .green
+                    ),
+                    title: "PTO & Sick Days",
+                    subtitle: "Mark your time off and the goal adjusts automatically—no manual recalculation needed"
+                ),
+                
+                // Multiple Office Locations
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "building.2",
+                        foregroundColor: .purple
+                    ),
+                    title: "Multiple Offices",
+                    subtitle: "Configure up to 2 office locations. Visits to any location count toward your goal"
+                )
+            ],
+            primaryAction: WhatsNew.PrimaryAction(
+                title: "Get Started",
+                backgroundColor: .accentColor,
+                foregroundColor: .white,
+                hapticFeedback: .notification(.success),
+                onDismiss: {
+                    print("✅ [WhatsNew] Auto-calculate goal showcase dismissed")
+                }
+            )
+        )
+    }
+    
+    // MARK: - Version 1.7.0: Lock Screen Widgets
     
     /// The WhatsNew instance for version 1.7.0 lock screen and home screen widgets
     static var lockScreenWidgets: WhatsNew {
@@ -86,6 +151,7 @@ extension InOfficeDaysTrackerApp: WhatsNewCollectionProvider {
     
     /// Provide all WhatsNew instances for different versions
     var whatsNewCollection: WhatsNewCollection {
-        WhatsNewConfiguration.lockScreenWidgets
+        WhatsNewConfiguration.autoCalculateGoal  // 1.9.0
+        WhatsNewConfiguration.lockScreenWidgets  // 1.7.0
     }
 }
