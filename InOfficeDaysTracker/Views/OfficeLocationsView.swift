@@ -338,59 +338,65 @@ struct EditLocationView: View {
             newLocation.id = existingLocation.id
         }
         
+        // Create a copy of settings to modify
+        var newSettings = appData.settings
+        
         // If setting as primary, unset other primaries
         if isPrimary {
-            for i in appData.settings.officeLocations.indices {
-                appData.settings.officeLocations[i].isPrimary = false
+            for i in newSettings.officeLocations.indices {
+                newSettings.officeLocations[i].isPrimary = false
             }
         }
         
         if let existingLocation = location,
-           let index = appData.settings.officeLocations.firstIndex(where: { $0.id == existingLocation.id }) {
+           let index = newSettings.officeLocations.firstIndex(where: { $0.id == existingLocation.id }) {
             // Update existing
-            appData.settings.officeLocations[index] = newLocation
+            newSettings.officeLocations[index] = newLocation
         } else {
             // Add new
             // If this is the first location, make it primary
-            if appData.settings.officeLocations.isEmpty {
+            if newSettings.officeLocations.isEmpty {
                 newLocation.isPrimary = true
             }
-            appData.settings.officeLocations.append(newLocation)
+            newSettings.officeLocations.append(newLocation)
         }
         
         // Also update legacy single location for backwards compatibility
-        if let primary = appData.settings.officeLocations.first(where: { $0.isPrimary }) ?? appData.settings.officeLocations.first {
-            appData.settings.officeLocation = primary.coordinate
-            appData.settings.officeAddress = primary.address
-            appData.settings.detectionRadius = primary.detectionRadius
+        if let primary = newSettings.officeLocations.first(where: { $0.isPrimary }) ?? newSettings.officeLocations.first {
+            newSettings.officeLocation = primary.coordinate
+            newSettings.officeAddress = primary.address
+            newSettings.detectionRadius = primary.detectionRadius
         }
         
-        appData.updateSettings(appData.settings)
+        appData.updateSettings(newSettings)
         dismiss()
     }
     
     private func deleteLocation() {
         guard let locationToDelete = location else { return }
         
-        appData.settings.officeLocations.removeAll { $0.id == locationToDelete.id }
+        // Create a copy of settings to modify
+        var newSettings = appData.settings
+        
+        newSettings.officeLocations.removeAll { $0.id == locationToDelete.id }
         
         // Ensure at least one location is primary if locations remain
-        if !appData.settings.officeLocations.isEmpty &&
-           !appData.settings.officeLocations.contains(where: { $0.isPrimary }) {
-            appData.settings.officeLocations[0].isPrimary = true
+        if !newSettings.officeLocations.isEmpty &&
+           !newSettings.officeLocations.contains(where: { $0.isPrimary }) {
+            newSettings.officeLocations[0].isPrimary = true
         }
         
         // Update legacy single location
-        if let primary = appData.settings.officeLocations.first(where: { $0.isPrimary }) ?? appData.settings.officeLocations.first {
-            appData.settings.officeLocation = primary.coordinate
-            appData.settings.officeAddress = primary.address
-            appData.settings.detectionRadius = primary.detectionRadius
+        if let primary = newSettings.officeLocations.first(where: { $0.isPrimary }) ?? newSettings.officeLocations.first {
+            newSettings.officeLocation = primary.coordinate
+            newSettings.officeAddress = primary.address
+            newSettings.detectionRadius = primary.detectionRadius
         } else {
-            appData.settings.officeLocation = nil
-            appData.settings.officeAddress = ""
+            newSettings.officeLocation = nil
+            newSettings.officeAddress = ""
         }
         
-        appData.updateSettings(appData.settings)
+        appData.updateSettings(newSettings)
         dismiss()
     }
 }

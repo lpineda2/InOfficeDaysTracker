@@ -287,23 +287,27 @@ struct PolicySettingsView: View {
     // MARK: - Save Methods
     
     private func saveAutoCalculateSetting(_ value: Bool) {
-        appData.settings.autoCalculateGoal = value
-        appData.updateSettings(appData.settings)
+        var newSettings = appData.settings
+        newSettings.autoCalculateGoal = value
+        appData.updateSettings(newSettings)
     }
     
     private func saveManualGoal(_ value: Int) {
-        appData.settings.monthlyGoal = value
-        appData.updateSettings(appData.settings)
+        var newSettings = appData.settings
+        newSettings.monthlyGoal = value
+        appData.updateSettings(newSettings)
     }
     
     private func savePolicyType(_ value: PolicyType) {
-        appData.settings.companyPolicy.policyType = value
-        appData.updateSettings(appData.settings)
+        var newSettings = appData.settings
+        newSettings.companyPolicy.policyType = value
+        appData.updateSettings(newSettings)
     }
     
     private func saveCustomPercentage(_ value: Int) {
-        appData.settings.companyPolicy.customPercentage = value
-        appData.updateSettings(appData.settings)
+        var newSettings = appData.settings
+        newSettings.companyPolicy.customPercentage = value
+        appData.updateSettings(newSettings)
     }
 }
 

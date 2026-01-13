@@ -173,22 +173,24 @@ struct HolidaySettingsView: View {
     // MARK: - Actions
     
     private func updatePreset(_ preset: HolidayPreset) {
-        appData.settings.holidayCalendar.preset = preset
+        var newSettings = appData.settings
+        newSettings.holidayCalendar.preset = preset
         // Clear custom removals when changing preset
-        appData.settings.holidayCalendar.customRemovals = []
+        newSettings.holidayCalendar.customRemovals = []
         customRemovals = []
-        appData.updateSettings(appData.settings)
+        appData.updateSettings(newSettings)
     }
     
     private func toggleHoliday(_ holiday: USHoliday) {
+        var newSettings = appData.settings
         if customRemovals.contains(holiday) {
             customRemovals.remove(holiday)
-            appData.settings.holidayCalendar.customRemovals.removeAll { $0.holiday == holiday }
+            newSettings.holidayCalendar.customRemovals.removeAll { $0.holiday == holiday }
         } else {
             customRemovals.insert(holiday)
-            appData.settings.holidayCalendar.customRemovals.append(HolidayDate(holiday: holiday))
+            newSettings.holidayCalendar.customRemovals.append(HolidayDate(holiday: holiday))
         }
-        appData.updateSettings(appData.settings)
+        appData.updateSettings(newSettings)
     }
     
     private func addCustomHoliday() {
@@ -196,17 +198,19 @@ struct HolidaySettingsView: View {
         let month = calendar.component(.month, from: customHolidayDate)
         let day = calendar.component(.day, from: customHolidayDate)
         
+        var newSettings = appData.settings
         let newHoliday = HolidayDate(month: month, day: day, name: customHolidayName)
-        appData.settings.holidayCalendar.customAdditions.append(newHoliday)
-        appData.updateSettings(appData.settings)
+        newSettings.holidayCalendar.customAdditions.append(newHoliday)
+        appData.updateSettings(newSettings)
         
         showingAddCustomHoliday = false
         customHolidayName = ""
     }
     
     private func deleteCustomHoliday(at offsets: IndexSet) {
-        appData.settings.holidayCalendar.customAdditions.remove(atOffsets: offsets)
-        appData.updateSettings(appData.settings)
+        var newSettings = appData.settings
+        newSettings.holidayCalendar.customAdditions.remove(atOffsets: offsets)
+        appData.updateSettings(newSettings)
     }
     
     private func formatDate(_ date: Date) -> String {
