@@ -397,7 +397,7 @@ struct GoalProgressSection: View {
     let goal: Int
     let remaining: Int
     let daysLeft: Int
-    let appData: AppData  // Add appData to access tracking settings
+    @ObservedObject var appData: AppData  // ObservedObject to react to settings changes
     
     @State private var showingCalculationDetails = false
     
