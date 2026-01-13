@@ -161,7 +161,7 @@ struct EditLocationView: View {
     @State private var name: String = "Office"
     @State private var address: String = ""
     @State private var coordinate: CLLocationCoordinate2D?
-    @State private var detectionRadius: Double = 200
+    @State private var detectionRadius: Double = 1609.34  // Default 1 mile in meters
     @State private var isPrimary: Bool = false
     
     @State private var showingDeleteAlert = false
@@ -261,15 +261,20 @@ struct EditLocationView: View {
                         .fontWeight(.medium)
                 }
                 
-                Slider(value: $detectionRadius, in: 50...500, step: 50)
+                // Slider stores meters, but endpoints are region-specific
+                // Imperial: 0.25 to 1 mile (402.335m to 1609.34m), step 0.25 mile
+                // Metric: 0.25 to 1 km (250m to 1000m), step 0.25 km
+                Slider(value: $detectionRadius,
+                       in: usesImperial ? 402.335...1609.34 : 250...1000,
+                       step: usesImperial ? 402.335 : 250)
                     .tint(.blue)
                 
                 HStack {
-                    Text("50m")
+                    Text(usesImperial ? "0.25 mi" : "0.25 km")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("500m")
+                    Text(usesImperial ? "1 mi" : "1 km")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -307,14 +312,11 @@ struct EditLocationView: View {
     
     private var radiusDisplayText: String {
         if usesImperial {
-            let feet = detectionRadius * 3.28084
-            if feet >= 1000 {
-                return String(format: "%.1f mi", detectionRadius / 1609.34)
-            } else {
-                return String(format: "%.0f ft", feet)
-            }
+            let miles = detectionRadius / 1609.34
+            return String(format: "%.2f miles", miles)
         } else {
-            return "\(Int(detectionRadius)) m"
+            let km = detectionRadius / 1000.0
+            return String(format: "%.2f km", km)
         }
     }
     

@@ -47,6 +47,10 @@ class AppData: ObservableObject {
         migrateDataFromStandardUserDefaults()
         
         loadSettings()
+        
+        // Run v1.9.0 migration AFTER settings are loaded
+        migrateToMultipleOfficeLocations()
+        
         loadVisits()
         loadCurrentStatus()
         
@@ -792,8 +796,6 @@ class AppData: ObservableObject {
         // Check if migration already completed
         if sharedUserDefaults.bool(forKey: migrationKey) {
             print("[AppData] Data migration already completed")
-            // Still run v1.9.0 migration for office locations
-            migrateToMultipleOfficeLocations()
             return
         }
         
@@ -841,14 +843,12 @@ class AppData: ObservableObject {
         if migrationCount > 0 {
             print("[AppData] ✅ Your previous app data has been restored!")
         }
-        
-        // Run v1.9.0 migration for office locations
-        migrateToMultipleOfficeLocations()
     }
     
     /// Migrate single office location to multiple office locations array (v1.9.0)
     private func migrateToMultipleOfficeLocations() {
-        let migrationKey = "DataMigratedToMultipleLocations_v1.9.0"
+        // Use v2 key since original migration had a bug (ran before settings were loaded)
+        let migrationKey = "DataMigratedToMultipleLocations_v1.9.0_v2"
         
         // Check if migration already completed
         if sharedUserDefaults.bool(forKey: migrationKey) {

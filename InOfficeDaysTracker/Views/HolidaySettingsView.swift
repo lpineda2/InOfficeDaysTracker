@@ -100,7 +100,7 @@ struct HolidaySettingsView: View {
                 )
             }
         } header: {
-            Text("\(currentYear) Holidays")
+            Text(verbatim: "\(currentYear) Holidays")
         } footer: {
             if selectedPreset != .none {
                 Text("Tap to include or exclude individual holidays from the preset.")

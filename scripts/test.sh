@@ -32,7 +32,7 @@ echo -e "${YELLOW}📱 Running unit tests (serial execution for reliability)...$
 xcodebuild test \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+    -destination 'platform=iOS Simulator,OS=18.6,name=iPhone 16' \
     -parallel-testing-enabled NO \
     -quiet || {
     echo -e "${RED}❌ Tests failed!${NC}"
