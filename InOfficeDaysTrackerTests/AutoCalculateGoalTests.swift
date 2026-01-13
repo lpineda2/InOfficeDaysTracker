@@ -102,20 +102,8 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     // MARK: - HolidayCalendar Tests
     
-    func testSIFMAModifiedPresetHolidayCount() {
-        // SIFMA Modified has 10 holidays (excludes Columbus Day and Veterans Day)
-        let preset = HolidayPreset.sifmaModified
-        XCTAssertEqual(preset.holidays.count, 10)
-    }
-    
-    func testSIFMAPresetHolidayCount() {
-        // Full SIFMA has 12 holidays
-        let preset = HolidayPreset.sifma
-        XCTAssertEqual(preset.holidays.count, 12)
-    }
-    
     func testNYSEPresetHolidayCount() {
-        // NYSE has 10 holidays (same as SIFMA Modified per the code)
+        // NYSE has 10 holidays
         let preset = HolidayPreset.nyse
         XCTAssertEqual(preset.holidays.count, 10)
     }
@@ -124,6 +112,12 @@ final class AutoCalculateGoalTests: XCTestCase {
         // US Federal has 11 holidays
         let preset = HolidayPreset.usFederal
         XCTAssertEqual(preset.holidays.count, 11)
+    }
+    
+    func testNonePresetHolidayCount() {
+        // None preset has 0 holidays
+        let preset = HolidayPreset.none
+        XCTAssertEqual(preset.holidays.count, 0)
     }
     
     func testNewYearsDay2026() {
@@ -250,13 +244,13 @@ final class AutoCalculateGoalTests: XCTestCase {
     // MARK: - HolidayCalendar Custom Additions/Removals Tests
     
     func testHolidayCalendarCustomRemovals() {
-        var calendar = HolidayCalendar(preset: .sifma)
+        var calendar = HolidayCalendar(preset: .usFederal)
         calendar.customRemovals = [HolidayDate(holiday: .columbusDay), HolidayDate(holiday: .veteransDay)]
         
         let holidays = calendar.getHolidays(for: 2026)
         
-        // Should have 10 holidays (12 - 2 removed)
-        XCTAssertEqual(holidays.count, 10)
+        // Should have 9 holidays (11 - 2 removed)
+        XCTAssertEqual(holidays.count, 9)
     }
     
     func testHolidayCalendarCustomAdditions() {
@@ -479,7 +473,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     }
     
     func testHolidayCalendarCodable() throws {
-        var original = HolidayCalendar(preset: .sifmaModified)
+        var original = HolidayCalendar(preset: .nyse)
         original.customRemovals = [HolidayDate(holiday: .goodFriday)]
         original.customAdditions = [HolidayDate(month: 3, day: 15, name: "Floating")]
         
