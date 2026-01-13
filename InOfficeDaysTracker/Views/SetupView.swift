@@ -26,6 +26,10 @@ struct SetupView: View {
     @State private var monthlyGoal = 12
     @State private var notificationsEnabled = true
     
+    // Auto-Calculate Goal (Step 5)
+    @State private var autoCalculateGoal = false
+    @State private var selectedPolicyType: PolicyType = .hybrid50
+    
     // Calendar Integration (Step 7)
     @StateObject private var calendarService = CalendarService.shared
     @StateObject private var calendarPermissionHandler = CalendarPermissionHandler()
@@ -312,9 +316,9 @@ struct SetupView: View {
     }
     
     private var goalSettingStep: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 24) {
             VStack(spacing: 16) {
-                Image(systemName: "target")
+                Image(systemName: autoCalculateGoal ? "function" : "target")
                     .font(.system(size: 60))
                     .foregroundColor(.blue)
                 
@@ -322,31 +326,92 @@ struct SetupView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("How many office days do you want to aim for each month?")
+                Text(autoCalculateGoal 
+                     ? "Select your company's hybrid work policy"
+                     : "How many office days do you want to aim for each month?")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
             }
             
-            VStack(spacing: 20) {
-                Text("\(monthlyGoal) days")
-                    .font(.system(size: 48, weight: .bold))
-                    .foregroundColor(.blue)
-                
-                Slider(value: Binding(
-                    get: { Double(monthlyGoal) },
-                    set: { monthlyGoal = Int($0) }
-                ), in: 1...31, step: 1)
-                
-                HStack {
-                    Text("1 day")
+            // Auto-calculate toggle
+            Toggle(isOn: $autoCalculateGoal.animation()) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Auto-calculate based on policy")
+                        .font(.headline)
+                    Text("Let the app calculate your required days")
                         .font(.caption)
-                    Spacer()
-                    Text("31 days")
-                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            
+            if autoCalculateGoal {
+                // Policy picker
+                VStack(spacing: 16) {
+                    ForEach(PolicyType.allCases.filter { $0 != .custom }, id: \.self) { policy in
+                        Button {
+                            selectedPolicyType = policy
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(policy.displayName)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Text(policy.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if selectedPolicyType == policy {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.title2)
+                                }
+                            }
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedPolicyType == policy ? Color.blue.opacity(0.1) : Color(.systemGray6))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(selectedPolicyType == policy ? Color.blue : Color.clear, lineWidth: 2)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                
+                Text("You can customize holidays and PTO in Settings later")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 8)
+            } else {
+                // Manual goal slider
+                VStack(spacing: 20) {
+                    Text("\(monthlyGoal) days")
+                        .font(.system(size: 48, weight: .bold))
+                        .foregroundColor(.blue)
+                    
+                    Slider(value: Binding(
+                        get: { Double(monthlyGoal) },
+                        set: { monthlyGoal = Int($0) }
+                    ), in: 1...31, step: 1)
+                    
+                    HStack {
+                        Text("1 day")
+                            .font(.caption)
+                        Spacer()
+                        Text("31 days")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.secondary)
+                }
             }
             
             Spacer()
@@ -761,6 +826,12 @@ struct SetupView: View {
                 newSettings.officeHours.endTime = endTime
                 newSettings.monthlyGoal = monthlyGoal
                 newSettings.notificationsEnabled = notificationsEnabled
+                
+                // Auto-Calculate Goal Settings
+                newSettings.autoCalculateGoal = autoCalculateGoal
+                if autoCalculateGoal {
+                    newSettings.companyPolicy = CompanyPolicy(policyType: selectedPolicyType)
+                }
                 
                 // Calendar Integration Settings
                 print("🔍 [SetupView] Setting calendar integration settings:")
