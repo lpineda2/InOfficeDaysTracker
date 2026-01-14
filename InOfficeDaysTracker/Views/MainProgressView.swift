@@ -519,6 +519,7 @@ struct GoalProgressSection: View {
 struct CalculationDetailsSheet: View {
     @ObservedObject var appData: AppData
     @Environment(\.dismiss) private var dismiss
+    @State private var showingPTOPicker = false
     
     private let currentMonth = Date()
     
@@ -537,8 +538,9 @@ struct CalculationDetailsSheet: View {
                         
                         CalculationDetailRow(label: "Business days", value: "\(breakdown.businessDays)")
                         
-                        if breakdown.ptoCount > 0 {
-                            CalculationDetailRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: .orange)
+                        // Tappable PTO row - always show for easy access
+                        TappablePTORow(ptoCount: breakdown.ptoCount) {
+                            showingPTOPicker = true
                         }
                         
                         CalculationDetailRow(label: "Working days", value: "\(breakdown.workingDays)")
@@ -589,6 +591,9 @@ struct CalculationDetailsSheet: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingPTOPicker) {
+                PTOPickerSheet(appData: appData, month: currentMonth)
+            }
         }
     }
     
@@ -614,6 +619,30 @@ struct CalculationDetailRow: View {
                 .foregroundColor(color)
         }
         .font(.subheadline)
+    }
+}
+
+/// Tappable row for PTO/Sick days that navigates to the PTO picker
+struct TappablePTORow: View {
+    let ptoCount: Int
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                Text("PTO/Sick days")
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(ptoCount > 0 ? "− \(ptoCount)" : "Add")
+                    .fontWeight(.medium)
+                    .foregroundColor(.blue)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .font(.subheadline)
+        }
+        .buttonStyle(.plain)
     }
 }
 
