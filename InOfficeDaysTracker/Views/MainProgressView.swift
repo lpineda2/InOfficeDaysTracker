@@ -400,6 +400,9 @@ struct GoalProgressSection: View {
     @ObservedObject var appData: AppData  // ObservedObject to react to settings changes
     
     @State private var showingCalculationDetails = false
+    @State private var showingPTOPicker = false
+    
+    private let currentMonth = Date()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -461,6 +464,27 @@ struct GoalProgressSection: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    
+                    // PTO/Sick day shortcut - only show when auto-calculate is enabled
+                    Button {
+                        showingPTOPicker = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "figure.walk")
+                                .foregroundColor(.green)
+                            Text("PTO/Sick Days")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            let ptoCount = appData.getPTODays(for: currentMonth).count
+                            Text(ptoCount > 0 ? "\(ptoCount) day\(ptoCount == 1 ? "" : "s")" : "Add")
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 } else {
                     HStack {
                         Image(systemName: "slider.horizontal.3")
@@ -482,6 +506,9 @@ struct GoalProgressSection: View {
         )
         .sheet(isPresented: $showingCalculationDetails) {
             CalculationDetailsSheet(appData: appData)
+        }
+        .sheet(isPresented: $showingPTOPicker) {
+            PTOPickerSheet(appData: appData, month: currentMonth)
         }
     }
     
@@ -519,7 +546,6 @@ struct GoalProgressSection: View {
 struct CalculationDetailsSheet: View {
     @ObservedObject var appData: AppData
     @Environment(\.dismiss) private var dismiss
-    @State private var showingPTOPicker = false
     
     private let currentMonth = Date()
     
@@ -538,9 +564,8 @@ struct CalculationDetailsSheet: View {
                         
                         CalculationDetailRow(label: "Business days", value: "\(breakdown.businessDays)")
                         
-                        // Tappable PTO row - always show for easy access
-                        TappablePTORow(ptoCount: breakdown.ptoCount) {
-                            showingPTOPicker = true
+                        if breakdown.ptoCount > 0 {
+                            CalculationDetailRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: .orange)
                         }
                         
                         CalculationDetailRow(label: "Working days", value: "\(breakdown.workingDays)")
@@ -591,9 +616,6 @@ struct CalculationDetailsSheet: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingPTOPicker) {
-                PTOPickerSheet(appData: appData, month: currentMonth)
-            }
         }
     }
     
@@ -619,30 +641,6 @@ struct CalculationDetailRow: View {
                 .foregroundColor(color)
         }
         .font(.subheadline)
-    }
-}
-
-/// Tappable row for PTO/Sick days that navigates to the PTO picker
-struct TappablePTORow: View {
-    let ptoCount: Int
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            HStack {
-                Text("PTO/Sick days")
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(ptoCount > 0 ? "− \(ptoCount)" : "Add")
-                    .fontWeight(.medium)
-                    .foregroundColor(.blue)
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .font(.subheadline)
-        }
-        .buttonStyle(.plain)
     }
 }
 
