@@ -39,22 +39,50 @@ struct TrendChartCard: View {
     }
     
     private var filteredData: [TrendDataPoint] {
-        let cutoffDate = Calendar.current.date(byAdding: .month, value: -selectedRange.rawValue, to: Date()) ?? Date()
-        return data.filter { $0.date >= cutoffDate }
+        // Use month-aligned cutoff and exclude the current month.
+        let calendar = Calendar.current
+        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) else {
+            return []
+        }
+
+        guard let cutoffDate = calendar.date(byAdding: .month, value: -selectedRange.rawValue, to: currentMonthStart) else {
+            return []
+        }
+
+        // Include dates in full months between cutoffDate (inclusive) and currentMonthStart (exclusive)
+        return data.filter { $0.date >= cutoffDate && $0.date < currentMonthStart }
     }
     
     private var aggregatedData: [TrendDataPoint] {
-        // Aggregate by month for monthly totals (3/6/9 month ranges)
+        // Aggregate by month and ensure months with zero values are present
         let calendar = Calendar.current
-        var monthlyData: [Date: Int] = [:]
 
+        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) else {
+            return []
+        }
+
+        guard let cutoffDate = calendar.date(byAdding: .month, value: -selectedRange.rawValue, to: currentMonthStart) else {
+            return []
+        }
+
+        var monthlyData: [Date: Int] = [:]
         for point in filteredData {
             let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: point.date)) ?? point.date
             monthlyData[monthStart, default: 0] += point.value
         }
 
-        return monthlyData.map { TrendDataPoint(date: $0.key, value: $0.value) }
-            .sorted { $0.date < $1.date }
+        // Build ordered list of month starts between cutoffDate and currentMonthStart (exclusive)
+        var months: [Date] = []
+        var iter = cutoffDate
+        while iter < currentMonthStart {
+            months.append(iter)
+            guard let next = calendar.date(byAdding: .month, value: 1, to: iter) else { break }
+            iter = next
+        }
+
+        return months.map { monthStart in
+            TrendDataPoint(date: monthStart, value: monthlyData[monthStart] ?? 0)
+        }
     }
     
     var body: some View {
