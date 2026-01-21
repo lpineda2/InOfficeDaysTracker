@@ -81,7 +81,11 @@ struct TrendChartCard: View {
         }
 
         return months.map { monthStart in
-            TrendDataPoint(date: monthStart, value: monthlyData[monthStart] ?? 0)
+            // Position the plotted point in the middle of the month so it visually aligns with the month label
+            let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+            let midOffset = daysInMonth / 2
+            let midDate = calendar.date(byAdding: .day, value: midOffset, to: monthStart) ?? monthStart
+            return TrendDataPoint(date: midDate, value: monthlyData[monthStart] ?? 0)
         }
     }
     
