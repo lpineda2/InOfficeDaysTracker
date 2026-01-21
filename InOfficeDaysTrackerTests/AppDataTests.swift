@@ -209,8 +209,9 @@ struct AppDataTests {
     func testProgressWithZeroGoal() async throws {
         let appData = createTestAppData()
         
-        // Set goal to 0
+        // Disable auto-calculate and set goal to 0
         var settings = appData.settings
+        settings.autoCalculateGoal = false
         settings.monthlyGoal = 0
         appData.updateSettings(settings)
         

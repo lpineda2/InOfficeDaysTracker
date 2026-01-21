@@ -231,4 +231,142 @@ struct ProgressCalculationTests {
         
         #expect(percentage == 0.0)
     }
+    
+    // MARK: - Custom Tracking Days Tests
+    
+    @Test("Working days remaining - Mon-Wed-Fri schedule")
+    func testCustomTrackingDaysMWF() async throws {
+        // Test with custom tracking days (Mon, Wed, Fri)
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15 // Monday
+        let startDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 4, 6] // Mon=2, Wed=4, Fri=6
+        
+        // Count remaining tracking days from Jan 15-31
+        var count = 0
+        var date = calendar.startOfDay(for: startDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: startDate)!.end
+        
+        // endOfMonth is start of next month, so use < not <=
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Jan 15-31: Mon(15), Wed(17), Fri(19), Mon(22), Wed(24), Fri(26), Mon(29), Wed(31)
+        // = 8 days (not 13 weekdays)
+        #expect(count == 8)
+    }
+    
+    @Test("Working days remaining - Tue-Thu schedule")
+    func testCustomTrackingDaysTueThu() async throws {
+        // Test with custom tracking days (Tue, Thu only)
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15 // Monday
+        let startDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [3, 5] // Tue=3, Thu=5
+        
+        var count = 0
+        var date = calendar.startOfDay(for: startDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: startDate)!.end
+        
+        // endOfMonth is start of next month, so use < not <=
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Jan 15-31: Tue(16), Thu(18), Tue(23), Thu(25), Tue(30)
+        // = 5 days (not 13 weekdays)
+        #expect(count == 5)
+    }
+    
+    @Test("Pace calculation - custom Mon-Wed-Fri schedule")
+    func testPaceCalculationCustomMWF() async throws {
+        let current = 6
+        let goal = 12
+        let trackingDaysRemaining = 9 // 9 Mon/Wed/Fri days left
+        let trackingDaysPerWeek = 3 // Mon, Wed, Fri
+        
+        let needed = goal - current // 6 visits needed
+        let dailyRate = Double(needed) / Double(trackingDaysRemaining) // 6/9 = 0.67
+        let weeklyRate = dailyRate * Double(trackingDaysPerWeek) // 0.67 × 3 = 2.0
+        
+        // Should show ~2.0 days/week (not 4.67 if using 7 days)
+        #expect(abs(weeklyRate - 2.0) < 0.01)
+    }
+    
+    // MARK: - Today Inclusion Tests
+    
+    @Test("Working days remaining - includes today when tracking day")
+    func testWorkingDaysIncludesToday() async throws {
+        // Test that today IS included when it's a tracking day
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 31 // Wednesday (last day of month)
+        let lastDay = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri
+        
+        var count = 0
+        var date = calendar.startOfDay(for: lastDay)
+        let endOfMonth = calendar.dateInterval(of: .month, for: lastDay)!.end
+        
+        // endOfMonth is start of next month, so use < not <=
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Last day of month: should count 1 (the 31st itself)
+        #expect(count == 1)
+    }
+    
+    @Test("Working days remaining - excludes today when not tracking day")
+    func testWorkingDaysExcludesTodayWhenWeekend() async throws {
+        // Test that today is properly handled when it's NOT a tracking day
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 27 // Saturday
+        let saturday = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri
+        
+        var count = 0
+        var date = calendar.startOfDay(for: saturday)
+        let endOfMonth = calendar.dateInterval(of: .month, for: saturday)!.end
+        
+        // endOfMonth is start of next month, so use < not <=
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // From Sat Jan 27 to end: Mon(29), Tue(30), Wed(31) = 3 days
+        #expect(count == 3)
+    }
 }

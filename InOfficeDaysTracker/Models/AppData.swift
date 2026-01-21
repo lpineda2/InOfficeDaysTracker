@@ -1038,15 +1038,16 @@ class AppData: ObservableObject {
     }
     
     /// Get number of working days remaining in current month
-    /// - Returns: Count of remaining tracking days
+    /// - Returns: Count of remaining tracking days (includes today if it's a tracking day)
     func getWorkingDaysRemaining() -> Int {
         let calendar = Calendar.current
         let now = Date()
         guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
         
         var count = 0
-        var date = now
+        var date = calendar.startOfDay(for: now)
         
+        // endOfMonth is the start of next month, so use < not <=
         while date < endOfMonth {
             let weekday = calendar.component(.weekday, from: date)
             if settings.trackingDays.contains(weekday) {

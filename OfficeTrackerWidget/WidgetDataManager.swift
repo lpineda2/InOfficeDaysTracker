@@ -214,13 +214,17 @@ class WidgetDataManager {
         let calendar = Calendar.current
         let now = Date()
         guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
+        
+        // Get user's tracking days from settings
+        let trackingDays = getTrackingDays()
+        
         var count = 0
-        var date = now
+        var date = calendar.startOfDay(for: now)
 
+        // endOfMonth is the start of next month, so use < not <=
         while date < endOfMonth {
             let weekday = calendar.component(.weekday, from: date)
-            // Weekdays: 2 = Monday, ..., 6 = Friday (matching MainProgressView exactly)
-            if weekday >= 2 && weekday <= 6 {
+            if trackingDays.contains(weekday) {
                 count += 1
             }
             date = calendar.date(byAdding: .day, value: 1, to: date)!

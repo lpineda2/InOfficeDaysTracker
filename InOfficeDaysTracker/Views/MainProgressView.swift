@@ -71,7 +71,7 @@ struct MainProgressView: View {
                         current: progressData.current,
                         goal: progressData.goal,
                         remaining: max(0, progressData.goal - progressData.current),
-                        daysLeft: getDaysRemainingInMonth(),
+                        daysLeft: appData.getWorkingDaysRemaining(),
                         appData: appData
                     )
                     
@@ -232,23 +232,8 @@ struct MainProgressView: View {
         return trend.map { TrendDataPoint(date: $0.date, value: $0.count) }
     }
     
-    private func getDaysRemainingInMonth() -> Int {
-        let calendar = Calendar.current
-        let now = Date()
-        guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
-        var count = 0
-        var date = now
-
-        while date < endOfMonth {
-            let weekday = calendar.component(.weekday, from: date)
-            if weekday >= 2 && weekday <= 6 {
-                count += 1
-            }
-            date = calendar.date(byAdding: .day, value: 1, to: date)!
-        }
-        return count
-    }
 }
+
 
 // MARK: - Pulse Animation Modifier
 
