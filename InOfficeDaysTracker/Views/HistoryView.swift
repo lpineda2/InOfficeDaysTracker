@@ -16,31 +16,29 @@ struct HistoryView: View {
     @State private var showingAddVisitSheet = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Month selector
-            monthSelector
-            // Add Visit button
-            HStack {
-                Spacer()
+        ScrollView {
+            VStack(spacing: 16) {
+                // Month selector card
+                monthSelector
+                
+                // Visit list
+                visitList
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+        .background(Color(.systemBackground))
+        .navigationTitle("History")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showingAddVisitSheet = true
                 } label: {
-                    Label("Add Visit", systemImage: "plus")
-                        .font(.headline)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(8)
+                    Image(systemName: "plus")
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
-            .background(Color(.systemGray6))
-            // Visit list
-            visitList
         }
-        .navigationTitle("History")
-        .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showingAddVisitSheet) {
             AddVisitSheet(appData: appData, isPresented: $showingAddVisitSheet)
         }
@@ -60,7 +58,8 @@ struct HistoryView: View {
     }
     
     private var monthSelector: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
+            // Month navigation
             HStack {
                 Button {
                     withAnimation {
@@ -68,12 +67,13 @@ struct HistoryView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.title2)
-                        .foregroundColor(.blue)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.cyan)
                 }
                 Spacer()
                 Text(monthName(for: selectedMonth))
-                    .font(.title2)
+                    .font(.title3)
                     .fontWeight(.semibold)
                 Spacer()
                 Button {
@@ -82,20 +82,31 @@ struct HistoryView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.title2)
-                        .foregroundColor(.blue)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.cyan)
                 }
+                .opacity(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month) ? 0.3 : 1.0)
                 .disabled(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month))
             }
+            
             // Month stats
-            HStack(spacing: 24) {
+            HStack(spacing: 32) {
                 StatView(title: "Visits", value: "\(appData.getValidVisits(for: selectedMonth).count)")
-                StatView(title: "Goal", value: "\(appData.settings.monthlyGoal)")
-                StatView(title: "Progress", value: "\(Int(Double(appData.getValidVisits(for: selectedMonth).count) / Double(appData.settings.monthlyGoal) * 100))%")
+                StatView(title: "Goal", value: "\(appData.getGoalForMonth(selectedMonth))")
+                StatView(title: "Progress", value: progressPercentage)
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+    }
+    
+    private var progressPercentage: String {
+        let visits = appData.getValidVisits(for: selectedMonth).count
+        let goal = appData.getGoalForMonth(selectedMonth)
+        guard goal > 0 else { return "0%" }
+        return "\(Int(Double(visits) / Double(goal) * 100))%"
     }
     
     private var visitList: some View {
@@ -106,15 +117,14 @@ struct HistoryView: View {
             if visits.isEmpty {
                 emptyState
             } else {
-                List {
+                LazyVStack(spacing: 12) {
                     ForEach(visits) { visit in
-                        VisitDetailRow(visit: visit) {
+                        VisitCard(visit: visit) {
                             visitToDelete = visit
                             showingDeleteAlert = true
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
             }
         }
     }
@@ -221,7 +231,7 @@ struct StatView: View {
             Text(value)
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(.blue)
+                .foregroundColor(.cyan)
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -229,7 +239,7 @@ struct StatView: View {
     }
 }
 
-struct VisitDetailRow: View {
+struct VisitCard: View {
     let visit: OfficeVisit
     let onDelete: () -> Void
     
@@ -297,10 +307,14 @@ struct VisitDetailRow: View {
                 }
             }
         }
-        .padding(.vertical, 8)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button("Delete", role: .destructive) {
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+        .contextMenu {
+            Button(role: .destructive) {
                 onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
         }
     }
