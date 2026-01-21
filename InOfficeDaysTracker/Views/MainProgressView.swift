@@ -57,7 +57,7 @@ struct MainProgressView: View {
                 // Trend Chart
                 TrendChartCard(
                     data: getTrendData(),
-                    hasEnoughData: appData.hasEnoughChartData(days: 90)
+                    hasEnoughData: appData.hasEnoughChartData(months: 9)
                 )
                 
                 // Recent Visits - tapping "See All" switches to History tab
@@ -228,7 +228,7 @@ struct MainProgressView: View {
     }
     
     private func getTrendData() -> [TrendDataPoint] {
-        let trend = appData.getVisitTrend(days: 90)
+        let trend = appData.getVisitTrend(months: 9)
         return trend.map { TrendDataPoint(date: $0.date, value: $0.count) }
     }
     

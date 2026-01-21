@@ -976,6 +976,46 @@ class AppData: ObservableObject {
         let daysWithData = trendData.filter { $0.count > 0 }.count
         return daysWithData >= 7
     }
+
+    /// Month-based visit trend helper. Keeps existing day-based API for compatibility.
+    /// - Parameter months: Number of months to look back
+    /// - Returns: Array of (date, visitCount) tuples for chart visualization (daily points)
+    func getVisitTrend(months: Int) -> [(date: Date, count: Int)] {
+        guard months > 0 else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        // Compute start date month-aware
+        guard let startDate = calendar.date(byAdding: .month, value: -months, to: today) else { return [] }
+
+        // Build a dictionary of visit counts by date
+        var visitsByDate: [Date: Int] = [:]
+        for visit in visits where visit.isValidVisit {
+            let visitDate = calendar.startOfDay(for: visit.date)
+            visitsByDate[visitDate, default: 0] += 1
+        }
+
+        // Iterate day-by-day from startDate to today
+        var result: [(date: Date, count: Int)] = []
+        var current = startDate
+        while current <= today {
+            let count = visitsByDate[current] ?? 0
+            result.append((date: current, count: count))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+
+        return result
+    }
+
+    /// Month-based wrapper to check if there's enough data for chart visualization
+    /// - Parameter months: Number of months to inspect
+    /// - Returns: True if at least 7 days of visit data exists in the range
+    func hasEnoughChartData(months: Int) -> Bool {
+        let trendData = getVisitTrend(months: months)
+        let daysWithData = trendData.filter { $0.count > 0 }.count
+        return daysWithData >= 7
+    }
     
     /// Calculate monthly streak - consecutive months meeting the goal
     /// Includes current month if goal is already met

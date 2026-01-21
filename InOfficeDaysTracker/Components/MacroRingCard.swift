@@ -90,14 +90,14 @@ struct MacroRingCard: View {
     }
     
     private var paceLabel: String {
-        if weeksRemaining <= 0 {
+        if daysRemaining <= 0 {
             return "Month over"
         } else if paceNeeded <= 0 {
             return "Goal met!"
         } else if paceNeeded > 5 {
             return "Challenging"
         } else {
-            return "\(weeksRemaining)wk left"
+            return "\(daysRemaining)d left"
         }
     }
 }

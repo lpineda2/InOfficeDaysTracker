@@ -22,24 +22,24 @@ struct TrendChartCard: View {
     let data: [TrendDataPoint]
     let hasEnoughData: Bool
     
-    @State private var selectedRange: TrendRange = .thirtyDays
-    
+    @State private var selectedRange: TrendRange = .threeMonths
+
     enum TrendRange: Int, CaseIterable {
-        case thirtyDays = 30
-        case sixtyDays = 60
-        case ninetyDays = 90
-        
+        case threeMonths = 3
+        case sixMonths = 6
+        case nineMonths = 9
+
         var label: String {
             switch self {
-            case .thirtyDays: return "30D"
-            case .sixtyDays: return "60D"
-            case .ninetyDays: return "90D"
+            case .threeMonths: return "3M"
+            case .sixMonths: return "6M"
+            case .nineMonths: return "9M"
             }
         }
     }
     
     private var filteredData: [TrendDataPoint] {
-        let cutoffDate = Calendar.current.date(byAdding: .day, value: -selectedRange.rawValue, to: Date()) ?? Date()
+        let cutoffDate = Calendar.current.date(byAdding: .month, value: -selectedRange.rawValue, to: Date()) ?? Date()
         return data.filter { $0.date >= cutoffDate }
     }
     
@@ -126,10 +126,10 @@ struct TrendChartCard: View {
             .symbolSize(30)
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .weekOfYear, count: xAxisStrideCount)) { value in
+            AxisMarks(values: .stride(by: .month, count: xAxisStrideCount)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                AxisValueLabel(format: .dateTime.month(.abbreviated))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
         }
@@ -146,9 +146,9 @@ struct TrendChartCard: View {
     
     private var xAxisStrideCount: Int {
         switch selectedRange {
-        case .thirtyDays: return 1
-        case .sixtyDays: return 2
-        case .ninetyDays: return 3
+        case .threeMonths: return 1
+        case .sixMonths: return 2
+        case .nineMonths: return 3
         }
     }
     
