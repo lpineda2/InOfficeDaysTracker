@@ -44,16 +44,16 @@ struct TrendChartCard: View {
     }
     
     private var aggregatedData: [TrendDataPoint] {
-        // Aggregate by week for cleaner visualization
+        // Aggregate by month for monthly totals (3/6/9 month ranges)
         let calendar = Calendar.current
-        var weeklyData: [Date: Int] = [:]
-        
+        var monthlyData: [Date: Int] = [:]
+
         for point in filteredData {
-            let weekStart = calendar.dateInterval(of: .weekOfYear, for: point.date)?.start ?? point.date
-            weeklyData[weekStart, default: 0] += point.value
+            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: point.date)) ?? point.date
+            monthlyData[monthStart, default: 0] += point.value
         }
-        
-        return weeklyData.map { TrendDataPoint(date: $0.key, value: $0.value) }
+
+        return monthlyData.map { TrendDataPoint(date: $0.key, value: $0.value) }
             .sorted { $0.date < $1.date }
     }
     
@@ -102,7 +102,7 @@ struct TrendChartCard: View {
         Chart(aggregatedData) { point in
             // Area fill
             AreaMark(
-                x: .value("Week", point.date, unit: .weekOfYear),
+                x: .value("Month", point.date, unit: .month),
                 y: .value("Days", point.value)
             )
             .foregroundStyle(DesignTokens.chartFill)
@@ -110,7 +110,7 @@ struct TrendChartCard: View {
             
             // Line
             LineMark(
-                x: .value("Week", point.date, unit: .weekOfYear),
+                x: .value("Month", point.date, unit: .month),
                 y: .value("Days", point.value)
             )
             .foregroundStyle(DesignTokens.chartLine)
@@ -119,7 +119,7 @@ struct TrendChartCard: View {
             
             // Points
             PointMark(
-                x: .value("Week", point.date, unit: .weekOfYear),
+                x: .value("Month", point.date, unit: .month),
                 y: .value("Days", point.value)
             )
             .foregroundStyle(DesignTokens.chartLine)

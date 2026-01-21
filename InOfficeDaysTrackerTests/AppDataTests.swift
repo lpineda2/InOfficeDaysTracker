@@ -21,6 +21,8 @@ struct AppDataTests {
         appData.visits = [] // Clear any existing visits
         appData.currentVisit = nil
         appData.isCurrentlyInOffice = false
+        // Ensure tests start with a clean settings state (avoid persisted UserDefaults interference)
+        appData.updateSettings(AppSettings())
         return appData
     }
     
