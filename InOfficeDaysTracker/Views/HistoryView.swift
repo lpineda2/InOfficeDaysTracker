@@ -234,12 +234,14 @@ struct VisitDetailRow: View {
     let onDelete: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Top row: Date and Duration
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(visit.formattedDate)
                         .font(.headline)
-                        .fontWeight(.medium)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                     Text(visit.dayOfWeek)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -247,49 +249,55 @@ struct VisitDetailRow: View {
                 
                 Spacer()
                 
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 2) {
                     Text(visit.formattedDuration)
                         .font(.headline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.cyan)
                     Text("Duration")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
             
-            Divider()
-            
+            // Bottom row: Entry and Exit times
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Entry Time")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(formatTime(visit.entryTime))
                         .font(.subheadline)
                         .fontWeight(.medium)
+                        .foregroundColor(.primary)
                 }
                 
                 Spacer()
                 
                 if let exitTime = visit.exitTime {
-                    VStack(alignment: .trailing, spacing: 4) {
+                    VStack(alignment: .trailing, spacing: 2) {
                         Text("Exit Time")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Text(formatTime(exitTime))
                             .font(.subheadline)
                             .fontWeight(.medium)
+                            .foregroundColor(.primary)
                     }
                 } else {
-                    Text("In Progress")
-                        .font(.subheadline)
-                        .foregroundColor(.orange)
-                        .fontWeight(.medium)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Status")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("In Progress")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Delete", role: .destructive) {
                 onDelete()
