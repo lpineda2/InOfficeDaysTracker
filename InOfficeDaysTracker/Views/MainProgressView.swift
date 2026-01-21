@@ -581,7 +581,9 @@ struct GoalProgressSection: View {
         if weeklyRate > Double(workingDaysPerWeek) {
             return "Goal unreachable"
         } else {
-            return String(format: "%.1f days/week", weeklyRate)
+            // Round to match MacroRingCard display (which uses Int(rounded()))
+            let roundedRate = weeklyRate.rounded()
+            return String(format: "%.0f days/week", roundedRate)
         }
     }
 }
