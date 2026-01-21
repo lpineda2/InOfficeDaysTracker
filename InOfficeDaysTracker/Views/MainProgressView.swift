@@ -10,9 +10,8 @@ import SwiftUI
 
 struct MainProgressView: View {
     @ObservedObject var appData: AppData
+    @Binding var selectedTab: MainTabView.Tab
     
-    @State private var showingHistory = false
-    @State private var showingSettings = false
     @State private var currentTime = Date()
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -24,49 +23,48 @@ struct MainProgressView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: DesignTokens.gridSpacing) {
-                    // Header with month
-                    headerSection
-                    
-                    // Hero Progress Card (Macro Ring style)
-                    MacroRingCard(
-                        daysCompleted: progressData.current,
-                        daysGoal: progressData.goal,
-                        daysRemaining: max(0, progressData.goal - progressData.current),
-                        paceNeeded: appData.getPaceNeeded(),
-                        weeksRemaining: appData.getWeeksRemaining()
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: DesignTokens.gridSpacing) {
+                // Header with month
+                headerSection
+                
+                // Hero Progress Card (Macro Ring style)
+                MacroRingCard(
+                    daysCompleted: progressData.current,
+                    daysGoal: progressData.goal,
+                    daysRemaining: max(0, progressData.goal - progressData.current),
+                    paceNeeded: appData.getPaceNeeded(),
+                    weeksRemaining: appData.getWeeksRemaining()
+                )
+                
+                // Status Card (if in office)
+                if appData.isCurrentlyInOffice, let currentVisit = appData.currentVisit {
+                    currentStatusCard(visit: currentVisit)
+                }
+                
+                // Mini Metric Cards - 2 column grid
+                LazyVGrid(columns: columns, spacing: DesignTokens.gridSpacing) {
+                    StreakMetricCard(
+                        streakMonths: appData.getMonthlyStreak(),
+                        isOnTrack: appData.isCurrentMonthGoalMet()
                     )
                     
-                    // Status Card (if in office)
-                    if appData.isCurrentlyInOffice, let currentVisit = appData.currentVisit {
-                        currentStatusCard(visit: currentVisit)
-                    }
-                    
-                    // Mini Metric Cards - 2 column grid
-                    LazyVGrid(columns: columns, spacing: DesignTokens.gridSpacing) {
-                        StreakMetricCard(
-                            streakMonths: appData.getMonthlyStreak(),
-                            isOnTrack: appData.isCurrentMonthGoalMet()
-                        )
-                        
-                        DurationMetricCard(
-                            averageHours: getAverageDuration()
-                        )
-                    }
-                    
-                    // Trend Chart
-                    TrendChartCard(
-                        data: getTrendData(),
-                        hasEnoughData: appData.hasEnoughChartData(days: 90)
+                    DurationMetricCard(
+                        averageHours: getAverageDuration()
                     )
-                    
-                    // Recent Visits
-                    RecentVisitsList(
-                        visits: getRecentVisitsDisplayItems(),
-                        onSeeAllTapped: { showingHistory = true }
-                    )
+                }
+                
+                // Trend Chart
+                TrendChartCard(
+                    data: getTrendData(),
+                    hasEnoughData: appData.hasEnoughChartData(days: 90)
+                )
+                
+                // Recent Visits - tapping "See All" switches to History tab
+                RecentVisitsList(
+                    visits: getRecentVisitsDisplayItems(),
+                    onSeeAllTapped: { selectedTab = .history }
+                )
                     
                     // Goal Progress Details
                     GoalProgressSection(
@@ -82,31 +80,8 @@ struct MainProgressView: View {
                 .padding(.horizontal)
             }
             .background(DesignTokens.appBackground)
-            .navigationTitle("In Office Days")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        showingHistory = true
-                    } label: {
-                        Image(systemName: "calendar")
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Image(systemName: "gear")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingHistory) {
-                HistoryView(appData: appData)
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView(appData: appData)
-            }
+            .navigationTitle("Home")
+            .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 currentTime = Date()
             }
@@ -115,7 +90,6 @@ struct MainProgressView: View {
                     currentTime = Date()
                 }
             }
-        }
     }
     
     // MARK: - Subviews
@@ -731,5 +705,6 @@ struct CalculationDetailRow: View {
 }
 
 #Preview {
-    MainProgressView(appData: AppData())
+    @Previewable @State var selectedTab: MainTabView.Tab = .home
+    MainProgressView(appData: AppData(), selectedTab: $selectedTab)
 }

@@ -15,7 +15,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if appData.settings.isSetupComplete {
-                MainProgressView(appData: appData)
+                MainTabView()
             } else {
                 SetupView(
                     appData: appData,

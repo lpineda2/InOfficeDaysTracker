@@ -28,7 +28,6 @@ struct SettingsView: View {
         }
     }
     @ObservedObject var appData: AppData
-    @Environment(\.dismiss) private var dismiss
     
     @State private var officeAddress: String = ""
     @State private var officeCoordinate: CLLocationCoordinate2D?
@@ -39,48 +38,37 @@ struct SettingsView: View {
     @State private var monthlyGoal: Int = 12
     @State private var notificationsEnabled: Bool = true
     
-    @State private var showingLocationUpdate = false
     @State private var showingResetAlert = false
     @State private var isUpdatingLocation = false
     @State private var updateError: String?
     
     var body: some View {
-        NavigationView {
-            Form {
-                goalsSection
-                officeLocationsSection
-                trackingSection
-                calendarSection
-                notificationsSection
-                dataSection
+        Form {
+            goalsSection
+            officeLocationsSection
+            trackingSection
+            calendarSection
+            notificationsSection
+            dataSection
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.large)
+        .onAppear {
+            loadCurrentSettings()
+        }
+        .onChange(of: trackingDays) {
+            autoSaveSettings()
+        }
+        .onChange(of: notificationsEnabled) {
+            autoSaveSettings()
+        }
+        .alert("Reset All Data", isPresented: $showingResetAlert) {
+            Button("Reset", role: .destructive) {
+                appData.clearAllData()
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        saveSettings()
-                    }
-                }
-            }
-            .onAppear {
-                loadCurrentSettings()
-            }
-            .alert("Reset All Data", isPresented: $showingResetAlert) {
-                Button("Reset", role: .destructive) {
-                    appData.clearAllData()
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This will permanently delete all visit history and reset your settings. This action cannot be undone.")
-            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete all visit history and reset your settings. This action cannot be undone.")
         }
     }
     
@@ -376,6 +364,17 @@ struct SettingsView: View {
         notificationsEnabled = settings.notificationsEnabled
     }
     
+    /// Auto-save settings when simple values change (for tab-based navigation)
+    private func autoSaveSettings() {
+        var newSettings = appData.settings
+        newSettings.trackingDays = Array(trackingDays)
+        newSettings.notificationsEnabled = notificationsEnabled
+        newSettings.officeHours.startTime = startTime
+        newSettings.officeHours.endTime = endTime
+        newSettings.monthlyGoal = monthlyGoal
+        appData.updateSettings(newSettings)
+    }
+    
     private func saveSettings() {
         isUpdatingLocation = true
         updateError = nil
@@ -422,7 +421,6 @@ struct SettingsView: View {
                     }
                     
                     isUpdatingLocation = false
-                    dismiss()
                 }
             } catch {
                 await MainActor.run {

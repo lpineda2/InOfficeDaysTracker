@@ -10,62 +10,52 @@ import CoreLocation
 
 struct HistoryView: View {
     @ObservedObject var appData: AppData
-    @Environment(\.dismiss) private var dismiss
     @State private var selectedMonth = Date()
     @State private var showingDeleteAlert = false
     @State private var visitToDelete: OfficeVisit?
     @State private var showingAddVisitSheet = false
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Month selector
-                monthSelector
-                // Add Visit button
-                HStack {
-                    Spacer()
-                    Button {
-                        showingAddVisitSheet = true
-                    } label: {
-                        Label("Add Visit", systemImage: "plus")
-                            .font(.headline)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 16)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color(.systemGray6))
-                // Visit list
-                visitList
-            }
-            .navigationTitle("Visit History")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        dismiss()
-                    }
+        VStack(spacing: 0) {
+            // Month selector
+            monthSelector
+            // Add Visit button
+            HStack {
+                Spacer()
+                Button {
+                    showingAddVisitSheet = true
+                } label: {
+                    Label("Add Visit", systemImage: "plus")
+                        .font(.headline)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
                 }
             }
-            .sheet(isPresented: $showingAddVisitSheet) {
-                AddVisitSheet(appData: appData, isPresented: $showingAddVisitSheet)
-            }
-            .alert("Delete Visit", isPresented: $showingDeleteAlert) {
-                Button("Delete", role: .destructive) {
-                    if let visit = visitToDelete {
-                        appData.deleteVisit(visit)
-                        visitToDelete = nil
-                    }
-                }
-                Button("Cancel", role: .cancel) {
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+            .background(Color(.systemGray6))
+            // Visit list
+            visitList
+        }
+        .navigationTitle("History")
+        .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $showingAddVisitSheet) {
+            AddVisitSheet(appData: appData, isPresented: $showingAddVisitSheet)
+        }
+        .alert("Delete Visit", isPresented: $showingDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                if let visit = visitToDelete {
+                    appData.deleteVisit(visit)
                     visitToDelete = nil
                 }
-            } message: {
-                Text("Are you sure you want to delete this visit? This action cannot be undone.")
             }
+            Button("Cancel", role: .cancel) {
+                visitToDelete = nil
+            }
+        } message: {
+            Text("Are you sure you want to delete this visit? This action cannot be undone.")
         }
     }
     
