@@ -80,7 +80,7 @@ struct MainProgressView: View {
                 .padding(.horizontal)
             }
             .background(DesignTokens.appBackground)
-            .navigationTitle("Home")
+            .navigationTitle("Dashboard")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 currentTime = Date()
@@ -97,7 +97,7 @@ struct MainProgressView: View {
     private var headerSection: some View {
         VStack(spacing: 4) {
             Text("Today")
-                .font(Typography.screenTitle)
+                .font(Typography.cardTitle)
                 .foregroundColor(DesignTokens.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             

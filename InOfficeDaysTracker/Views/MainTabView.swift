@@ -26,12 +26,12 @@ struct MainTabView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Home Tab - Main dashboard
+            // Dashboard Tab - Main dashboard
             NavigationStack {
                 MainProgressView(appData: appData, selectedTab: $selectedTab)
             }
             .tabItem {
-                Label("Home", systemImage: "house.fill")
+                Label("Dashboard", systemImage: "square.grid.2x2.fill")
             }
             .tag(Tab.home)
             
