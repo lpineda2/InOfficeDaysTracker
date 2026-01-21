@@ -937,6 +937,135 @@ class AppData: ObservableObject {
         await calendarEventManager.handleVisitUpdate(visit, settings: settings)
     }
     
+    // MARK: - Trend & Streak Data Methods (MFP-style dashboard)
+    
+    /// Get visit trend data for the chart - returns daily visit counts
+    /// - Parameter days: Number of days to look back
+    /// - Returns: Array of (date, visitCount) tuples for chart visualization
+    func getVisitTrend(days: Int) -> [(date: Date, count: Int)] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // Build a dictionary of visit counts by date
+        var visitsByDate: [Date: Int] = [:]
+        
+        for visit in visits where visit.isValidVisit {
+            let visitDate = calendar.startOfDay(for: visit.date)
+            visitsByDate[visitDate, default: 0] += 1
+        }
+        
+        // Generate data points for each day in the range
+        var result: [(date: Date, count: Int)] = []
+        let daysToInclude = min(days, 365) // Cap at 1 year
+        
+        for dayOffset in (0..<daysToInclude).reversed() {
+            if let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) {
+                let count = visitsByDate[date] ?? 0
+                result.append((date: date, count: count))
+            }
+        }
+        
+        return result
+    }
+    
+    /// Check if there's enough data for meaningful chart visualization
+    /// - Parameter days: Requested chart range
+    /// - Returns: True if at least 7 days of visit data exists
+    func hasEnoughChartData(days: Int) -> Bool {
+        let trendData = getVisitTrend(days: days)
+        let daysWithData = trendData.filter { $0.count > 0 }.count
+        return daysWithData >= 7
+    }
+    
+    /// Calculate monthly streak - consecutive months meeting the goal
+    /// Includes current month if goal is already met
+    /// - Returns: Number of consecutive months meeting the goal
+    func getMonthlyStreak() -> Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var checkDate = Date()
+        
+        // Check current month first
+        let currentProgress = getCurrentMonthProgress()
+        let currentMonthMet = currentProgress.current >= currentProgress.goal && currentProgress.goal > 0
+        
+        if currentMonthMet {
+            streak = 1
+            // Move to previous month
+            checkDate = calendar.date(byAdding: .month, value: -1, to: checkDate) ?? checkDate
+        }
+        
+        // Check previous months
+        for _ in 0..<24 { // Check up to 2 years back
+            let monthVisits = getValidVisits(for: checkDate)
+            let monthGoal = getGoalForMonth(checkDate)
+            
+            if monthVisits.count >= monthGoal && monthGoal > 0 {
+                streak += 1
+                checkDate = calendar.date(byAdding: .month, value: -1, to: checkDate) ?? checkDate
+            } else {
+                // Streak broken
+                break
+            }
+        }
+        
+        return streak
+    }
+    
+    /// Check if current month goal is already met
+    /// - Returns: True if current visits >= goal
+    func isCurrentMonthGoalMet() -> Bool {
+        let progress = getCurrentMonthProgress()
+        return progress.current >= progress.goal && progress.goal > 0
+    }
+    
+    /// Calculate pace needed to meet monthly goal
+    /// - Returns: Days per week needed, or 0 if goal already met
+    func getPaceNeeded() -> Double {
+        let progress = getCurrentMonthProgress()
+        let remaining = max(0, progress.goal - progress.current)
+        
+        guard remaining > 0 else { return 0.0 }
+        
+        let daysLeft = getWorkingDaysRemaining()
+        guard daysLeft > 0 else { return Double(remaining) } // All remaining days needed
+        
+        let workingDaysPerWeek = Double(settings.trackingDays.count)
+        guard workingDaysPerWeek > 0 else { return 0.0 }
+        
+        let dailyRate = Double(remaining) / Double(daysLeft)
+        return dailyRate * workingDaysPerWeek
+    }
+    
+    /// Get number of working days remaining in current month
+    /// - Returns: Count of remaining tracking days
+    func getWorkingDaysRemaining() -> Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
+        
+        var count = 0
+        var date = now
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if settings.trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? endOfMonth
+        }
+        
+        return count
+    }
+    
+    /// Get number of weeks remaining in current month
+    /// - Returns: Approximate weeks remaining (rounded up)
+    func getWeeksRemaining() -> Int {
+        let daysRemaining = getWorkingDaysRemaining()
+        let workingDaysPerWeek = max(1, settings.trackingDays.count)
+        return Int(ceil(Double(daysRemaining) / Double(workingDaysPerWeek)))
+    }
+    
     #if DEBUG
     private func addTestDataIfNeeded() {
         // Test data functionality disabled for production

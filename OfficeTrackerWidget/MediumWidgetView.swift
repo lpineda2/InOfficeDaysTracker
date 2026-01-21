@@ -3,6 +3,7 @@
 //  OfficeTrackerWidget
 //
 //  Medium widget (4x2) - Core widget with circular progress and key status
+//  Updated for MFP-style design
 //
 
 import SwiftUI
@@ -28,7 +29,7 @@ struct MediumWidgetView: View {
                 Text(data.monthName)
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(WidgetDesignTokens.textPrimary)
                 
                 // Current status
                 HStack(spacing: 6) {
@@ -45,25 +46,25 @@ struct MediumWidgetView: View {
                 // Weekly progress
                 HStack(spacing: 6) {
                     Image(systemName: "calendar.badge.clock")
-                        .foregroundColor(.blue)
+                        .foregroundColor(WidgetDesignTokens.cyanAccent)
                         .font(.caption)
                     
                     Text("This Week: \(data.weeklyProgress)")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(WidgetDesignTokens.textSecondary)
                 }
                 
                 // Current visit duration (if in office)
                 if data.isCurrentlyInOffice, let duration = data.currentVisitDuration {
                     HStack(spacing: 6) {
                         Image(systemName: "clock.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(WidgetDesignTokens.cyanAccent)
                             .font(.caption)
                         
                         Text(formatDuration(duration))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.blue)
+                            .foregroundColor(WidgetDesignTokens.cyanAccent)
                     }
                 }
                 
@@ -84,11 +85,11 @@ struct MediumWidgetView: View {
     private var statusColor: Color {
         switch data.statusColor {
         case .green:
-            return .green
+            return WidgetDesignTokens.statusInOffice
         case .orange:
-            return .orange
+            return WidgetDesignTokens.statusAway
         case .blue:
-            return .blue
+            return WidgetDesignTokens.cyanAccent
         }
     }
     

@@ -1,0 +1,228 @@
+//
+//  TrendChartCard.swift
+//  InOfficeDaysTracker
+//
+//  Created for MFP-style redesign
+//  Attendance trend chart using Swift Charts with 30/60/90 day picker
+//
+
+import SwiftUI
+import Charts
+
+/// Data point for the trend chart
+struct TrendDataPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Int
+}
+
+/// A card displaying attendance trends over time using Swift Charts
+/// Features a segmented picker for 30/60/90 day ranges
+struct TrendChartCard: View {
+    let data: [TrendDataPoint]
+    let hasEnoughData: Bool
+    
+    @State private var selectedRange: TrendRange = .thirtyDays
+    
+    enum TrendRange: Int, CaseIterable {
+        case thirtyDays = 30
+        case sixtyDays = 60
+        case ninetyDays = 90
+        
+        var label: String {
+            switch self {
+            case .thirtyDays: return "30D"
+            case .sixtyDays: return "60D"
+            case .ninetyDays: return "90D"
+            }
+        }
+    }
+    
+    private var filteredData: [TrendDataPoint] {
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -selectedRange.rawValue, to: Date()) ?? Date()
+        return data.filter { $0.date >= cutoffDate }
+    }
+    
+    private var aggregatedData: [TrendDataPoint] {
+        // Aggregate by week for cleaner visualization
+        let calendar = Calendar.current
+        var weeklyData: [Date: Int] = [:]
+        
+        for point in filteredData {
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: point.date)?.start ?? point.date
+            weeklyData[weekStart, default: 0] += point.value
+        }
+        
+        return weeklyData.map { TrendDataPoint(date: $0.key, value: $0.value) }
+            .sorted { $0.date < $1.date }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header with title and range picker
+            HStack {
+                Text("Attendance Trend")
+                    .font(Typography.cardTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
+                
+                Spacer()
+                
+                Picker("Range", selection: $selectedRange) {
+                    ForEach(TrendRange.allCases, id: \.self) { range in
+                        Text(range.label).tag(range)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 150)
+            }
+            
+            // Chart area
+            ZStack {
+                if aggregatedData.isEmpty {
+                    // Empty state
+                    emptyStateView
+                } else {
+                    // Chart with optional "not enough data" overlay
+                    chartView
+                        .overlay {
+                            if !hasEnoughData {
+                                notEnoughDataOverlay
+                            }
+                        }
+                }
+            }
+            .frame(height: 180)
+        }
+        .cardStyle()
+    }
+    
+    // MARK: - Chart View
+    
+    private var chartView: some View {
+        Chart(aggregatedData) { point in
+            // Area fill
+            AreaMark(
+                x: .value("Week", point.date, unit: .weekOfYear),
+                y: .value("Days", point.value)
+            )
+            .foregroundStyle(DesignTokens.chartFill)
+            .interpolationMethod(.catmullRom)
+            
+            // Line
+            LineMark(
+                x: .value("Week", point.date, unit: .weekOfYear),
+                y: .value("Days", point.value)
+            )
+            .foregroundStyle(DesignTokens.chartLine)
+            .interpolationMethod(.catmullRom)
+            .lineStyle(StrokeStyle(lineWidth: 2))
+            
+            // Points
+            PointMark(
+                x: .value("Week", point.date, unit: .weekOfYear),
+                y: .value("Days", point.value)
+            )
+            .foregroundStyle(DesignTokens.chartLine)
+            .symbolSize(30)
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .weekOfYear, count: xAxisStrideCount)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                    .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
+                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    .foregroundStyle(DesignTokens.textSecondary)
+            }
+        }
+        .chartYAxis {
+            AxisMarks { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                    .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
+                AxisValueLabel()
+                    .foregroundStyle(DesignTokens.textSecondary)
+            }
+        }
+        .chartYScale(domain: 0...maxYValue)
+    }
+    
+    private var xAxisStrideCount: Int {
+        switch selectedRange {
+        case .thirtyDays: return 1
+        case .sixtyDays: return 2
+        case .ninetyDays: return 3
+        }
+    }
+    
+    private var maxYValue: Int {
+        let maxValue = aggregatedData.map(\.value).max() ?? 5
+        return max(maxValue + 1, 5) // At least 5 for nice scale
+    }
+    
+    // MARK: - Empty State
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 32))
+                .foregroundColor(DesignTokens.textTertiary)
+            
+            Text("No data yet")
+                .font(Typography.bodySecondary)
+                .foregroundColor(DesignTokens.textSecondary)
+            
+            Text("Your attendance trend will appear here")
+                .font(Typography.caption)
+                .foregroundColor(DesignTokens.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    // MARK: - Not Enough Data Overlay
+    
+    private var notEnoughDataOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Image(systemName: "info.circle")
+                    .font(.caption)
+                Text("Limited data available")
+                    .font(Typography.caption)
+            }
+            .foregroundColor(DesignTokens.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(DesignTokens.surfaceElevated)
+            )
+            .padding(.bottom, 8)
+        }
+    }
+}
+
+// MARK: - Preview
+
+#Preview("Trend Chart Card") {
+    let calendar = Calendar.current
+    let today = Date()
+    
+    // Generate sample data
+    let sampleData: [TrendDataPoint] = (0..<90).compactMap { dayOffset in
+        guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { return nil }
+        // Random attendance (0 or 1 per day)
+        let weekday = calendar.component(.weekday, from: date)
+        let isWeekday = weekday >= 2 && weekday <= 6
+        let attended = isWeekday && Bool.random() && Bool.random() // ~25% chance on weekdays
+        return TrendDataPoint(date: date, value: attended ? 1 : 0)
+    }
+    
+    ScrollView {
+        VStack(spacing: 20) {
+            TrendChartCard(data: sampleData, hasEnoughData: true)
+            TrendChartCard(data: Array(sampleData.prefix(5)), hasEnoughData: false)
+            TrendChartCard(data: [], hasEnoughData: false)
+        }
+        .padding()
+    }
+    .background(DesignTokens.appBackground)
+}

@@ -3,6 +3,7 @@
 //  OfficeTrackerWidget
 //
 //  Large widget (4x4) - Comprehensive display with detailed statistics
+//  Updated for MFP-style design
 //
 
 import SwiftUI
@@ -46,6 +47,7 @@ struct LargeWidgetView: View {
                 Text(data.monthName)
                     .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundColor(WidgetDesignTokens.textPrimary)
                 
                 HStack(spacing: 6) {
                     Image(systemName: data.isCurrentlyInOffice ? "clock.badge.fill" : "figure.walk")
@@ -54,7 +56,7 @@ struct LargeWidgetView: View {
                     
                     Text(data.isCurrentlyInOffice ? "Currently in office" : "Currently away")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(WidgetDesignTokens.textSecondary)
                 }
             }
             
@@ -65,13 +67,14 @@ struct LargeWidgetView: View {
                 Text("\(data.goal)")
                     .font(.title3)
                     .fontWeight(.bold)
+                    .foregroundColor(WidgetDesignTokens.textPrimary)
                 Text("goal")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(WidgetDesignTokens.textSecondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.1))
+            .background(WidgetDesignTokens.ringBackground.opacity(0.5))
             .cornerRadius(8)
         }
     }
@@ -94,7 +97,7 @@ struct LargeWidgetView: View {
                     let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
                     Text("Visit duration: \(hours)h \(minutes)m")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(WidgetDesignTokens.textSecondary)
                 }
             }
             
@@ -108,28 +111,28 @@ struct LargeWidgetView: View {
                 title: "Days Left",
                 value: "\(data.daysLeftInMonth)",
                 subtitle: "in month",
-                color: .blue
+                color: WidgetDesignTokens.cyanAccent
             )
-            .frame(height: 60) // Fixed height for consistency
+            .frame(height: 60)
             
             StatisticCard(
                 title: "Pace",
                 value: data.paceNeeded,
                 subtitle: "needed",
-                color: data.paceNeeded.contains("Complete") ? .green : .orange
+                color: data.paceNeeded.contains("Complete") ? WidgetDesignTokens.successGreen : WidgetDesignTokens.orangeAccent
             )
-            .frame(height: 60) // Fixed height for consistency
+            .frame(height: 60)
         }
     }
     
     private var statusColor: Color {
         switch data.statusColor {
         case .green:
-            return .green
+            return WidgetDesignTokens.statusInOffice
         case .orange:
-            return .orange
+            return WidgetDesignTokens.statusAway
         case .blue:
-            return .blue
+            return WidgetDesignTokens.cyanAccent
         }
     }
 }
@@ -144,7 +147,7 @@ struct StatisticCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(WidgetDesignTokens.textSecondary)
             
             Text(value)
                 .font(.headline)
@@ -155,11 +158,11 @@ struct StatisticCard: View {
             
             Text(subtitle)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(WidgetDesignTokens.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.secondary.opacity(0.08))
+        .background(WidgetDesignTokens.ringBackground.opacity(0.3))
         .cornerRadius(10)
     }
 }

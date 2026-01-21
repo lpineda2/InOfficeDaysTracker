@@ -3,6 +3,7 @@
 //  OfficeTrackerWidget
 //
 //  Widget-optimized version of the circular progress from MainProgressView
+//  Updated for MFP-style design with new color tokens
 //
 
 import SwiftUI
@@ -26,17 +27,18 @@ struct CircularProgressViewWidget: View {
     private var progressGradient: LinearGradient {
         switch gradient {
         case .standard:
-            return LinearGradient(
-                colors: [.blue, .cyan],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            return WidgetDesignTokens.accentCyan
         case .celebration:
-            return LinearGradient(
-                colors: [.orange, .green],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            return WidgetDesignTokens.accentSuccess
+        }
+    }
+    
+    private var accentColor: Color {
+        switch gradient {
+        case .standard:
+            return WidgetDesignTokens.cyanAccent
+        case .celebration:
+            return WidgetDesignTokens.successGreen
         }
     }
     
@@ -44,14 +46,14 @@ struct CircularProgressViewWidget: View {
         ZStack {
             // Background circle
             Circle()
-                .stroke(Color(.systemGray5), lineWidth: 8)
+                .stroke(WidgetDesignTokens.ringBackground, lineWidth: WidgetDesignTokens.ringStrokeWidth)
             
             // Progress circle
             Circle()
                 .trim(from: 0, to: safePercentage)
                 .stroke(
                     progressGradient,
-                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                    style: StrokeStyle(lineWidth: WidgetDesignTokens.ringStrokeWidth, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 1), value: safePercentage)
@@ -60,21 +62,21 @@ struct CircularProgressViewWidget: View {
             VStack(spacing: 2) {
                 Text("\(current)")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
+                    .foregroundColor(WidgetDesignTokens.textPrimary)
                 
                 Text("of \(goal)")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(WidgetDesignTokens.textSecondary)
                 
                 if current >= goal {
                     Text("Complete!")
                         .font(.caption2)
-                        .foregroundColor(.green)
+                        .foregroundColor(WidgetDesignTokens.successGreen)
                         .fontWeight(.medium)
                 } else {
                     Text("\(safePercentageDisplay)%")
                         .font(.caption2)
-                        .foregroundColor(.blue)
+                        .foregroundColor(accentColor)
                         .fontWeight(.medium)
                 }
             }

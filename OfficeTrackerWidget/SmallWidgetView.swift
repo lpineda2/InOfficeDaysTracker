@@ -3,6 +3,7 @@
 //  OfficeTrackerWidget
 //
 //  Small widget (2x2) - Minimal display with just circular progress
+//  Updated for MFP-style design
 //
 
 import SwiftUI
@@ -17,7 +18,7 @@ struct SmallWidgetView: View {
             Text(monthAbbreviation)
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundColor(.secondary)
+                .foregroundColor(WidgetDesignTokens.textSecondary)
             
             // Circular Progress
             CircularProgressViewWidget(
@@ -36,7 +37,7 @@ struct SmallWidgetView: View {
                 
                 Text(data.isCurrentlyInOffice ? "In Office" : "Away")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(WidgetDesignTokens.textSecondary)
             }
         }
         .padding(12)
@@ -60,11 +61,11 @@ struct SmallWidgetView: View {
     private var statusColor: Color {
         switch data.statusColor {
         case .green:
-            return .green
+            return WidgetDesignTokens.statusInOffice
         case .orange:
-            return .orange
+            return WidgetDesignTokens.statusAway
         case .blue:
-            return .blue
+            return WidgetDesignTokens.cyanAccent
         }
     }
 }

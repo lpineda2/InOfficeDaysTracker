@@ -3,6 +3,7 @@
 //  InOfficeDaysTracker
 //
 //  Created by Luis Pineda on 7/6/25.
+//  Redesigned with MFP-style dashboard
 //
 
 import SwiftUI
@@ -16,66 +17,56 @@ struct MainProgressView: View {
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
+    // Grid layout: 2 columns
+    private let columns = [
+        GridItem(.flexible(), spacing: DesignTokens.gridSpacing),
+        GridItem(.flexible(), spacing: DesignTokens.gridSpacing)
+    ]
+    
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                ScrollView(.vertical) {
-                    VStack(spacing: 24) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Text("This Month")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text(getCurrentMonthName())
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: DesignTokens.gridSpacing) {
+                    // Header with month
+                    headerSection
                     
-                    // Progress Circle
-                    CircularProgressView(
-                        current: progressData.current,
-                        goal: progressData.goal,
-                        percentage: progressData.percentage
+                    // Hero Progress Card (Macro Ring style)
+                    MacroRingCard(
+                        daysCompleted: progressData.current,
+                        daysGoal: progressData.goal,
+                        daysRemaining: max(0, progressData.goal - progressData.current),
+                        paceNeeded: appData.getPaceNeeded(),
+                        weeksRemaining: appData.getWeeksRemaining()
                     )
-                    .padding(.vertical)
                     
-                    // Status Cards
-                    VStack(spacing: 16) {
-                        StatusCard(
-                            title: "Current Status",
-                            value: appData.isCurrentlyInOffice ? "In Office" : "Away",
-                            icon: appData.isCurrentlyInOffice ? "building.2.fill" : "house.fill",
-                            color: appData.isCurrentlyInOffice ? .green : .orange
+                    // Status Card (if in office)
+                    if appData.isCurrentlyInOffice, let currentVisit = appData.currentVisit {
+                        currentStatusCard(visit: currentVisit)
+                    }
+                    
+                    // Mini Metric Cards - 2 column grid
+                    LazyVGrid(columns: columns, spacing: DesignTokens.gridSpacing) {
+                        StreakMetricCard(
+                            streakMonths: appData.getMonthlyStreak(),
+                            isOnTrack: appData.isCurrentMonthGoalMet()
                         )
                         
-                        if let currentVisit = appData.currentVisit {
-                            StatusCard(
-                                title: "Current Visit",
-                                value: formatCurrentVisitDuration(currentVisit),
-                                icon: "clock.fill",
-                                color: .blue
-                            )
-                        }
-                        
-                        HStack(spacing: 12) {
-                            MiniStatusCard(
-                                title: "This Week",
-                                value: "\(getWeeklyProgress())",
-                                icon: "calendar.badge.clock"
-                            )
-                            
-                            MiniStatusCard(
-                                title: "Average",
-                                value: String(format: "%.1fh", getAverageDuration()),
-                                icon: "chart.bar.fill"
-                            )
-                        }
+                        DurationMetricCard(
+                            averageHours: getAverageDuration()
+                        )
                     }
                     
+                    // Trend Chart
+                    TrendChartCard(
+                        data: getTrendData(),
+                        hasEnoughData: appData.hasEnoughChartData(days: 90)
+                    )
+                    
                     // Recent Visits
-                    RecentVisitsSection(visits: getRecentVisits())
+                    RecentVisitsList(
+                        visits: getRecentVisitsDisplayItems(),
+                        onSeeAllTapped: { showingHistory = true }
+                    )
                     
                     // Goal Progress Details
                     GoalProgressSection(
@@ -86,11 +77,11 @@ struct MainProgressView: View {
                         appData: appData
                     )
                     
-                        Spacer(minLength: 100)
-                    }
-                    .padding(.horizontal)
+                    Spacer(minLength: 100)
                 }
+                .padding(.horizontal)
             }
+            .background(DesignTokens.appBackground)
             .navigationTitle("In Office Days")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -121,11 +112,56 @@ struct MainProgressView: View {
             }
             .onReceive(timer) { _ in
                 if appData.isCurrentlyInOffice {
-                    currentTime = Date() // Just trigger UI update
+                    currentTime = Date()
                 }
             }
         }
     }
+    
+    // MARK: - Subviews
+    
+    private var headerSection: some View {
+        VStack(spacing: 4) {
+            Text("Today")
+                .font(Typography.screenTitle)
+                .foregroundColor(DesignTokens.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Text(getCurrentMonthName())
+                .font(Typography.bodySecondary)
+                .foregroundColor(DesignTokens.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.top, 8)
+    }
+    
+    private func currentStatusCard(visit: OfficeVisit) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "building.2.fill")
+                .iconBackground(color: DesignTokens.statusInOffice)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Currently In Office")
+                    .font(Typography.caption)
+                    .foregroundColor(DesignTokens.textSecondary)
+                
+                Text(formatCurrentVisitDuration(visit))
+                    .font(Typography.cardTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
+            }
+            
+            Spacer()
+            
+            // Pulsing indicator
+            Circle()
+                .fill(DesignTokens.statusInOffice)
+                .frame(width: 10, height: 10)
+                .modifier(PulseAnimation())
+        }
+        .cardStyle()
+    }
+    
+    // MARK: - Data
     
     private var progressData: (current: Int, goal: Int, percentage: Double) {
         appData.getCurrentMonthProgress()
@@ -184,29 +220,90 @@ struct MainProgressView: View {
         return Array(sortedVisits.prefix(3))
     }
     
-    private func getDaysRemainingInMonth() -> Int {
-    let calendar = Calendar.current
-    let now = Date()
-    guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
-    var count = 0
-    var date = now
-
-    while date < endOfMonth {
-        let weekday = calendar.component(.weekday, from: date)
-        // Weekdays: 2 = Monday, ..., 6 = Friday
-        if weekday >= 2 && weekday <= 6 {
-            count += 1
+    private func getRecentVisitsDisplayItems() -> [VisitDisplayItem] {
+        // Include current active visit first
+        var items: [VisitDisplayItem] = []
+        
+        if let currentVisit = appData.currentVisit, currentVisit.isActiveSession {
+            items.append(VisitDisplayItem(
+                id: currentVisit.id,
+                date: currentVisit.date,
+                dayOfWeek: currentVisit.dayOfWeek,
+                duration: formatCurrentVisitDuration(currentVisit),
+                isActiveSession: true
+            ))
         }
-        date = calendar.date(byAdding: .day, value: 1, to: date)!
+        
+        // Add completed visits
+        let completedVisits = appData.visits
+            .filter { $0.isValidVisit && !$0.isActiveSession }
+            .sorted { $0.date > $1.date }
+            .prefix(5)
+        
+        for visit in completedVisits {
+            items.append(VisitDisplayItem(
+                id: visit.id,
+                date: visit.date,
+                dayOfWeek: visit.dayOfWeek,
+                duration: visit.formattedDuration,
+                isActiveSession: false
+            ))
+        }
+        
+        return items
     }
-    return count
+    
+    private func getTrendData() -> [TrendDataPoint] {
+        let trend = appData.getVisitTrend(days: 90)
+        return trend.map { TrendDataPoint(date: $0.date, value: $0.count) }
+    }
+    
+    private func getDaysRemainingInMonth() -> Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
+        var count = 0
+        var date = now
+
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if weekday >= 2 && weekday <= 6 {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        return count
     }
 }
+
+// MARK: - Pulse Animation Modifier
+
+struct PulseAnimation: ViewModifier {
+    @State private var isAnimating = false
+    
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isAnimating ? 1.2 : 1.0)
+            .opacity(isAnimating ? 0.7 : 1.0)
+            .animation(
+                .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+                value: isAnimating
+            )
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
+// MARK: - Legacy CircularProgressView (kept for compatibility)
 
 struct CircularProgressView: View {
     let current: Int
     let goal: Int
     let percentage: Double
+    var size: CGFloat = 200
+    var strokeWidth: CGFloat = 12
+    var gradient: LinearGradient = DesignTokens.accentBlue
     
     private var safePercentage: Double {
         guard !percentage.isNaN && !percentage.isInfinite && percentage >= 0 else { return 0.0 }
@@ -222,42 +319,40 @@ struct CircularProgressView: View {
         ZStack {
             // Background circle
             Circle()
-                .stroke(Color(.systemGray5), lineWidth: 12)
-                .frame(width: 200, height: 200)
+                .stroke(DesignTokens.ringBackground, lineWidth: strokeWidth)
+                .frame(width: size, height: size)
             
             // Progress circle
             Circle()
                 .trim(from: 0, to: safePercentage)
                 .stroke(
-                    LinearGradient(
-                        colors: [.blue, .cyan],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    gradient,
+                    style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
                 )
-                .frame(width: 200, height: 200)
+                .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 1), value: safePercentage)
             
             // Center content
             VStack(spacing: 4) {
                 Text("\(current)")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
+                    .font(Typography.heroNumber)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Text("of \(goal) days")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
+                    .font(Typography.cardTitle)
+                    .foregroundColor(DesignTokens.textSecondary)
                 
                 Text("\(safePercentageDisplay)%")
-                    .font(.subheadline)
-                    .foregroundColor(.blue)
+                    .font(Typography.bodySecondary)
+                    .foregroundColor(DesignTokens.cyanAccent)
                     .fontWeight(.medium)
             }
         }
     }
 }
+
+// MARK: - Updated StatusCard with Design Tokens
 
 struct StatusCard: View {
     let title: String
@@ -268,57 +363,51 @@ struct StatusCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-                .frame(width: 24)
+                .iconBackground(color: color)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(Typography.caption)
+                    .foregroundColor(DesignTokens.textSecondary)
                 Text(value)
-                    .font(.headline)
-                    .fontWeight(.medium)
+                    .font(Typography.cardTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
             }
             
             Spacer()
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
+        .cardStyle()
     }
 }
+
+// MARK: - Updated MiniStatusCard with Design Tokens
 
 struct MiniStatusCard: View {
     let title: String
     let value: String
     let icon: String
+    var iconColor: Color = DesignTokens.cyanAccent
     
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.blue)
+                .iconBackground(color: iconColor)
             
             VStack(spacing: 2) {
                 Text(title)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(Typography.caption)
+                    .foregroundColor(DesignTokens.textSecondary)
                 Text(value)
-                    .font(.headline)
-                    .fontWeight(.medium)
+                    .font(Typography.cardTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
+        .cardStyle()
     }
 }
+
+// MARK: - Legacy RecentVisitsSection (kept for compatibility)
 
 struct RecentVisitsSection: View {
     let visits: [OfficeVisit]
@@ -327,20 +416,16 @@ struct RecentVisitsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Recent Visits")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(Typography.cardTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 Spacer()
             }
             
             if visits.isEmpty {
                 Text("No visits recorded yet")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray6))
-                    )
+                    .cardStyle()
             } else {
                 VStack(spacing: 8) {
                     ForEach(visits) { visit in
@@ -359,29 +444,31 @@ struct VisitRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(visit.formattedDate)
-                    .font(.subheadline)
+                    .font(Typography.bodySecondary)
                     .fontWeight(.medium)
+                    .foregroundColor(DesignTokens.textPrimary)
                 Text(visit.dayOfWeek)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(Typography.caption)
+                    .foregroundColor(DesignTokens.textSecondary)
             }
             
             Spacer()
             
             VStack(alignment: .trailing, spacing: 4) {
                 Text(visit.formattedDuration)
-                    .font(.subheadline)
+                    .font(Typography.bodySecondary)
                     .fontWeight(.medium)
+                    .foregroundColor(DesignTokens.textPrimary)
                 Text(formatTime(visit.entryTime))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(Typography.caption)
+                    .foregroundColor(DesignTokens.textSecondary)
             }
         }
         .padding(.vertical, 8)
         .padding(.horizontal)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.systemBackground))
+                .fill(DesignTokens.cardBackground)
         )
     }
     
@@ -392,12 +479,14 @@ struct VisitRow: View {
     }
 }
 
+// MARK: - Goal Progress Section
+
 struct GoalProgressSection: View {
     let current: Int
     let goal: Int
     let remaining: Int
     let daysLeft: Int
-    @ObservedObject var appData: AppData  // ObservedObject to react to settings changes
+    @ObservedObject var appData: AppData
     
     @State private var showingCalculationDetails = false
     @State private var showingPTOPicker = false
@@ -407,43 +496,48 @@ struct GoalProgressSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Goal Progress")
-                .font(.headline)
-                .fontWeight(.semibold)
+                .font(Typography.cardTitle)
+                .foregroundColor(DesignTokens.textPrimary)
             
             VStack(spacing: 12) {
                 HStack {
                     Text("Days completed")
+                        .foregroundColor(DesignTokens.textSecondary)
                     Spacer()
                     Text("\(current)")
                         .fontWeight(.medium)
+                        .foregroundColor(DesignTokens.textPrimary)
                 }
                 
                 HStack {
                     Text("Days remaining")
+                        .foregroundColor(DesignTokens.textSecondary)
                     Spacer()
                     Text("\(remaining)")
                         .fontWeight(.medium)
-                        .foregroundColor(remaining > 0 ? .orange : .green)
+                        .foregroundColor(remaining > 0 ? DesignTokens.orangeAccent : DesignTokens.successGreen)
                 }
                 
                 HStack {
                     Text("Days left in month")
+                        .foregroundColor(DesignTokens.textSecondary)
                     Spacer()
                     Text("\(daysLeft)")
                         .fontWeight(.medium)
+                        .foregroundColor(DesignTokens.textPrimary)
                 }
                 
                 if remaining > 0 {
                     HStack {
                         Text("Pace needed")
+                            .foregroundColor(DesignTokens.textSecondary)
                         Spacer()
                         Text(calculatePace())
                             .fontWeight(.medium)
-                            .foregroundColor(.blue)
+                            .foregroundColor(DesignTokens.cyanAccent)
                     }
                 }
                 
-                // Show goal source (auto-calculated vs manual)
                 Divider()
                 
                 if appData.settings.autoCalculateGoal {
@@ -452,58 +546,54 @@ struct GoalProgressSection: View {
                     } label: {
                         HStack {
                             Image(systemName: "function")
-                                .foregroundColor(.blue)
+                                .foregroundColor(DesignTokens.cyanAccent)
                             Text("Calculated Goal")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                             Spacer()
                             Text("\(goal) days")
                                 .fontWeight(.medium)
-                                .foregroundColor(.blue)
+                                .foregroundColor(DesignTokens.cyanAccent)
                             Image(systemName: "info.circle")
-                                .foregroundColor(.blue)
+                                .foregroundColor(DesignTokens.cyanAccent)
                         }
                     }
                     .buttonStyle(.plain)
                     
-                    // PTO/Sick day shortcut - only show when auto-calculate is enabled
                     Button {
                         showingPTOPicker = true
                     } label: {
                         HStack {
                             Image(systemName: "figure.walk")
-                                .foregroundColor(.green)
+                                .foregroundColor(DesignTokens.successGreen)
                             Text("PTO/Sick Days")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                             Spacer()
                             let ptoCount = appData.getPTODays(for: currentMonth).count
                             Text(ptoCount > 0 ? "\(ptoCount) day\(ptoCount == 1 ? "" : "s")" : "Add")
                                 .fontWeight(.medium)
-                                .foregroundColor(.blue)
+                                .foregroundColor(DesignTokens.cyanAccent)
                             Image(systemName: "chevron.right")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                         }
                     }
                     .buttonStyle(.plain)
                 } else {
                     HStack {
                         Image(systemName: "slider.horizontal.3")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                         Text("Manual Goal")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                         Spacer()
                         Text("\(goal) days")
                             .fontWeight(.medium)
+                            .foregroundColor(DesignTokens.textPrimary)
                     }
                 }
             }
-            .font(.subheadline)
+            .font(Typography.bodySecondary)
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
+        .cardStyle()
         .sheet(isPresented: $showingCalculationDetails) {
             CalculationDetailsSheet(appData: appData)
         }
@@ -521,18 +611,14 @@ struct GoalProgressSection: View {
             }
         }
         
-        // Get working days per week based on user's tracking settings
         let workingDaysPerWeek = appData.settings.trackingDays.count
         guard workingDaysPerWeek > 0 else { return "No tracking days set" }
         
-        // Calculate daily rate (office days needed per working day)
         let dailyRate = Double(remaining) / Double(daysLeft)
         guard !dailyRate.isNaN && !dailyRate.isInfinite else { return "0.0 days/week" }
         
-        // Convert to weekly rate using actual working days per week
         let weeklyRate = dailyRate * Double(workingDaysPerWeek)
         
-        // Cap at maximum possible (can't exceed working days per week)
         if weeklyRate > Double(workingDaysPerWeek) {
             return "Goal unreachable"
         } else {
