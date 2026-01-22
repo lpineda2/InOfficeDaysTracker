@@ -253,6 +253,74 @@ struct AppDataTests {
         
         #expect(progress.current == 1) // Only current month visit
     }
+
+    @Test("AppData - Streak counts previous months when current month not met")
+    func testStreakCountsPreviousWhenCurrentNotMet() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        var settings = appData.settings
+        settings.monthlyGoal = 2
+        settings.autoCalculateGoal = false
+        appData.updateSettings(settings)
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Previous month (met goal with 2 visits)
+        let prevMonth = calendar.date(byAdding: .month, value: -1, to: now)!
+        let prevDay1 = calendar.date(from: DateComponents(year: calendar.component(.year, from: prevMonth), month: calendar.component(.month, from: prevMonth), day: 5))!
+        let prevDay2 = calendar.date(from: DateComponents(year: calendar.component(.year, from: prevMonth), month: calendar.component(.month, from: prevMonth), day: 10))!
+
+        let event1 = OfficeEvent(entryTime: prevDay1, exitTime: prevDay1.addingTimeInterval(3600))
+        let visit1 = OfficeVisit(date: prevDay1, events: [event1], coordinate: testCoord)
+        let event2 = OfficeEvent(entryTime: prevDay2, exitTime: prevDay2.addingTimeInterval(3600))
+        let visit2 = OfficeVisit(date: prevDay2, events: [event2], coordinate: testCoord)
+
+        // Current month: only 1 visit (goal not met)
+        let currDay = Date()
+        let currEvent = OfficeEvent(entryTime: currDay.addingTimeInterval(-3600), exitTime: currDay)
+        let currVisit = OfficeVisit(date: currDay, events: [currEvent], coordinate: testCoord)
+
+        appData.visits = [visit1, visit2, currVisit]
+
+        let streak = appData.getMonthlyStreak()
+        #expect(streak == 1) // Should count previous month even though current month isn't met
+    }
+
+    @Test("AppData - Streak includes current month when met")
+    func testStreakIncludesCurrentWhenMet() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        var settings = appData.settings
+        settings.monthlyGoal = 2
+        settings.autoCalculateGoal = false
+        appData.updateSettings(settings)
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Previous month met
+        let prevMonth = calendar.date(byAdding: .month, value: -1, to: now)!
+        let prevDay1 = calendar.date(from: DateComponents(year: calendar.component(.year, from: prevMonth), month: calendar.component(.month, from: prevMonth), day: 5))!
+        let prevDay2 = calendar.date(from: DateComponents(year: calendar.component(.year, from: prevMonth), month: calendar.component(.month, from: prevMonth), day: 10))!
+        let event1 = OfficeEvent(entryTime: prevDay1, exitTime: prevDay1.addingTimeInterval(3600))
+        let visit1 = OfficeVisit(date: prevDay1, events: [event1], coordinate: testCoord)
+        let event2 = OfficeEvent(entryTime: prevDay2, exitTime: prevDay2.addingTimeInterval(3600))
+        let visit2 = OfficeVisit(date: prevDay2, events: [event2], coordinate: testCoord)
+
+        // Current month met (2 visits)
+        let currDay1 = now
+        let currDay2 = calendar.date(byAdding: .day, value: -1, to: now)!
+        let ce1 = OfficeEvent(entryTime: currDay1.addingTimeInterval(-3600), exitTime: currDay1)
+        let cv1 = OfficeVisit(date: currDay1, events: [ce1], coordinate: testCoord)
+        let ce2 = OfficeEvent(entryTime: currDay2.addingTimeInterval(-3600), exitTime: currDay2)
+        let cv2 = OfficeVisit(date: currDay2, events: [ce2], coordinate: testCoord)
+
+        appData.visits = [visit1, visit2, cv1, cv2]
+
+        let streak = appData.getMonthlyStreak()
+        #expect(streak == 2) // previous month (1) + current month (1)
+    }
     
     @Test("AppData - Settings persistence")
     func testSettingsPersistence() async throws {

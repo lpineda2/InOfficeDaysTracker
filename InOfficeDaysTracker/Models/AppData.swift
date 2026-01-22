@@ -1023,32 +1023,29 @@ class AppData: ObservableObject {
     func getMonthlyStreak() -> Int {
         let calendar = Calendar.current
         var streak = 0
-        var checkDate = Date()
-        
-        // Check current month first
-        let currentProgress = getCurrentMonthProgress()
-        let currentMonthMet = currentProgress.current >= currentProgress.goal && currentProgress.goal > 0
-        
-        if currentMonthMet {
-            streak = 1
-            // Move to previous month
-            checkDate = calendar.date(byAdding: .month, value: -1, to: checkDate) ?? checkDate
-        }
-        
-        // Check previous months
+
+        // Start checking from the previous month so prior months count even if current month isn't met
+        var checkDate = calendar.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+
+        // Count consecutive previous months that met their goals
         for _ in 0..<24 { // Check up to 2 years back
             let monthVisits = getValidVisits(for: checkDate)
             let monthGoal = getGoalForMonth(checkDate)
-            
-            if monthVisits.count >= monthGoal && monthGoal > 0 {
+
+            if monthGoal > 0 && monthVisits.count >= monthGoal {
                 streak += 1
                 checkDate = calendar.date(byAdding: .month, value: -1, to: checkDate) ?? checkDate
             } else {
-                // Streak broken
                 break
             }
         }
-        
+
+        // Optionally include the current month if already met
+        let currentProgress = getCurrentMonthProgress()
+        if currentProgress.goal > 0 && currentProgress.current >= currentProgress.goal {
+            streak += 1
+        }
+
         return streak
     }
     
