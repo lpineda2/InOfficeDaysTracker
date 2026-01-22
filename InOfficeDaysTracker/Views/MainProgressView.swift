@@ -32,7 +32,8 @@ struct MainProgressView: View {
                 MacroRingCard(
                     daysCompleted: progressData.current,
                     daysGoal: progressData.goal,
-                    daysRemaining: max(0, progressData.goal - progressData.current),
+                    goalRemaining: max(0, progressData.goal - progressData.current),
+                    workingDaysRemaining: appData.getWorkingDaysRemaining(),
                     paceNeeded: appData.getPaceNeeded(),
                     weeksRemaining: appData.getWeeksRemaining()
                 )

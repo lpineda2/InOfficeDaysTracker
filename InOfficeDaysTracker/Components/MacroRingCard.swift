@@ -13,7 +13,10 @@ import SwiftUI
 struct MacroRingCard: View {
     let daysCompleted: Int
     let daysGoal: Int
-    let daysRemaining: Int
+    // Remaining days to reach the goal (goal - current)
+    let goalRemaining: Int
+    // Working days left in the month (business days left, accounts for PTO/holidays)
+    let workingDaysRemaining: Int
     let paceNeeded: Double // days per week needed to meet goal
     let weeksRemaining: Int
     
@@ -41,7 +44,7 @@ struct MacroRingCard: View {
                     title: "Days",
                     value: daysCompleted,
                     subtitle: "/\(daysGoal)",
-                    bottomLabel: "\(daysRemaining) left",
+                    bottomLabel: "\(goalRemaining) left",
                     percentage: daysPercentage,
                     gradient: DesignTokens.accentCyan,
                     accentColor: DesignTokens.cyanAccent
@@ -90,33 +93,20 @@ struct MacroRingCard: View {
     }
     
     private var paceLabel: String {
-        return Self.paceLabel(paceNeeded: paceNeeded, daysRemaining: daysRemaining, now: Date(), calendar: Calendar.current)
+        return Self.paceLabel(paceNeeded: paceNeeded, workingDaysRemaining: workingDaysRemaining, now: Date(), calendar: Calendar.current)
     }
 
     // Exposed helper for unit testing pace label semantics
-    static func paceLabel(paceNeeded: Double, daysRemaining: Int, now: Date, calendar: Calendar) -> String {
-        // Compute calendar days remaining in the current month
-        guard let monthRange = calendar.range(of: .day, in: .month, for: now),
-              let lastDay = calendar.date(bySetting: .day, value: monthRange.count, of: now) else {
-            // Fallback to existing semantics if calendar math fails
-            if paceNeeded <= 0 { return "Goal met!" }
-            if paceNeeded > 5 { return "Challenging" }
-            return "\(daysRemaining)d left"
-        }
-
-        let startOfToday = calendar.startOfDay(for: now)
-        let startOfLast = calendar.startOfDay(for: lastDay)
-        let components = calendar.dateComponents([.day], from: startOfToday, to: startOfLast)
-        let daysLeftInMonth = (components.day ?? 0)
-
-        if daysLeftInMonth <= 0 {
+    static func paceLabel(paceNeeded: Double, workingDaysRemaining: Int, now: Date, calendar: Calendar) -> String {
+        // Prefer to show working days remaining (matches Goal Progress)
+        if workingDaysRemaining <= 0 {
             return "Month over"
         } else if paceNeeded <= 0 {
             return "Goal met!"
         } else if paceNeeded > 5 {
             return "Challenging"
         } else {
-            return "\(daysLeftInMonth)d left this month"
+            return "\(workingDaysRemaining)d left"
         }
     }
 }
@@ -197,7 +187,8 @@ struct MacroRingItem: View {
         MacroRingCard(
             daysCompleted: 8,
             daysGoal: 12,
-            daysRemaining: 4,
+            goalRemaining: 4,
+            workingDaysRemaining: 6,
             paceNeeded: 2.0,
             weeksRemaining: 2
         )
@@ -205,7 +196,8 @@ struct MacroRingItem: View {
         MacroRingCard(
             daysCompleted: 12,
             daysGoal: 12,
-            daysRemaining: 0,
+            goalRemaining: 0,
+            workingDaysRemaining: 0,
             paceNeeded: 0,
             weeksRemaining: 1
         )
