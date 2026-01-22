@@ -90,14 +90,33 @@ struct MacroRingCard: View {
     }
     
     private var paceLabel: String {
-        if daysRemaining <= 0 {
+        return Self.paceLabel(paceNeeded: paceNeeded, daysRemaining: daysRemaining, now: Date(), calendar: Calendar.current)
+    }
+
+    // Exposed helper for unit testing pace label semantics
+    static func paceLabel(paceNeeded: Double, daysRemaining: Int, now: Date, calendar: Calendar) -> String {
+        // Compute calendar days remaining in the current month
+        guard let monthRange = calendar.range(of: .day, in: .month, for: now),
+              let lastDay = calendar.date(bySetting: .day, value: monthRange.count, of: now) else {
+            // Fallback to existing semantics if calendar math fails
+            if paceNeeded <= 0 { return "Goal met!" }
+            if paceNeeded > 5 { return "Challenging" }
+            return "\(daysRemaining)d left"
+        }
+
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfLast = calendar.startOfDay(for: lastDay)
+        let components = calendar.dateComponents([.day], from: startOfToday, to: startOfLast)
+        let daysLeftInMonth = (components.day ?? 0)
+
+        if daysLeftInMonth <= 0 {
             return "Month over"
         } else if paceNeeded <= 0 {
             return "Goal met!"
         } else if paceNeeded > 5 {
             return "Challenging"
         } else {
-            return "\(daysRemaining)d left"
+            return "\(daysLeftInMonth)d left this month"
         }
     }
 }
@@ -116,6 +135,12 @@ struct MacroRingItem: View {
     private let strokeWidth: CGFloat = 10
     
     private var safePercentage: Double {
+        guard !percentage.isNaN && !percentage.isInfinite && percentage >= 0 else { return 0.0 }
+        return min(percentage, 1.0)
+    }
+
+    // Exposed helper for testing safe percentage sanitization
+    static func safePercentage(_ percentage: Double) -> Double {
         guard !percentage.isNaN && !percentage.isInfinite && percentage >= 0 else { return 0.0 }
         return min(percentage, 1.0)
     }
