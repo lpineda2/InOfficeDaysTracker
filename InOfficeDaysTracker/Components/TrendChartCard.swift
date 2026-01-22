@@ -3,7 +3,7 @@
 //  InOfficeDaysTracker
 //
 //  Created for MFP-style redesign
-//  Attendance trend chart using Swift Charts with 30/60/90 day picker
+//  Attendance trend chart using Swift Charts with 3/6/9 month picker
 //
 
 import SwiftUI
@@ -40,14 +40,9 @@ struct TrendChartCard: View {
     
     private var filteredData: [TrendDataPoint] {
         // Use month-aligned cutoff and exclude the current month.
-        let calendar = Calendar.current
-        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) else {
-            return []
-        }
-
-        guard let cutoffDate = calendar.date(byAdding: .month, value: -selectedRange.rawValue, to: currentMonthStart) else {
-            return []
-        }
+        guard let info = monthRange() else { return [] }
+        let currentMonthStart = info.currentMonthStart
+        let cutoffDate = info.cutoffDate
 
         // Include dates in full months between cutoffDate (inclusive) and currentMonthStart (exclusive)
         return data.filter { $0.date >= cutoffDate && $0.date < currentMonthStart }
@@ -55,19 +50,14 @@ struct TrendChartCard: View {
     
     private var aggregatedData: [TrendDataPoint] {
         // Aggregate by month and ensure months with zero values are present
-        let calendar = Calendar.current
-
-        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) else {
-            return []
-        }
-
-        guard let cutoffDate = calendar.date(byAdding: .month, value: -selectedRange.rawValue, to: currentMonthStart) else {
-            return []
-        }
+        guard let info = monthRange() else { return [] }
+        let calendar = info.calendar
+        let currentMonthStart = info.currentMonthStart
+        let cutoffDate = info.cutoffDate
 
         var monthlyData: [Date: Int] = [:]
         for point in filteredData {
-            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: point.date)) ?? point.date
+            let monthStart = monthStart(for: point.date, calendar: calendar)
             monthlyData[monthStart, default: 0] += point.value
         }
 
@@ -82,9 +72,7 @@ struct TrendChartCard: View {
 
         return months.map { monthStart in
             // Position the plotted point in the middle of the month so it visually aligns with the month label
-            let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
-            let midOffset = daysInMonth / 2
-            let midDate = calendar.date(byAdding: .day, value: midOffset, to: monthStart) ?? monthStart
+            let midDate = midMonthDate(for: monthStart, calendar: calendar)
             return TrendDataPoint(date: midDate, value: monthlyData[monthStart] ?? 0)
         }
     }
@@ -158,9 +146,10 @@ struct TrendChartCard: View {
             .symbolSize(30)
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .month, count: xAxisStrideCount)) { value in
+            AxisMarks(values: aggregatedData.map { $0.date }) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
+                AxisTick()
                 AxisValueLabel(format: .dateTime.month(.abbreviated))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
@@ -176,11 +165,55 @@ struct TrendChartCard: View {
         .chartYScale(domain: 0...maxYValue)
     }
     
-    private var xAxisStrideCount: Int {
-        switch selectedRange {
-        case .threeMonths: return 1
-        case .sixMonths: return 2
-        case .nineMonths: return 3
+    // MARK: - Date Helpers
+
+    private func monthRange() -> (calendar: Calendar, currentMonthStart: Date, cutoffDate: Date)? {
+        let calendar = Calendar.current
+        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) else {
+            return nil
+        }
+        guard let cutoffDate = calendar.date(byAdding: .month, value: -selectedRange.rawValue, to: currentMonthStart) else {
+            return nil
+        }
+        return (calendar, currentMonthStart, cutoffDate)
+    }
+
+    private func monthStart(for date: Date, calendar: Calendar) -> Date {
+        return calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+    }
+
+    private func midMonthDate(for monthStart: Date, calendar: Calendar) -> Date {
+        let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+        let midOffset = daysInMonth / 2
+        return calendar.date(byAdding: .day, value: midOffset, to: monthStart) ?? monthStart
+    }
+
+    // Exposed helper for testing: aggregate arbitrary data into month buckets (previous N full months)
+    static func aggregated(from data: [TrendDataPoint], months: Int, now: Date = Date(), calendar: Calendar = Calendar.current) -> [TrendDataPoint] {
+        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else { return [] }
+        guard let cutoffDate = calendar.date(byAdding: .month, value: -months, to: currentMonthStart) else { return [] }
+
+        var monthlyData: [Date: Int] = [:]
+        for point in data {
+            if point.date >= cutoffDate && point.date < currentMonthStart {
+                let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: point.date)) ?? point.date
+                monthlyData[monthStart, default: 0] += point.value
+            }
+        }
+
+        var monthsArr: [Date] = []
+        var iter = cutoffDate
+        while iter < currentMonthStart {
+            monthsArr.append(iter)
+            guard let next = calendar.date(byAdding: .month, value: 1, to: iter) else { break }
+            iter = next
+        }
+
+        return monthsArr.map { monthStart in
+            let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+            let midOffset = daysInMonth / 2
+            let midDate = calendar.date(byAdding: .day, value: midOffset, to: monthStart) ?? monthStart
+            return TrendDataPoint(date: midDate, value: monthlyData[monthStart] ?? 0)
         }
     }
     
