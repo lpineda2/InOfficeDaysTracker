@@ -47,7 +47,11 @@ struct MacroRingCard: View {
                     bottomLabel: "\(goalRemaining) left",
                     percentage: daysPercentage,
                     gradient: DesignTokens.accentCyan,
-                    accentColor: DesignTokens.cyanAccent
+                    accentColor: DesignTokens.cyanAccent,
+                    ringSize: 120,
+                    strokeWidth: 8,
+                    centerNumberFont: .system(size: 56, weight: .bold),
+                    centerNumberColor: DesignTokens.cyanAccent
                 )
                 
                 Spacer()
@@ -120,10 +124,13 @@ struct MacroRingItem: View {
     let percentage: Double
     let gradient: LinearGradient
     let accentColor: Color
-    
-    private let ringSize: CGFloat = 80
-    private let strokeWidth: CGFloat = 10
-    
+
+    // Visual customization (defaults kept for backward compatibility)
+    let ringSize: CGFloat
+    let strokeWidth: CGFloat
+    let centerNumberFont: Font
+    let centerNumberColor: Color
+
     private var safePercentage: Double {
         guard !percentage.isNaN && !percentage.isInfinite && percentage >= 0 else { return 0.0 }
         return min(percentage, 1.0)
@@ -134,20 +141,47 @@ struct MacroRingItem: View {
         guard !percentage.isNaN && !percentage.isInfinite && percentage >= 0 else { return 0.0 }
         return min(percentage, 1.0)
     }
-    
+
+    // Custom initializer to preserve existing calling sites while allowing overrides
+    init(
+        title: String,
+        value: Int,
+        subtitle: String,
+        bottomLabel: String,
+        percentage: Double,
+        gradient: LinearGradient,
+        accentColor: Color,
+        ringSize: CGFloat = 80,
+        strokeWidth: CGFloat = 10,
+        centerNumberFont: Font = Typography.statNumber,
+        centerNumberColor: Color = DesignTokens.textPrimary
+    ) {
+        self.title = title
+        self.value = value
+        self.subtitle = subtitle
+        self.bottomLabel = bottomLabel
+        self.percentage = percentage
+        self.gradient = gradient
+        self.accentColor = accentColor
+        self.ringSize = ringSize
+        self.strokeWidth = strokeWidth
+        self.centerNumberFont = centerNumberFont
+        self.centerNumberColor = centerNumberColor
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // Title label
             Text(title)
                 .font(Typography.accentLabel)
                 .foregroundColor(accentColor)
-            
+
             // Progress ring
             ZStack {
                 // Background ring
                 Circle()
                     .stroke(DesignTokens.ringBackground, lineWidth: strokeWidth)
-                
+
                 // Progress ring
                 Circle()
                     .trim(from: 0, to: safePercentage)
@@ -157,13 +191,13 @@ struct MacroRingItem: View {
                     )
                     .rotationEffect(.degrees(-90))
                     .animation(.easeInOut(duration: 0.8), value: safePercentage)
-                
+
                 // Center content
                 VStack(spacing: 0) {
                     HStack(alignment: .lastTextBaseline, spacing: 1) {
                         Text("\(value)")
-                            .font(Typography.statNumber)
-                            .foregroundColor(DesignTokens.textPrimary)
+                            .font(centerNumberFont)
+                            .foregroundColor(centerNumberColor)
                         Text(subtitle)
                             .font(Typography.captionSmall)
                             .foregroundColor(DesignTokens.textSecondary)
@@ -171,7 +205,7 @@ struct MacroRingItem: View {
                 }
             }
             .frame(width: ringSize, height: ringSize)
-            
+
             // Bottom label
             Text(bottomLabel)
                 .font(Typography.caption)
