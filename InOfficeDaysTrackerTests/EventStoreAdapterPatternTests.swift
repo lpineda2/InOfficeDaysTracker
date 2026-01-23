@@ -38,9 +38,9 @@ class EventStoreAdapterPatternTests: XCTestCase {
     
     func testProtocolConformance() {
         // Test that all adapters conform to EventStoreAdapterProtocol
-        XCTAssertTrue(mockAdapter != nil)
-        XCTAssertTrue(productionAdapter != nil) 
-        XCTAssertTrue(simulatorAdapter != nil)
+        XCTAssertNotNil(mockAdapter)
+        XCTAssertNotNil(productionAdapter)
+        XCTAssertNotNil(simulatorAdapter)
         
         // Test required properties exist
         XCTAssertNotNil(mockAdapter.eventStore)
@@ -72,12 +72,10 @@ class EventStoreAdapterPatternTests: XCTestCase {
         // Test factory creates adapter
         let adapter = EventStoreAdapterFactory.createAdapter()
         XCTAssertNotNil(adapter)
-        XCTAssertTrue(adapter != nil)
         
         // Test shared instance
         let sharedAdapter = EventStoreAdapterFactory.shared
         XCTAssertNotNil(sharedAdapter)
-        XCTAssertTrue(sharedAdapter != nil)
         
         // Both should have EventStore
         XCTAssertNotNil(adapter.eventStore)

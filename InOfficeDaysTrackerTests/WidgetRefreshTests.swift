@@ -16,7 +16,7 @@ struct WidgetRefreshTests {
     // MARK: - Test Setup Helper
     
     /// Creates a clean AppData instance for testing
-    func createTestAppData() -> AppData {
+    func createTestAppData() async -> AppData {
         // More comprehensive cleanup to prevent test interference
         let groupDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker")!
         
@@ -32,9 +32,9 @@ struct WidgetRefreshTests {
             groupDefaults.removeObject(forKey: key)
         }
         
-        // Force synchronization and add small delay for propagation
+        // Force synchronization and allow a short propagation window
         groupDefaults.synchronize()
-        Thread.sleep(forTimeInterval: 0.02)
+        try? await Task.sleep(nanoseconds: 20_000_000) // 20ms
         
         let appData = AppData()
         appData.visits = [] // Clear any existing visits
@@ -56,7 +56,7 @@ struct WidgetRefreshTests {
     
     @Test("Widget Sync - Office status persistence after entry")
     func testOfficeStatusPersistenceAfterEntry() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let testCoord = testCoordinate()
         
         // Verify initial state
@@ -76,7 +76,7 @@ struct WidgetRefreshTests {
     
     @Test("Widget Sync - Office status persistence after exit")
     func testOfficeStatusPersistenceAfterExit() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let testCoord = testCoordinate()
         
         // Start office visit
@@ -96,7 +96,7 @@ struct WidgetRefreshTests {
     
     @Test("Widget Sync - UserDefaults synchronization timing")
     func testUserDefaultsSynchronizationTiming() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let testCoord = testCoordinate()
         
         // Test rapid state changes (like what might happen with location events)
@@ -118,7 +118,7 @@ struct WidgetRefreshTests {
     
     @Test("Widget Sync - Current visit persistence") 
     func testCurrentVisitPersistence() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let testCoord = testCoordinate()
         
         // Ensure clean state by explicitly ending any existing visit
@@ -134,9 +134,9 @@ struct WidgetRefreshTests {
         appData.startVisit(at: testCoord)
         let visitId = appData.currentVisit?.id
         
-        // Force synchronization and add small delay for propagation
+        // Force synchronization and allow a short propagation window
         appData.sharedUserDefaults.synchronize()
-        Thread.sleep(forTimeInterval: 0.01)
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         
         // Verify current visit is persisted
         #expect(appData.currentVisit != nil)
@@ -152,7 +152,7 @@ struct WidgetRefreshTests {
         // End visit
         appData.endVisit()
         appData.sharedUserDefaults.synchronize()
-        Thread.sleep(forTimeInterval: 0.01)
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         
         // Verify current visit is cleared from persistence
         #expect(appData.currentVisit == nil)
@@ -164,7 +164,7 @@ struct WidgetRefreshTests {
     
     @Test("Widget Data - Accurate office status reflection")
     func testWidgetDataOfficeStatusAccuracy() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let testCoord = testCoordinate()
         
         // Test when not in office - check through UserDefaults directly
@@ -190,7 +190,7 @@ struct WidgetRefreshTests {
     
     @Test("Widget Data - Proper UserDefaults synchronization timing")
     func testWidgetDataSynchronizationTiming() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         
         // Force a visit update
         appData.startVisit(at: testCoordinate())
@@ -211,7 +211,7 @@ struct WidgetRefreshTests {
     
     @Test("Location Integration - End visit updates all states")
     func testLocationIntegrationEndVisit() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let locationService = LocationService()
         let testCoord = testCoordinate()
         
@@ -238,11 +238,11 @@ struct WidgetRefreshTests {
     
     @Test("Location Integration - Multiple rapid state changes")
     func testLocationIntegrationRapidChanges() async throws {
-        let appData = createTestAppData()
+        let appData = await createTestAppData()
         let testCoord = testCoordinate()
         
         // Simulate rapid entry/exit cycles that might occur with poor GPS signal
-        for cycle in 0..<3 {
+        for _ in 0..<3 {
             // Enter office
             appData.startVisit(at: testCoord)
             appData.sharedUserDefaults.synchronize()

@@ -28,11 +28,15 @@ fi
 echo -e "${YELLOW}📱 Running unit tests (serial execution for reliability)...${NC}"
 
 # Run tests with serial execution to prevent concurrency issues
+# Allow overriding the simulator destination via SIM_DEST env var to avoid
+# ambiguous-destination warnings. Defaults to iPhone 16 / iOS 18.6.
+SIM_DEST="${SIM_DEST:-platform=iOS Simulator,OS=18.6,name=iPhone 16}"
+
 # -parallel-testing-enabled NO ensures tests don't interfere with shared UserDefaults
 xcodebuild test \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,OS=18.6,name=iPhone 16' \
+    -destination "$SIM_DEST" \
     -parallel-testing-enabled NO \
     -quiet || {
     echo -e "${RED}❌ Tests failed!${NC}"

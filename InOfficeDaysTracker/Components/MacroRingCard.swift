@@ -47,11 +47,7 @@ struct MacroRingCard: View {
                     bottomLabel: "\(goalRemaining) left",
                     percentage: daysPercentage,
                     gradient: DesignTokens.accentCyan,
-                    accentColor: DesignTokens.cyanAccent,
-                    ringSize: 120,
-                    strokeWidth: 8,
-                    centerNumberFont: .system(size: 56, weight: .bold),
-                    centerNumberColor: DesignTokens.cyanAccent
+                    accentColor: DesignTokens.cyanAccent
                 )
                 
                 Spacer()

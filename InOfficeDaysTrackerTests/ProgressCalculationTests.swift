@@ -45,6 +45,13 @@ struct ProgressCalculationTests {
     }
     
     // MARK: - Days Remaining Calculation Tests
+
+    /// Safe integer divide returning 0.0 when denominator is zero.
+    func safeDivide(_ numerator: Int, _ denominator: Int) -> Double {
+        if denominator == 0 { return 0.0 }
+        return Double(numerator) / Double(denominator)
+    }
+
     
     @Test("Calculate weekdays remaining in month")
     func testWeekdaysRemainingCalculation() async throws {
@@ -95,7 +102,7 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 10 // working days left
         
         let needed = goal - current // 10 visits needed
-        let pace = Double(needed) / Double(weekdaysRemaining) // 10/10 = 1.0
+        let pace = safeDivide(needed, weekdaysRemaining) // 10/10 = 1.0
         
         #expect(pace == 1.0)
     }
@@ -107,7 +114,7 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 5 // working days left
         
         let needed = goal - current // 12 visits needed
-        let pace = Double(needed) / Double(weekdaysRemaining) // 12/5 = 2.4
+        let pace = safeDivide(needed, weekdaysRemaining) // 12/5 = 2.4
         
         #expect(pace == 2.4)
     }
@@ -119,7 +126,7 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 10 // working days left
         
         let needed = goal - current // 3 visits needed
-        let pace = Double(needed) / Double(weekdaysRemaining) // 3/10 = 0.3
+        let pace = safeDivide(needed, weekdaysRemaining) // 3/10 = 0.3
         
         #expect(pace == 0.3)
     }
@@ -131,7 +138,7 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 5 // working days left
         
         let needed = max(0, goal - current) // 0 visits needed
-        let pace = Double(needed) / Double(weekdaysRemaining) // 0/5 = 0.0
+        let pace = safeDivide(needed, weekdaysRemaining) // 0/5 = 0.0
         
         #expect(pace == 0.0)
     }
@@ -143,7 +150,7 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 3 // working days left
         
         let needed = max(0, goal - current) // 0 visits needed (can't be negative)
-        let pace = Double(needed) / Double(weekdaysRemaining) // 0/3 = 0.0
+        let pace = safeDivide(needed, weekdaysRemaining) // 0/3 = 0.0
         
         #expect(pace == 0.0)
     }
@@ -157,10 +164,10 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 0 // no working days left
         
         let needed = goal - current // 5 visits needed
-        
-        // Should handle division by zero gracefully
-        let pace = weekdaysRemaining > 0 ? Double(needed) / Double(weekdaysRemaining) : 0.0
-        
+
+        // Use safeDivide to handle zero denominator
+        let pace = safeDivide(needed, weekdaysRemaining)
+
         #expect(pace == 0.0) // Should not crash or return infinity
     }
     
@@ -171,7 +178,7 @@ struct ProgressCalculationTests {
         let weekdaysRemaining = 22 // working days left (normal month has ~22 weekdays)
         
         let needed = goal - current // 18 visits needed
-        let pace = Double(needed) / Double(weekdaysRemaining) // 18/22 ≈ 0.82
+        let pace = safeDivide(needed, weekdaysRemaining) // 18/22 ≈ 0.82
         
         // This should be a reasonable pace (less than 1 visit per weekday)
         #expect(pace < 1.0)
@@ -187,7 +194,7 @@ struct ProgressCalculationTests {
         let visitsNeeded = 14 // high number
         let weekdaysRemaining = 1 // very few days left
         
-        let pacePerDay = Double(visitsNeeded) / Double(weekdaysRemaining) // 14/1 = 14.0
+        let pacePerDay = safeDivide(visitsNeeded, weekdaysRemaining) // 14/1 = 14.0
         
         // Convert daily pace to weekly representation correctly
         // If pace is 14 visits per day, that's impossible on weekdays only
@@ -206,8 +213,8 @@ struct ProgressCalculationTests {
         let current = 7
         let goal = 20
         
-        let percentage = Double(current) / Double(goal)
-        
+        let percentage = safeDivide(current, goal)
+
         #expect(percentage == 0.35) // 35%
     }
     
@@ -216,8 +223,8 @@ struct ProgressCalculationTests {
         let current = 25
         let goal = 20
         
-        let percentage = Double(current) / Double(goal)
-        
+        let percentage = safeDivide(current, goal)
+
         #expect(percentage == 1.25) // 125% - over goal
     }
     
@@ -227,8 +234,8 @@ struct ProgressCalculationTests {
         let goal = 0
         
         // Should handle division by zero
-        let percentage = goal > 0 ? Double(current) / Double(goal) : 0.0
-        
+        let percentage = safeDivide(current, goal)
+
         #expect(percentage == 0.0)
     }
     
