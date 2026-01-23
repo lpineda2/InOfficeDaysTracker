@@ -39,7 +39,7 @@ struct MacroRingCard: View {
                 .foregroundColor(DesignTokens.textPrimary)
             
             HStack(spacing: 0) {
-                // Days Completed Ring
+                // Each MacroRingItem gets equal horizontal space so visual spacing is balanced
                 MacroRingItem(
                     title: "Days",
                     value: daysCompleted,
@@ -49,10 +49,8 @@ struct MacroRingCard: View {
                     gradient: DesignTokens.accentCyan,
                     accentColor: DesignTokens.cyanAccent
                 )
-                
-                Spacer()
-                
-                // Goal Progress Ring
+                .frame(maxWidth: .infinity)
+
                 MacroRingItem(
                     title: "Goal",
                     value: Int(daysPercentage * 100),
@@ -62,10 +60,8 @@ struct MacroRingCard: View {
                     gradient: DesignTokens.accentPurple,
                     accentColor: DesignTokens.purpleAccent
                 )
-                
-                Spacer()
-                
-                // Pace Ring
+                .frame(maxWidth: .infinity)
+
                 MacroRingItem(
                     title: "Pace",
                     value: Int(paceNeeded.rounded()),
@@ -75,6 +71,7 @@ struct MacroRingCard: View {
                     gradient: DesignTokens.accentOrange,
                     accentColor: DesignTokens.orangeAccent
                 )
+                .frame(maxWidth: .infinity)
             }
         }
         .cardStyle()
