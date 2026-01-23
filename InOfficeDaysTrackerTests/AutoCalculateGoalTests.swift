@@ -905,7 +905,7 @@ final class AutoCalculateGoalTests: XCTestCase {
             isPrimary: false
         )
         
-        let arcticNearby = CLLocationCoordinate2D(latitude: 89.001, longitude: 0.001)
+        _ = CLLocationCoordinate2D(latitude: 89.001, longitude: 0.001)
         // This should work (distance calculation near poles)
         XCTAssertNotNil(arcticOffice.coordinate)
     }
