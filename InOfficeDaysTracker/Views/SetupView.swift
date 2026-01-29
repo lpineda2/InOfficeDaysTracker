@@ -66,7 +66,7 @@ struct SetupView: View {
             VStack(spacing: 0) {
                 // Progress indicator
                 ProgressView(value: Double(currentStep + 1), total: Double(totalSteps))
-                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                    .progressViewStyle(LinearProgressViewStyle(tint: DesignTokens.cyanAccent))
                     .padding()
                 
                 // Step content
@@ -145,19 +145,19 @@ struct SetupView: View {
     private var welcomeStep: some View {
         VStack(spacing: 30) {
             Image(systemName: "building.2")
-                .font(.system(size: 80))
-                .foregroundColor(.blue)
+                .font(Typography.iconXL)
+                .foregroundColor(DesignTokens.cyanAccent)
             
             VStack(spacing: 16) {
                 Text("Welcome to\nIn Office Days Tracker")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                     .multilineTextAlignment(.center)
                 
                 Text("Track your office visits automatically and reach your monthly goals with smart geofencing technology.")
-                    .font(.body)
+                    .font(Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -170,24 +170,24 @@ struct SetupView: View {
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
     }
     
     private var officeLocationStep: some View {
         VStack(spacing: 30) {
             VStack(spacing: 16) {
                 Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .font(Typography.iconL)
+                    .foregroundColor(DesignTokens.cyanAccent)
                 
                 Text("Office Location")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Text("Enter your office address so we can set up automatic tracking.")
-                    .font(.body)
+                    .font(Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -207,24 +207,24 @@ struct SetupView: View {
                             .font(.headline)
                         Spacer()
                         Text(regionSpecificRadius)
-                            .font(.subheadline)
-                            .foregroundColor(.blue)
+                            .font(Typography.bodySecondary)
+                            .foregroundColor(DesignTokens.cyanAccent)
                     }
                     // Slider always stores meters, but endpoints are region-specific
                     // Step is .25 miles (402.335 meters) or .25 km (250 meters)
                     // Range: 0.25 to 1 mile (402.335m to 1609.34m) or 0.25 to 1 km (250m to 1000m)
-                    Slider(value: $detectionRadius,
-                           in: usesImperial ? 402.335...1609.34 : 250...1000,
-                           step: usesImperial ? 402.335 : 250)
-                        .tint(.blue)
+                          Slider(value: $detectionRadius,
+                                    in: usesImperial ? 402.335...1609.34 : 250...1000,
+                                    step: usesImperial ? 402.335 : 250)
+                                .tint(DesignTokens.cyanAccent)
                     HStack {
                         Text(usesImperial ? "0.25 mile" : "0.25 km")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                         Spacer()
                         Text(usesImperial ? "1 mile" : "1 km")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                 }
                 .padding(.top)
@@ -232,24 +232,24 @@ struct SetupView: View {
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
     }
     
     private var trackingDaysStep: some View {
         VStack(spacing: 30) {
             VStack(spacing: 16) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .font(Typography.iconL)
+                    .foregroundColor(DesignTokens.cyanAccent)
                 
                 Text("Tracking Days")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Text("Choose which days you want to track office visits.")
-                    .font(.body)
+                    .font(Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -271,24 +271,24 @@ struct SetupView: View {
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
     }
     
     private var officeHoursStep: some View {
         VStack(spacing: 30) {
             VStack(spacing: 16) {
                 Image(systemName: "clock")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .font(Typography.iconL)
+                    .foregroundColor(DesignTokens.cyanAccent)
                 
                 Text("Office Hours")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Text("Set your typical office hours for more accurate tracking.")
-                    .font(.body)
+                    .font(Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -312,26 +312,26 @@ struct SetupView: View {
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
     }
     
     private var goalSettingStep: some View {
         VStack(spacing: 24) {
             VStack(spacing: 16) {
                 Image(systemName: autoCalculateGoal ? "function" : "target")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .font(Typography.iconL)
+                    .foregroundColor(DesignTokens.cyanAccent)
                 
                 Text("Monthly Goal")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
-                Text(autoCalculateGoal 
+                 Text(autoCalculateGoal 
                      ? "Select your company's hybrid work policy"
                      : "How many office days do you want to aim for each month?")
-                    .font(.body)
+                    .font(Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -339,14 +339,15 @@ struct SetupView: View {
             Toggle(isOn: $autoCalculateGoal.animation()) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Auto-calculate based on policy")
-                        .font(.headline)
+                        .font(Typography.cardTitle)
+                        .foregroundColor(DesignTokens.textPrimary)
                     Text("Let the app calculate your required days")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Typography.caption)
+                        .foregroundColor(DesignTokens.textSecondary)
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
+            .background(DesignTokens.surfaceElevated)
             .cornerRadius(12)
             
             if autoCalculateGoal {
@@ -360,26 +361,26 @@ struct SetupView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(policy.displayName)
                                         .font(.headline)
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(DesignTokens.textPrimary)
                                     Text(policy.description)
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(DesignTokens.textSecondary)
                                 }
                                 Spacer()
                                 if selectedPolicyType == policy {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(DesignTokens.cyanAccent)
                                         .font(.title2)
                                 }
                             }
                             .padding()
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedPolicyType == policy ? Color.blue.opacity(0.1) : Color(.systemGray6))
+                                    .fill(selectedPolicyType == policy ? DesignTokens.cyanAccent.opacity(0.1) : DesignTokens.surfaceElevated)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(selectedPolicyType == policy ? Color.blue : Color.clear, lineWidth: 2)
+                                    .stroke(selectedPolicyType == policy ? DesignTokens.cyanAccent : Color.clear, lineWidth: 2)
                             )
                         }
                         .buttonStyle(.plain)
@@ -388,15 +389,15 @@ struct SetupView: View {
                 
                 Text("You can customize holidays and PTO in Settings later")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.top, 8)
             } else {
                 // Manual goal slider
                 VStack(spacing: 20) {
                     Text("\(monthlyGoal) days")
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundColor(.blue)
+                        .font(Typography.heroNumber)
+                        .foregroundColor(DesignTokens.cyanAccent)
                     
                     Slider(value: Binding(
                         get: { Double(monthlyGoal) },
@@ -410,30 +411,30 @@ struct SetupView: View {
                         Text("31 days")
                             .font(.caption)
                     }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                 }
             }
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
     }
     
     private var permissionsStep: some View {
         VStack(spacing: 30) {
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.shield")
-                    .font(.system(size: 60))
-                    .foregroundColor(.green)
+                    .font(Typography.iconL)
+                    .foregroundColor(DesignTokens.successGreen)
                 
                 Text("Permissions")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Text("Grant the necessary permissions to enable automatic office visit tracking.")
-                    .font(.body)
+                    .font(Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -474,21 +475,21 @@ struct SetupView: View {
             if locationService.authorizationStatus == .authorizedWhenInUse {
                 VStack(spacing: 12) {
                     Text("Upgrade to Always Access")
-                        .font(.headline)
-                        .foregroundColor(.blue)
+                        .font(Typography.cardTitle)
+                        .foregroundColor(DesignTokens.cyanAccent)
                     
                     Text("For automatic office detection when the app is closed, tap the orange 'Enable Always Access' button below. If the system doesn't show the upgrade option, you can manually enable it in Settings.")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     
                     // Manual instructions
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Manual Setup Instructions:")
-                            .font(.caption)
+                            .font(Typography.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(.blue)
+                            .foregroundColor(DesignTokens.cyanAccent)
                         
                         Text("1. Open Settings app")
                         Text("2. Go to Privacy & Security > Location Services")
@@ -496,20 +497,20 @@ struct SetupView: View {
                         Text("4. Select 'Always' instead of 'While Using App'")
                     }
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                 }
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(DesignTokens.cyanAccent.opacity(0.08))
                 )
             }
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
         .onAppear {
             // Refresh permission status when view appears
             locationService.checkAuthorizationStatus()
@@ -522,18 +523,18 @@ struct SetupView: View {
     private var calendarSetupStep: some View {
         VStack(spacing: 30) {
             VStack(spacing: 16) {
-                Image(systemName: "calendar.badge.plus")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    Image(systemName: "calendar.badge.plus")
+                    .font(Typography.iconL)
+                    .foregroundColor(DesignTokens.cyanAccent)
                 
                 Text("Calendar Integration")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .font(Typography.screenTitle)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Text("Connect your calendar to automatically track office visits (Optional)")
                     .font(.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
             }
             
@@ -545,7 +546,7 @@ struct SetupView: View {
             
             Spacer()
         }
-        .padding()
+        .cardStyle()
         .onAppear {
             print("🔍 [SetupView] Calendar setup step appeared")
             print("  - Current step: \(currentStep)")
@@ -600,21 +601,21 @@ struct SetupView: View {
                 hasSeenCalendarSetup = true
             }
             .buttonStyle(.bordered)
-            .tint(.secondary)
+            .tint(DesignTokens.textSecondary)
         }
     }
     
     private var calendarSelectionView: some View {
         VStack(spacing: 20) {
             Text("✅ Calendar access granted!")
-                .font(.headline)
-                .foregroundColor(.green)
+                .font(Typography.cardTitle)
+                .foregroundColor(DesignTokens.successGreen)
             
             if calendarService.availableCalendars.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "calendar.badge.exclamationmark")
-                        .font(.system(size: 48))
-                        .foregroundColor(.orange)
+                        .font(Typography.iconM)
+                        .foregroundColor(DesignTokens.orangeAccent)
                     
                     Text("Loading Calendars...")
                         .font(.headline)
@@ -622,26 +623,26 @@ struct SetupView: View {
                     Text("Checking for available calendars. If none appear, you can enable calendar integration and configure it later in Settings.")
                         .font(.body)
                         .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                     
                     VStack(spacing: 12) {
                         if calendarIntegrationEnabled {
                             VStack(spacing: 8) {
                                 HStack {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                        .foregroundColor(DesignTokens.successGreen)
                                         .font(.title2)
                                     Text("Calendar Integration Enabled")
-                                        .font(.headline)
-                                        .foregroundColor(.green)
+                                        .font(Typography.cardTitle)
+                                        .foregroundColor(DesignTokens.successGreen)
                                 }
                                 .padding()
-                                .background(Color.green.opacity(0.1))
+                                .background(DesignTokens.successGreen.opacity(0.08))
                                 .cornerRadius(12)
                                 
                                 Text("You can configure specific calendars later in Settings")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(DesignTokens.textSecondary)
                                     .multilineTextAlignment(.center)
                             }
                         } else {
@@ -656,8 +657,8 @@ struct SetupView: View {
                                 .controlSize(.large)
                                 
                                 Text("Tap above to enable • Configure calendars later in Settings")
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
+                                    .font(Typography.caption)
+                                    .foregroundColor(DesignTokens.cyanAccent)
                                     .multilineTextAlignment(.center)
                             }
                         }
@@ -667,7 +668,7 @@ struct SetupView: View {
                 Text("Select a calendar where office visit events will be created:")
                     .font(.body)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .padding(.horizontal)
                 
                 // Calendar list with color indicators
@@ -879,7 +880,7 @@ struct FeatureRow: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundColor(DesignTokens.cyanAccent)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -887,7 +888,7 @@ struct FeatureRow: View {
                     .font(.headline)
                 Text(description)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
             }
             
             Spacer()
@@ -906,19 +907,19 @@ struct DayToggleRow: View {
             HStack {
                 Text(dayName)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .foregroundColor(DesignTokens.textPrimary)
                 
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundColor(isSelected ? .blue : .secondary)
+                    .foregroundColor(isSelected ? DesignTokens.cyanAccent : DesignTokens.textSecondary)
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                    .fill(isSelected ? DesignTokens.cyanAccent.opacity(0.1) : Color.clear)
             )
         }
         .buttonStyle(.plain)
@@ -939,7 +940,7 @@ struct PermissionRow: View {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignTokens.cyanAccent)
                     .frame(width: 24)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -947,7 +948,7 @@ struct PermissionRow: View {
                         .font(.headline)
                     Text(description)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                 }
                 
                 Spacer()
@@ -957,7 +958,7 @@ struct PermissionRow: View {
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
+                    .fill(DesignTokens.surfaceElevated)
             )
             
             if status == .notGranted || status == .partiallyGranted {
@@ -966,7 +967,7 @@ struct PermissionRow: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .tint(status == .partiallyGranted ? .orange : .blue)
+                .tint(status == .partiallyGranted ? DesignTokens.orangeAccent : DesignTokens.cyanAccent)
             }
         }
     }
@@ -996,15 +997,15 @@ struct PermissionRow: View {
             case .granted:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundColor(.green)
+                    .foregroundColor(DesignTokens.successGreen)
             case .partiallyGranted:
                 Image(systemName: "checkmark.circle")
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignTokens.cyanAccent)
             case .notGranted:
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.title2)
-                    .foregroundColor(.orange)
+                    .foregroundColor(DesignTokens.orangeAccent)
             }
         }
     }
@@ -1033,12 +1034,12 @@ struct CalendarRowView: View {
                     Text(calendar.title)
                         .font(.body)
                         .fontWeight(isSelected ? .semibold : .regular)
-                        .foregroundColor(.primary)
+                        .foregroundColor(DesignTokens.textPrimary)
                     
                     if let source = calendar.source?.title, !source.isEmpty {
                         Text(source)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                 }
                 
@@ -1047,11 +1048,11 @@ struct CalendarRowView: View {
                 // Selection indicator
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                         .font(.title3)
                 } else {
                     Image(systemName: "circle")
-                        .foregroundColor(.secondary.opacity(0.5))
+                        .foregroundColor(DesignTokens.textSecondary.opacity(0.5))
                         .font(.title3)
                 }
             }
@@ -1059,11 +1060,11 @@ struct CalendarRowView: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+                    .fill(isSelected ? DesignTokens.cyanAccent.opacity(0.1) : DesignTokens.surfaceElevated)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? DesignTokens.cyanAccent : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)

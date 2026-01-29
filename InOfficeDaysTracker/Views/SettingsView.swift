@@ -79,7 +79,7 @@ struct SettingsView: View {
             NavigationLink(destination: PolicySettingsView(appData: appData)) {
                 HStack {
                     Image(systemName: "target")
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -88,7 +88,7 @@ struct SettingsView: View {
                         
                         Text(goalStatusText)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                     }
                     
                     Spacer()
@@ -117,7 +117,7 @@ struct SettingsView: View {
             NavigationLink(destination: OfficeLocationsView(appData: appData)) {
                 HStack {
                     Image(systemName: "mappin.and.ellipse")
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -126,7 +126,7 @@ struct SettingsView: View {
                         
                         Text(locationsStatusText)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                     }
                     
                     Spacer()
@@ -159,7 +159,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Office Address")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                 
                 AddressAutocompleteField(
                     selectedAddress: $officeAddress,
@@ -183,7 +183,7 @@ struct SettingsView: View {
                     Spacer()
                     Text(regionSpecificRadius)
                         .font(.subheadline)
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                 }
 
                 // Slider always stores meters, but endpoints are region-specific
@@ -192,13 +192,13 @@ struct SettingsView: View {
                 Slider(value: $detectionRadius,
                        in: usesImperial ? 402.335...1609.34 : 250...1000,
                        step: usesImperial ? 402.335 : 250)
-                    .tint(.blue)
+                    .tint(DesignTokens.cyanAccent)
 
                 // Only show min/max labels matching slider range
                 HStack {
                     Text(usesImperial ? "0.25 mile" : "0.25 km")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                     Spacer()
                     Text(usesImperial ? "1 mile" : "1 km")
                         .font(.caption)

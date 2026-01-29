@@ -69,7 +69,7 @@ struct HistoryView: View {
                     Image(systemName: "chevron.left")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.cyan)
+                        .foregroundColor(DesignTokens.cyanAccent)
                 }
                 Spacer()
                 Text(monthName(for: selectedMonth))
@@ -84,7 +84,7 @@ struct HistoryView: View {
                     Image(systemName: "chevron.right")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.cyan)
+                        .foregroundColor(DesignTokens.cyanAccent)
                 }
                 .opacity(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month) ? 0.3 : 1.0)
                 .disabled(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month))
@@ -132,8 +132,8 @@ struct HistoryView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 60))
-                .foregroundColor(.gray)
+                .font(Typography.iconL)
+                .foregroundColor(DesignTokens.textTertiary)
             
             Text("No visits recorded")
                 .font(.title2)
@@ -141,7 +141,7 @@ struct HistoryView: View {
             
             Text("Office visits for \(monthName(for: selectedMonth)) will appear here when you spend time at your office location.")
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundColor(DesignTokens.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
         }
@@ -231,10 +231,10 @@ struct StatView: View {
             Text(value)
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(.cyan)
+                .foregroundColor(DesignTokens.cyanAccent)
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(DesignTokens.textSecondary)
         }
     }
 }
@@ -251,10 +251,10 @@ struct VisitCard: View {
                     Text(visit.formattedDate)
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(DesignTokens.textPrimary)
                     Text(visit.dayOfWeek)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                 }
                 
                 Spacer()
@@ -263,10 +263,10 @@ struct VisitCard: View {
                     Text(visit.formattedDuration)
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.cyan)
-                    Text("Duration")
+                        .foregroundColor(DesignTokens.cyanAccent)
+                        Text("Duration")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                 }
             }
             
@@ -275,11 +275,11 @@ struct VisitCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Entry Time")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                     Text(formatTime(visit.entryTime))
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                        .foregroundColor(DesignTokens.textPrimary)
                 }
                 
                 Spacer()
@@ -288,21 +288,21 @@ struct VisitCard: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("Exit Time")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                         Text(formatTime(exitTime))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.primary)
+                            .foregroundColor(DesignTokens.textPrimary)
                     }
                 } else {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("Status")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                         Text("In Progress")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.orange)
+                            .foregroundColor(DesignTokens.orangeAccent)
                     }
                 }
             }

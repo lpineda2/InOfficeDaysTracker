@@ -607,18 +607,18 @@ struct CalculationDetailsSheet: View {
                         CalculationDetailRow(label: "Weekdays in month", value: "\(breakdown.weekdaysInMonth)")
                         
                         if breakdown.holidayCount > 0 {
-                            CalculationDetailRow(label: "Holidays", value: "− \(breakdown.holidayCount)", color: .orange)
+                            CalculationDetailRow(label: "Holidays", value: "− \(breakdown.holidayCount)", color: DesignTokens.orangeAccent)
                         }
                         
                         CalculationDetailRow(label: "Business days", value: "\(breakdown.businessDays)")
                         
                         if breakdown.ptoCount > 0 {
-                            CalculationDetailRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: .orange)
+                            CalculationDetailRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: DesignTokens.orangeAccent)
                         }
                         
                         CalculationDetailRow(label: "Working days", value: "\(breakdown.workingDays)")
                         
-                        CalculationDetailRow(label: "Policy (\(breakdown.percentageString))", value: "× \(breakdown.percentageString)", color: .blue)
+                        CalculationDetailRow(label: "Policy (\(breakdown.percentageString))", value: "× \(breakdown.percentageString)", color: DesignTokens.cyanAccent)
                         
                         Divider()
                         
@@ -628,8 +628,8 @@ struct CalculationDetailsSheet: View {
                             Spacer()
                             Text("\(breakdown.requiredDays)")
                                 .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.blue)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(DesignTokens.cyanAccent)
                         }
                     }
                     .padding(.vertical, 4)
@@ -642,14 +642,14 @@ struct CalculationDetailsSheet: View {
                         Text("Policy")
                         Spacer()
                         Text(appData.settings.companyPolicy.displayName)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                     
                     HStack {
                         Text("Holiday Calendar")
                         Spacer()
                         Text(appData.settings.holidayCalendar.preset.displayName)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                 } header: {
                     Text("Settings")
@@ -677,12 +677,12 @@ struct CalculationDetailsSheet: View {
 struct CalculationDetailRow: View {
     let label: String
     let value: String
-    var color: Color = .primary
+    var color: Color = DesignTokens.textPrimary
     
     var body: some View {
         HStack {
             Text(label)
-                .foregroundColor(.secondary)
+                .foregroundColor(DesignTokens.textSecondary)
             Spacer()
             Text(value)
                 .fontWeight(.medium)

@@ -81,7 +81,7 @@ struct CalendarSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: "calendar.badge.exclamationmark")
-                        .foregroundColor(.orange)
+                        .foregroundColor(DesignTokens.orangeAccent)
                         .font(.title2)
                     Text("Calendar Access Required")
                         .font(.headline)
@@ -89,7 +89,7 @@ struct CalendarSettingsView: View {
                 
                 Text("Grant calendar access to create events for your office visits.")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                 
                 if permissionHandler.wasDenied {
                     Button("Open Settings") {
@@ -142,10 +142,10 @@ struct CalendarSettingsView: View {
                                 .fill(Color(cgColor: calendar.cgColor))
                                 .frame(width: 10, height: 10)
                             Text(calendar.title)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                         } else {
                             Text("Select Calendar")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                         }
                     }
                 }
@@ -153,10 +153,10 @@ struct CalendarSettingsView: View {
                 if selectedCalendar != nil {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(DesignTokens.successGreen)
                         Text("Calendar connected")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                 }
             }

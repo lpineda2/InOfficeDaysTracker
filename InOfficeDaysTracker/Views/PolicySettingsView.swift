@@ -95,7 +95,7 @@ struct PolicySettingsView: View {
                         Spacer()
                         Text("\(customPercentage)%")
                             .font(.body)
-                            .foregroundColor(.blue)
+                            .foregroundColor(DesignTokens.cyanAccent)
                             .fontWeight(.medium)
                     }
                     
@@ -103,16 +103,16 @@ struct PolicySettingsView: View {
                         get: { Double(customPercentage) },
                         set: { customPercentage = Int($0) }
                     ), in: 0...100, step: 5)
-                    .tint(.blue)
+                    .tint(DesignTokens.cyanAccent)
                     
                     HStack {
                         Text("0%")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                         Spacer()
                         Text("100%")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                 }
                 .padding(.vertical, 4)
@@ -131,7 +131,7 @@ struct PolicySettingsView: View {
             NavigationLink(destination: HolidaySettingsView(appData: appData)) {
                 HStack {
                     Image(systemName: "calendar")
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -139,7 +139,7 @@ struct PolicySettingsView: View {
                             .font(.body)
                         Text("\(appData.settings.holidayCalendar.preset.displayName) (\(appData.settings.holidayCalendar.preset.holidayCount))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                     }
                     
                     Spacer()
@@ -157,16 +157,16 @@ struct PolicySettingsView: View {
             } label: {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                     Text("Add PTO/Sick Day")
-                        .foregroundColor(.primary)
+                        .foregroundColor(DesignTokens.textPrimary)
                 }
             }
             
             let ptoDays = appData.getPTODays(for: currentMonth)
             if ptoDays.isEmpty {
                 Text("No PTO days added for this month")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .font(.subheadline)
             } else {
                 ForEach(ptoDays, id: \.self) { date in
@@ -176,8 +176,8 @@ struct PolicySettingsView: View {
                         Button {
                             appData.removePTODay(date)
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
+                                Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(DesignTokens.textSecondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -200,18 +200,18 @@ struct PolicySettingsView: View {
                 CalculationRow(label: "Weekdays in month", value: "\(breakdown.weekdaysInMonth)")
                 
                 if breakdown.holidayCount > 0 {
-                    CalculationRow(label: "Holidays", value: "− \(breakdown.holidayCount)", color: .orange)
+                    CalculationRow(label: "Holidays", value: "− \(breakdown.holidayCount)", color: DesignTokens.orangeAccent)
                 }
                 
                 CalculationRow(label: "Business days", value: "\(breakdown.businessDays)")
                 
                 if breakdown.ptoCount > 0 {
-                    CalculationRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: .orange)
+                    CalculationRow(label: "PTO/Sick days", value: "− \(breakdown.ptoCount)", color: DesignTokens.orangeAccent)
                 }
                 
                 CalculationRow(label: "Working days", value: "\(breakdown.workingDays)")
                 
-                CalculationRow(label: "Policy (\(breakdown.percentageString))", value: "× \(breakdown.percentageString)", color: .blue)
+                CalculationRow(label: "Policy (\(breakdown.percentageString))", value: "× \(breakdown.percentageString)", color: DesignTokens.cyanAccent)
                 
                 Divider()
                 
@@ -221,8 +221,8 @@ struct PolicySettingsView: View {
                     Spacer()
                     Text("\(breakdown.requiredDays)")
                         .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.blue)
+                            .fontWeight(.bold)
+                            .foregroundColor(DesignTokens.cyanAccent)
                 }
             }
             .padding(.vertical, 4)
@@ -242,7 +242,7 @@ struct PolicySettingsView: View {
                     Spacer()
                     Text("\(manualGoal) days")
                         .font(.body)
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignTokens.cyanAccent)
                         .fontWeight(.medium)
                 }
                 
@@ -250,16 +250,16 @@ struct PolicySettingsView: View {
                     get: { Double(manualGoal) },
                     set: { manualGoal = Int($0) }
                 ), in: 1...31, step: 1)
-                .tint(.blue)
+                .tint(DesignTokens.cyanAccent)
                 
                 HStack {
                     Text("1 day")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                     Spacer()
                     Text("31 days")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                 }
             }
             .padding(.vertical, 4)
@@ -321,7 +321,7 @@ struct CalculationRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .foregroundColor(.secondary)
+                .foregroundColor(DesignTokens.textSecondary)
             Spacer()
             Text(value)
                 .fontWeight(.medium)

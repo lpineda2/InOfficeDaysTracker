@@ -227,7 +227,7 @@ struct TrendChartCard: View {
     private var emptyStateView: some View {
         VStack(spacing: 8) {
             Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 32))
+                .font(Typography.ringNumber)
                 .foregroundColor(DesignTokens.textTertiary)
             
             Text("No data yet")

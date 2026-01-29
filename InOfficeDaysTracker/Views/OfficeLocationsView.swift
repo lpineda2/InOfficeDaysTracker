@@ -37,7 +37,7 @@ struct OfficeLocationsView: View {
         Section {
             Text("Visits to any configured location count toward your monthly goal.")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(DesignTokens.textSecondary)
         }
     }
     
@@ -71,9 +71,9 @@ struct OfficeLocationsView: View {
             } label: {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundColor(canAddLocation ? .blue : .secondary)
+                        .foregroundColor(canAddLocation ? DesignTokens.cyanAccent : DesignTokens.textSecondary)
                     Text("Add Location")
-                        .foregroundColor(canAddLocation ? .primary : .secondary)
+                        .foregroundColor(canAddLocation ? DesignTokens.textPrimary : DesignTokens.textSecondary)
                 }
             }
             .disabled(!canAddLocation)
@@ -111,7 +111,7 @@ struct LocationRow: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 Image(systemName: "building.2")
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignTokens.cyanAccent)
                     .font(.title2)
                     .frame(width: 24)
                 
@@ -119,7 +119,7 @@ struct LocationRow: View {
                     HStack {
                         Text(location.name)
                             .font(.headline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(DesignTokens.textPrimary)
                         
                         if location.isPrimary {
                             Image(systemName: "star.fill")
@@ -130,18 +130,18 @@ struct LocationRow: View {
                     
                     Text(location.address.isEmpty ? "No address" : location.address)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                         .lineLimit(2)
                     
                     Text("Radius: \(location.radiusFormatted)")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DesignTokens.textSecondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DesignTokens.textSecondary)
                     .font(.caption)
             }
             .padding(.vertical, 4)

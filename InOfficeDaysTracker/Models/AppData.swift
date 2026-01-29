@@ -32,7 +32,7 @@ class AppData: ObservableObject {
     }
     
     // Shared UserDefaults for app group (widget access)
-    let sharedUserDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
+    let sharedUserDefaults: UserDefaults
     
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
@@ -42,7 +42,9 @@ class AppData: ObservableObject {
     private let currentVisitKey = "CurrentVisit"
     private let widgetDataKey = "WidgetData"
     
-    init() {
+    init(sharedUserDefaults: UserDefaults? = nil) {
+        // Allow tests to inject a custom UserDefaults (isolated suite) to avoid cross-test races
+        self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrateDataFromStandardUserDefaults()
         

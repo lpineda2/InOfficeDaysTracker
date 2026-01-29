@@ -87,6 +87,28 @@ enum Typography {
     static var accentLabel: Font {
         .caption.weight(.semibold)
     }
+
+    // MARK: - Icon Sizes
+
+    /// Extra large icon (used on welcome screen)
+    static var iconXL: Font {
+        .system(size: DesignTokens.iconBackgroundSize * 2.25)
+    }
+
+    /// Large icon
+    static var iconL: Font {
+        .system(size: DesignTokens.iconBackgroundSize * 1.6667)
+    }
+
+    /// Medium icon
+    static var iconM: Font {
+        .system(size: DesignTokens.iconBackgroundSize * 1.3333)
+    }
+
+    /// Inline icon used in compact contexts
+    static var icon: Font {
+        .system(size: DesignTokens.iconSize, weight: .semibold)
+    }
 }
 
 // MARK: - View Extensions for Typography

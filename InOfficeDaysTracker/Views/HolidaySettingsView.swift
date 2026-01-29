@@ -61,9 +61,9 @@ struct HolidaySettingsView: View {
             HStack {
                 Text("Total Holidays")
                 Spacer()
-                Text("\(appData.settings.holidayCalendar.holidayCount(for: currentYear)) days")
-                    .foregroundColor(.blue)
-                    .fontWeight(.medium)
+                        Text("\(appData.settings.holidayCalendar.holidayCount(for: currentYear)) days")
+                            .foregroundColor(DesignTokens.cyanAccent)
+                            .fontWeight(.medium)
             }
         } header: {
             Text("Preset")
@@ -113,9 +113,9 @@ struct HolidaySettingsView: View {
             } label: {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.blue)
+                                .foregroundColor(DesignTokens.cyanAccent)
                     Text("Add Custom Holiday")
-                        .foregroundColor(.primary)
+                                .foregroundColor(DesignTokens.textPrimary)
                 }
             }
             

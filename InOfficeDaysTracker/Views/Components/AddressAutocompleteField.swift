@@ -77,7 +77,7 @@ struct AddressAutocompleteField: View {
                     if !inputText.isEmpty {
                         Button(action: clearInput) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(DesignTokens.textSecondary)
                         }
                         .accessibilityLabel("Clear address")
                     }
@@ -85,9 +85,9 @@ struct AddressAutocompleteField: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .background(Color(.systemBackground))
-                .overlay(
+                        .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isTextFieldFocused ? Color.blue : Color(.systemGray4), lineWidth: 1)
+                        .stroke(isTextFieldFocused ? DesignTokens.cyanAccent : Color(.systemGray4), lineWidth: 1)
                 )
                 
                 // Suggestions Dropdown
@@ -104,7 +104,7 @@ struct AddressAutocompleteField: View {
                         Text("Use Current Location")
                     }
                     .font(.subheadline)
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignTokens.cyanAccent)
                 }
                 .accessibilityLabel("Use current location for office address")
             }
@@ -158,13 +158,13 @@ struct AddressAutocompleteField: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(suggestion.title)
                         .font(.body)
-                        .foregroundColor(.primary)
+                        .foregroundColor(DesignTokens.textPrimary)
                         .multilineTextAlignment(.leading)
                     
                     if !suggestion.subtitle.isEmpty {
                         Text(suggestion.subtitle)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DesignTokens.textSecondary)
                             .multilineTextAlignment(.leading)
                     }
                 }
@@ -172,7 +172,7 @@ struct AddressAutocompleteField: View {
                 Spacer()
                 
                 Image(systemName: "location")
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignTokens.cyanAccent)
                     .font(.caption)
             }
             .padding(.horizontal, 12)

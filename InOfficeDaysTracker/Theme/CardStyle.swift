@@ -56,7 +56,7 @@ struct IconBackgroundStyle: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .font(.system(size: DesignTokens.iconSize, weight: .semibold))
+            .font(Typography.icon)
             .foregroundColor(color)
             .frame(width: size, height: size)
             .background(

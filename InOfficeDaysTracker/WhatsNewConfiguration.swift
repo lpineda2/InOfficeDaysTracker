@@ -18,14 +18,14 @@ struct WhatsNewConfiguration {
             version: "1.9.0",
             title: WhatsNew.Title(
                 text: "Smart Goal Calculation",
-                foregroundColor: .primary
+                foregroundColor: DesignTokens.textPrimary
             ),
             features: [
                 // Auto-Calculate Feature
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "function",
-                        foregroundColor: .blue
+                        foregroundColor: DesignTokens.cyanAccent
                     ),
                     title: "Auto-Calculate Goals",
                     subtitle: "Set your company's hybrid policy and let the app calculate your required office days automatically"
@@ -35,7 +35,7 @@ struct WhatsNewConfiguration {
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "calendar.badge.clock",
-                        foregroundColor: .orange
+                        foregroundColor: DesignTokens.orangeAccent
                     ),
                     title: "Holiday Calendar",
                     subtitle: "Built-in US holiday presets (NYSE, Federal). Customize to match your company"
@@ -45,7 +45,7 @@ struct WhatsNewConfiguration {
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "figure.walk",
-                        foregroundColor: .green
+                        foregroundColor: DesignTokens.successGreen
                     ),
                     title: "PTO & Sick Days",
                     subtitle: "Mark your time off and the goal adjusts automatically—no manual recalculation needed"
@@ -55,7 +55,7 @@ struct WhatsNewConfiguration {
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "building.2",
-                        foregroundColor: .purple
+                        foregroundColor: DesignTokens.purpleAccent
                     ),
                     title: "Multiple Offices",
                     subtitle: "Configure up to 2 office locations. Visits to any location count toward your goal"
@@ -81,14 +81,14 @@ struct WhatsNewConfiguration {
             version: "1.7.0",
             title: WhatsNew.Title(
                 text: "New Lock Screen & Home Widgets",
-                foregroundColor: .primary
+                foregroundColor: DesignTokens.textPrimary
             ),
             features: [
                 // Lock Screen - Circular Widget
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "chart.line.uptrend.xyaxis",
-                        foregroundColor: .blue
+                        foregroundColor: DesignTokens.cyanAccent
                     ),
                     title: "Lock Screen Progress",
                     subtitle: "See your monthly office progress at a glance on your lock screen"
@@ -98,7 +98,7 @@ struct WhatsNewConfiguration {
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "list.bullet.rectangle",
-                        foregroundColor: .green
+                        foregroundColor: DesignTokens.successGreen
                     ),
                     title: "Lock Screen Status",
                     subtitle: "Detailed view with office status, progress count, and visual ring"
@@ -108,7 +108,7 @@ struct WhatsNewConfiguration {
                 WhatsNew.Feature(
                     image: WhatsNew.Feature.Image(
                         systemName: "rectangle.grid.3x2",
-                        foregroundColor: .orange
+                        foregroundColor: DesignTokens.orangeAccent
                     ),
                     title: "Enhanced Home Widgets",
                     subtitle: "Rich interface with office status and weekly stats. Also available on Mac with macOS Tahoe"
