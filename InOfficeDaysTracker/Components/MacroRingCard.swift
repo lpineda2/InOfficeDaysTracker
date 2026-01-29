@@ -19,6 +19,7 @@ struct MacroRingCard: View {
     let workingDaysRemaining: Int
     let paceNeeded: Double // days per week needed to meet goal
     let weeksRemaining: Int
+    let isGoalUnreachable: Bool
     
     private var daysPercentage: Double {
         guard daysGoal > 0 else { return 0 }
@@ -70,6 +71,8 @@ struct MacroRingCard: View {
                     percentage: 1.0 - pacePercentage, // Invert: lower pace needed = better
                     gradient: DesignTokens.accentOrange,
                     accentColor: DesignTokens.orangeAccent
+                    , centerOverride: nil
+                    , hideCenter: isGoalUnreachable
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -90,6 +93,10 @@ struct MacroRingCard: View {
     }
     
     private var paceLabel: String {
+        if isGoalUnreachable {
+            return "Goal unreachable"
+        }
+
         return Self.paceLabel(paceNeeded: paceNeeded, workingDaysRemaining: workingDaysRemaining, now: Date(), calendar: Calendar.current)
     }
 
@@ -117,6 +124,8 @@ struct MacroRingItem: View {
     let percentage: Double
     let gradient: LinearGradient
     let accentColor: Color
+    let centerOverride: String?
+    let hideCenter: Bool
 
     // Visual customization (defaults kept for backward compatibility)
     let ringSize: CGFloat
@@ -148,6 +157,8 @@ struct MacroRingItem: View {
         strokeWidth: CGFloat = 10,
         centerNumberFont: Font = Typography.statNumber,
         centerNumberColor: Color = DesignTokens.textPrimary
+        , centerOverride: String? = nil,
+        hideCenter: Bool = false
     ) {
         self.title = title
         self.value = value
@@ -160,6 +171,8 @@ struct MacroRingItem: View {
         self.strokeWidth = strokeWidth
         self.centerNumberFont = centerNumberFont
         self.centerNumberColor = centerNumberColor
+        self.centerOverride = centerOverride
+        self.hideCenter = hideCenter
     }
 
     var body: some View {
@@ -185,15 +198,27 @@ struct MacroRingItem: View {
                     .rotationEffect(.degrees(-90))
                     .animation(.easeInOut(duration: 0.8), value: safePercentage)
 
-                // Center content
+                // Center content (allow override for special states)
                 VStack(spacing: 0) {
-                    HStack(alignment: .lastTextBaseline, spacing: 1) {
-                        Text("\(value)")
+                    if let override = centerOverride {
+                        Text(override)
+                            .font(Typography.cardTitle)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(DesignTokens.cyanAccent)
+                    } else if hideCenter {
+                        // Intentionally empty center when requested
+                        Text("")
                             .font(centerNumberFont)
                             .foregroundColor(centerNumberColor)
-                        Text(subtitle)
-                            .font(Typography.captionSmall)
-                            .foregroundColor(DesignTokens.textSecondary)
+                    } else {
+                        HStack(alignment: .lastTextBaseline, spacing: 1) {
+                            Text("\(value)")
+                                .font(centerNumberFont)
+                                .foregroundColor(centerNumberColor)
+                            Text(subtitle)
+                                .font(Typography.captionSmall)
+                                .foregroundColor(DesignTokens.textSecondary)
+                        }
                     }
                 }
             }
@@ -217,7 +242,8 @@ struct MacroRingItem: View {
             goalRemaining: 4,
             workingDaysRemaining: 6,
             paceNeeded: 2.0,
-            weeksRemaining: 2
+            weeksRemaining: 2,
+            isGoalUnreachable: false
         )
         
         MacroRingCard(
@@ -226,7 +252,8 @@ struct MacroRingItem: View {
             goalRemaining: 0,
             workingDaysRemaining: 0,
             paceNeeded: 0,
-            weeksRemaining: 1
+            weeksRemaining: 1,
+            isGoalUnreachable: false
         )
     }
     .padding()

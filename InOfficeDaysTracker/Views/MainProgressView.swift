@@ -35,7 +35,8 @@ struct MainProgressView: View {
                     goalRemaining: max(0, progressData.goal - progressData.current),
                     workingDaysRemaining: appData.getWorkingDaysRemaining(),
                     paceNeeded: appData.getPaceNeeded(),
-                    weeksRemaining: appData.getWeeksRemaining()
+                    weeksRemaining: appData.getWeeksRemaining(),
+                    isGoalUnreachable: isPaceUnreachable
                 )
                 
                 // Status Card (if in office)
@@ -140,6 +141,26 @@ struct MainProgressView: View {
     
     private var progressData: (current: Int, goal: Int, percentage: Double) {
         appData.getCurrentMonthProgress()
+    }
+
+    private var isPaceUnreachable: Bool {
+        let remainingForPace = max(0, progressData.goal - progressData.current)
+        let daysLeftForPace = appData.getWorkingDaysRemaining()
+        let workingDaysPerWeek = appData.settings.trackingDays.count
+
+        if remainingForPace > 0 {
+            if daysLeftForPace <= 0 {
+                return true
+            } else if workingDaysPerWeek > 0 {
+                let dailyRate = Double(remainingForPace) / Double(daysLeftForPace)
+                let weeklyRate = dailyRate * Double(workingDaysPerWeek)
+                if weeklyRate > Double(workingDaysPerWeek) {
+                    return true
+                }
+            }
+        }
+
+        return false
     }
     
     private func getCurrentMonthName() -> String {
