@@ -32,13 +32,19 @@ echo -e "${YELLOW}📱 Running unit tests (serial execution for reliability)...$
 # ambiguous-destination warnings. Defaults to iPhone 16 / iOS 18.6.
 SIM_DEST="${SIM_DEST:-platform=iOS Simulator,OS=18.6,name=iPhone 16}"
 
+echo -e "${BLUE}🎯 Running tests on simulator only: ${SIM_DEST}${NC}"
+
 # -parallel-testing-enabled NO ensures tests don't interfere with shared UserDefaults
+# -destination-timeout 60 prevents hanging on device connection attempts
+# -derivedDataPath ensures clean isolated test environment
 xcodebuild test \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
     -destination "$SIM_DEST" \
+    -destination-timeout 60 \
     -parallel-testing-enabled NO \
-    -quiet || {
+    -derivedDataPath "./DerivedData" \
+    -quiet 2>/dev/null || {
     echo -e "${RED}❌ Tests failed!${NC}"
     echo -e "${YELLOW}💡 Tip: Run individual tests with:${NC}"
     echo -e "   xcodebuild test -scheme $SCHEME -only-testing:InOfficeDaysTrackerTests/WidgetRefreshTests"
