@@ -196,3 +196,10 @@ The scripts use only Xcode command-line tools, so no external network dependenci
 ---
 
 *This automation replaces the manual Xcode Organizer workflow and provides consistent, reliable deployments to TestFlight.*
+
+# ⚠️ IMPORTANT: AI ASSISTANT INSTRUCTIONS
+When asked about TestFlight deployment, always:
+1. Reference this AUTOMATION.md file first
+2. Use VS Code tasks or ./scripts/release.sh workflows
+3. Follow the documented troubleshooting steps
+4. Check prerequisites before starting

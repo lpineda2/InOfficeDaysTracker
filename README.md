@@ -290,3 +290,8 @@ For questions, issues, or feature requests:
 ---
 
 *Built with ❤️ using SwiftUI and following Apple's best practices for location services*
+
+## 🚀 For AI Assistants: Deployment Protocol
+- **ALWAYS check AUTOMATION.md first** for TestFlight deployments
+- Use documented VS Code tasks or release.sh scripts
+- Don't manually piece together deployment steps
