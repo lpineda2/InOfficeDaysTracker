@@ -31,9 +31,9 @@ struct CompanyPolicy: Codable, Equatable {
     }
     
     /// Calculate required days from working days (business days minus PTO)
-    /// Formula: floor(workingDays × percentage)
+    /// Formula: ceil(workingDays × percentage)
     func calculateRequiredDays(workingDays: Int) -> Int {
-        return Int(floor(Double(workingDays) * requiredPercentage))
+        return Int(ceil(Double(workingDays) * requiredPercentage))
     }
     
     /// Human-readable description of the policy
@@ -57,7 +57,7 @@ struct CompanyPolicy: Codable, Equatable {
     /// Formula description for UI display
     var formulaDescription: String {
         let percentageText = policyType == .custom ? "\(customPercentage)%" : "\(Int(requiredPercentage * 100))%"
-        return "(Business Days − PTO) × \(percentageText), rounded down"
+        return "(Business Days − PTO) × \(percentageText), rounded up"
     }
 }
 
