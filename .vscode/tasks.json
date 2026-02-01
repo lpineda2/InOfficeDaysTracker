@@ -142,6 +142,34 @@
 			"command": "./scripts/release.sh --increment",
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "🚀 Deploy to TestFlight (Skip Tests)",
+			"type": "shell",
+			"command": "./scripts/release.sh --skip-tests",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "🚀 Deploy with Fixed Automation",
+			"type": "shell",
+			"command": "./scripts/release.sh --skip-tests",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "☁️ Upload Build 84 to TestFlight",
+			"type": "shell",
+			"command": "./scripts/upload.sh",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "🚀 Deploy Build 85 to TestFlight",
+			"type": "shell",
+			"command": "./scripts/release.sh --increment",
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

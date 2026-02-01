@@ -41,6 +41,10 @@ echo -e "${BLUE}🔨 Starting build process for ${PROJECT_NAME}...${NC}"
 echo -e "  Version: ${GREEN}${MARKETING_VERSION}${NC}"
 echo -e "  Build: ${GREEN}${BUILD_NUMBER}${NC}"
 
+# Set environment variables to prevent physical device interference during build
+export XCODE_DISABLE_DEVICE_DISCOVERY=YES
+export SIMULATOR_ONLY=YES
+
 # Create build directory
 mkdir -p "$BUILD_DIR"
 
@@ -53,11 +57,16 @@ xcodebuild clean \
 
 # Create archive
 echo -e "${YELLOW}📦 Creating archive...${NC}"
+# Disable device discovery at the environment level
+SKIP_INSTALL=NO \
+ENABLE_BITCODE=NO \
 xcodebuild archive \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
     -destination "generic/platform=iOS" \
     -archivePath "$ARCHIVE_PATH" \
+    -skipUnavailableActions \
+    -allowProvisioningUpdates \
     DEVELOPMENT_TEAM="$TEAM_ID" \
     -quiet || {
     echo -e "${RED}❌ Archive creation failed!${NC}"
