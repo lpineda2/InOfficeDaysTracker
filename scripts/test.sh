@@ -34,9 +34,14 @@ SIM_DEST="${SIM_DEST:-platform=iOS Simulator,OS=18.6,name=iPhone 16}"
 
 echo -e "${BLUE}🎯 Running tests on simulator only: ${SIM_DEST}${NC}"
 
+# Set environment variables to prevent physical device interference
+export SIMULATOR_ONLY=YES
+export XCODE_DISABLE_DEVICE_DISCOVERY=YES
+
 # -parallel-testing-enabled NO ensures tests don't interfere with shared UserDefaults
 # -destination-timeout 60 prevents hanging on device connection attempts
 # -derivedDataPath ensures clean isolated test environment
+# -skipUnavailableActions prevents attempting to use unavailable/locked devices
 xcodebuild test \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
@@ -44,6 +49,7 @@ xcodebuild test \
     -destination-timeout 60 \
     -parallel-testing-enabled NO \
     -derivedDataPath "./DerivedData" \
+    -skipUnavailableActions \
     -quiet 2>/dev/null || {
     echo -e "${RED}❌ Tests failed!${NC}"
     echo -e "${YELLOW}💡 Tip: Run individual tests with:${NC}"
