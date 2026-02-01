@@ -867,16 +867,41 @@ class AppData: ObservableObject {
     }
     
     /// Migrate single office location to multiple office locations array (v1.9.0)
+    // MARK: - Public Migration Helper
+    
+    /// Force migration of office locations if data is inconsistent
+    func ensureOfficeLocationConsistency() {
+        if settings.officeLocation != nil && settings.officeLocations.isEmpty {
+            print("[AppData] Forcing office location migration due to inconsistent data...")
+            // Reset migration flag to force it to run
+            let migrationKey = "DataMigratedToMultipleLocations_v1.9.0_v2"
+            sharedUserDefaults.set(false, forKey: migrationKey)
+            migrateToMultipleOfficeLocations()
+        }
+    }
+    
     private func migrateToMultipleOfficeLocations() {
         // Use v2 key since original migration had a bug (ran before settings were loaded)
         let migrationKey = "DataMigratedToMultipleLocations_v1.9.0_v2"
         
         // Check if migration already completed
-        if sharedUserDefaults.bool(forKey: migrationKey) {
+        let migrationCompleted = sharedUserDefaults.bool(forKey: migrationKey)
+        
+        // Also check for data consistency - if we have a legacy location but no new locations,
+        // force migration even if marked as complete
+        let hasLegacyLocation = settings.officeLocation != nil
+        let hasNewLocations = !settings.officeLocations.isEmpty
+        let needsForcedMigration = hasLegacyLocation && !hasNewLocations
+        
+        if migrationCompleted && !needsForcedMigration {
             return
         }
         
-        print("[AppData] Starting v1.9.0 office location migration...")
+        if needsForcedMigration {
+            print("[AppData] Detected inconsistent office location data - forcing migration...")
+        } else {
+            print("[AppData] Starting v1.9.0 office location migration...")
+        }
         
         // If user has an existing single office location but no office locations array
         if let existingLocation = settings.officeLocation,

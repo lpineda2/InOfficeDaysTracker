@@ -49,6 +49,13 @@ struct OfficeLocationsView: View {
                 Text("No office locations configured")
                     .foregroundColor(.secondary)
                     .font(.subheadline)
+                    .onAppear {
+                        // Check for migration consistency issue
+                        if appData.settings.officeLocation != nil {
+                            print("[OfficeLocationsView] Detected inconsistent data - triggering migration")
+                            appData.ensureOfficeLocationConsistency()
+                        }
+                    }
             } else {
                 ForEach(appData.settings.officeLocations) { location in
                     LocationRow(location: location) {

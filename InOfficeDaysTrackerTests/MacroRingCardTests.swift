@@ -24,7 +24,7 @@ final class MacroRingCardTests: XCTestCase {
 
         // Use computed daysLeft as the working-days value so expectations align
         let label = MacroRingCard.paceLabel(paceNeeded: 2.0, workingDaysRemaining: daysLeft, now: now, calendar: calendar)
-        let expected = daysLeft <= 0 ? "Month over" : "\(daysLeft)d left (workdays)"
+        let expected = daysLeft <= 0 ? "Month over" : "\(daysLeft)d left"
         XCTAssertEqual(label, expected)
     }
 

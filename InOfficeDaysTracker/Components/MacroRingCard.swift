@@ -110,7 +110,7 @@ struct MacroRingCard: View {
         } else if paceNeeded > 5 {
             return "Challenging"
         } else {
-            return "\(workingDaysRemaining)d left (workdays)"
+            return "\(workingDaysRemaining)d left"
         }
     }
 }

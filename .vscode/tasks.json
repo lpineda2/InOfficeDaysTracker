@@ -170,6 +170,76 @@
 			"command": "./scripts/release.sh --increment",
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "🔍 Debug Test Failures",
+			"type": "shell",
+			"command": "./scripts/test.sh",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "🔍 Verbose Test Output",
+			"type": "shell",
+			"command": "./scripts/test.sh",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "🚀 Deploy Build 85 (Skip Tests)",
+			"type": "shell",
+			"command": "./scripts/release.sh --skip-tests",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "🚀 Push to Git Branch",
+			"type": "shell",
+			"command": "git push origin feature/async-calendar-improvements",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "🔍 Check App Logs",
+			"type": "shell",
+			"command": "xcrun simctl spawn booted log stream --style syslog --predicate 'subsystem == \"com.apple.console\" AND category == \"default\"' --level info | grep -i 'AppData\\|migration\\|office' | head -20",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "🔨 Build Office Location Fix",
+			"type": "shell",
+			"command": "xcodebuild build -project InOfficeDaysTracker.xcodeproj -scheme InOfficeDaysTracker -destination 'generic/platform=iOS Simulator' -quiet",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "📅 Check February 1, 2026",
+			"type": "shell",
+			"command": "date -j -f '%Y-%m-%d' '2026-02-01' '+%A, %Y-%m-%d is a %A'",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "📅 February 2026 Calendar",
+			"type": "shell",
+			"command": "cal 02 2026",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "🔍 Debug Working Days Calculation",
+			"type": "shell",
+			"command": "cd /Users/lpineda/Desktop/InOfficeDaysTracker && swift debug_workdays.swift",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "🔍 Check All Days vs Weekdays",
+			"type": "shell",
+			"command": "cd /Users/lpineda/Desktop/InOfficeDaysTracker && swift debug_all_days.swift",
+			"isBackground": false,
+			"group": "test"
 		}
 	]
 }
