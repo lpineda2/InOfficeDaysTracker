@@ -301,8 +301,16 @@ final class MockEventStoreAdapter: EventStoreAdapterProtocol, @unchecked Sendabl
     func addMockCalendar(title: String, allowsModifications: Bool = true) {
         let calendar = MockEventStoreAdapter.createMockCalendar(title: title, allowsModifications: allowsModifications)
         mockCalendars.append(calendar)
+    }    
+    /// Create a test calendar with write permissions
+    func createTestCalendar() -> EKCalendar {
+        return Self.createMockCalendar(title: "Test Calendar", allowsModifications: true)
     }
     
+    /// Create a read-only test calendar  
+    func createReadOnlyCalendar() -> EKCalendar {
+        return Self.createMockCalendar(title: "Read-Only Calendar", allowsModifications: false)
+    }    
     /// Get performance data for specific operation
     func getPerformanceData(for operation: String) -> [TimeInterval] {
         return recordedOperations[operation] ?? []
