@@ -29,7 +29,12 @@ class CalendarEventManager: ObservableObject {
         print("📅 [Calendar] Creating office event for \(visit.date)")
         
         let eventData = createEventData(for: visit, settings: settings, isOngoing: true)
-        await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
+        do {
+            try await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
+        } catch {
+            print("📅 [CalendarManager] Failed to create visit event: \(error.localizedDescription)")
+            // For now, we log errors. Later we can bubble them up to UI
+        }
     }
     
     /// Called when visit is updated (e.g., duration changes)
@@ -45,7 +50,12 @@ class CalendarEventManager: ObservableObject {
         print("📅 [Calendar] Updating office event for \(visit.date)")
         
         let eventData = createEventData(for: visit, settings: settings, isOngoing: true)
-        await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
+        do {
+            try await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
+        } catch {
+            print("📅 [CalendarManager] Failed to update visit event: \(error.localizedDescription)")
+            // For now, we log errors. Later we can bubble them up to UI
+        }
     }
     
     /// Called when user leaves the office geofence
@@ -69,12 +79,22 @@ class CalendarEventManager: ObservableObject {
             print("📅 [CalendarManager] Finalizing office event for \(visit.date)")
             let eventData = createEventData(for: visit, settings: settings, isOngoing: false)
             print("📅 [CalendarManager] Event notes: \(eventData.notes)")
-            await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
+            do {
+                try await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
+            } catch {
+                print("📅 [CalendarManager] Failed to finalize visit event: \(error.localizedDescription)")
+                // For now, we log errors. Later we can bubble them up to UI
+            }
         } else {
             // Visit was too short - delete the event
             print("📅 [CalendarManager] Visit too short - deleting event for \(visit.date)")
             let uid = CalendarEventUID.generate(for: visit.date)
-            await calendarService.deleteEvent(uid: uid, from: calendar)
+            do {
+                try await calendarService.deleteEvent(uid: uid, from: calendar)
+            } catch {
+                print("📅 [CalendarManager] Failed to delete short visit event: \(error.localizedDescription)")
+                // For now, we log errors. Later we can bubble them up to UI
+            }
         }
     }
     

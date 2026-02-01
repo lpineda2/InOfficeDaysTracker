@@ -157,10 +157,14 @@ class CalendarService: ObservableObject {
     // MARK: - Event Operations
     
     /// Create or update an event (finds existing by UID in notes)
-    func createOrUpdateEvent(data: CalendarEventData, in calendar: EKCalendar) async {
+    func createOrUpdateEvent(data: CalendarEventData, in calendar: EKCalendar) async throws {
         guard hasCalendarAccess else {
-            print("📅 [Calendar] No access - cannot create/update event")
-            return
+            throw CalendarError.permissionDenied
+        }
+        
+        // Validate calendar access
+        guard calendar.allowsContentModifications else {
+            throw CalendarError.noWriteAccess
         }
         
         print("📅 [Calendar] createOrUpdateEvent called with UID: \(data.uid)")
@@ -176,6 +180,7 @@ class CalendarService: ObservableObject {
                 print("📅 [Calendar] Updated event: \(data.title)")
             } catch {
                 print("📅 [Calendar] Failed to update event: \(error.localizedDescription)")
+                throw CalendarError.eventUpdateFailed(error.localizedDescription)
             }
         } else {
             // Create new event
@@ -189,15 +194,15 @@ class CalendarService: ObservableObject {
                 print("📅 [Calendar] Created event: \(data.title)")
             } catch {
                 print("📅 [Calendar] Failed to create event: \(error.localizedDescription)")
+                throw CalendarError.eventCreationFailed(error.localizedDescription)
             }
         }
     }
     
     /// Delete an event by UID
-    func deleteEvent(uid: String, from calendar: EKCalendar) async {
+    func deleteEvent(uid: String, from calendar: EKCalendar) async throws {
         guard hasCalendarAccess else {
-            print("📅 [Calendar] No access - cannot delete event")
-            return
+            throw CalendarError.permissionDenied
         }
         
         if let event = findEvent(uid: uid, in: calendar) {
@@ -206,9 +211,11 @@ class CalendarService: ObservableObject {
                 print("📅 [Calendar] Deleted event with UID: \(uid)")
             } catch {
                 print("📅 [Calendar] Failed to delete event: \(error.localizedDescription)")
+                throw CalendarError.eventUpdateFailed(error.localizedDescription)
             }
         } else {
             print("📅 [Calendar] No event found with UID: \(uid)")
+            throw CalendarError.eventNotFound(uid)
         }
     }
     
