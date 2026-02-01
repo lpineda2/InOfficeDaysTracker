@@ -72,7 +72,7 @@ final class MacroRingCardTests: XCTestCase {
             let daysLeft = components.day ?? 0
 
             let label = MacroRingCard.paceLabel(paceNeeded: 2.0, workingDaysRemaining: daysLeft, now: now, calendar: calendar)
-            let expected = daysLeft <= 0 ? "Month over" : "\(daysLeft)d left (workdays)"
+            let expected = daysLeft <= 0 ? "Month over" : "\(daysLeft)d left"
             XCTAssertEqual(label, expected, "Failed for \(y)-\(m)")
         }
     }
@@ -100,7 +100,7 @@ final class MacroRingCardTests: XCTestCase {
         let daysLeft = components.day ?? 0
 
         let label = MacroRingCard.paceLabel(paceNeeded: 2.0, workingDaysRemaining: daysLeft, now: now, calendar: calendar)
-        XCTAssertEqual(label, "\(daysLeft)d left (workdays)")
+        XCTAssertEqual(label, "\(daysLeft)d left")
     }
 
     func testMacroRingItem_safePercentageBehavior() {

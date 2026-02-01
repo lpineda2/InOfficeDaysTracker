@@ -153,23 +153,46 @@ struct AppDataTests {
         settings.monthlyGoal = 10
         appData.updateSettings(settings)
         
-        // Add completed visit from yesterday
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let completedEvent = OfficeEvent(
-            entryTime: yesterday.addingTimeInterval(3600), // 1 hour from start of yesterday
-            exitTime: yesterday.addingTimeInterval(7200) // 2 hours from start (1 hour duration)
-        )
-        let completedVisit = OfficeVisit(date: yesterday, events: [completedEvent], coordinate: testCoord)
-        appData.visits.append(completedVisit)
+        let calendar = Calendar.current
+        let now = Date()
+        let dayOfMonth = calendar.component(.day, from: now)
         
-        // Start active visit today
-        appData.startVisit(at: testCoord)
-        
-        let progress = appData.getCurrentMonthProgress()
-        
-        #expect(progress.current == 2) // 1 completed + 1 active
-        #expect(progress.goal == 10)
-        #expect(progress.percentage == 0.2)
+        if dayOfMonth > 1 {
+            // Normal case: We can have a completed visit on an earlier day AND an active visit today
+            // Add completed visit from earlier this month (on a DIFFERENT day than today)
+            let completedDate = calendar.date(from: DateComponents(
+                year: calendar.component(.year, from: now),
+                month: calendar.component(.month, from: now),
+                day: 1,
+                hour: 10
+            ))!
+            
+            let completedEvent = OfficeEvent(
+                entryTime: completedDate,
+                exitTime: completedDate.addingTimeInterval(3600) // 1 hour duration
+            )
+            let completedVisit = OfficeVisit(date: completedDate, events: [completedEvent], coordinate: testCoord)
+            appData.visits.append(completedVisit)
+            
+            // Start active visit today (different day)
+            appData.startVisit(at: testCoord)
+            
+            let progress = appData.getCurrentMonthProgress()
+            
+            #expect(progress.current == 2) // 1 completed + 1 active (on different days)
+            #expect(progress.goal == 10)
+            #expect(progress.percentage == 0.2)
+        } else {
+            // Edge case: First day of month - can't have 2 different days
+            // Test that a single active visit counts toward progress
+            appData.startVisit(at: testCoord)
+            
+            let progress = appData.getCurrentMonthProgress()
+            
+            #expect(progress.current == 1) // 1 active visit on day 1
+            #expect(progress.goal == 10)
+            #expect(progress.percentage == 0.1)
+        }
     }
     
     @Test("AppData - Get valid visits filters correctly")
@@ -299,7 +322,7 @@ struct AppDataTests {
         let calendar = Calendar.current
         let now = Date()
 
-        // Previous month met
+        // Previous month met (2 visits on different days)
         let prevMonth = calendar.date(byAdding: .month, value: -1, to: now)!
         let prevDay1 = calendar.date(from: DateComponents(year: calendar.component(.year, from: prevMonth), month: calendar.component(.month, from: prevMonth), day: 5))!
         let prevDay2 = calendar.date(from: DateComponents(year: calendar.component(.year, from: prevMonth), month: calendar.component(.month, from: prevMonth), day: 10))!
@@ -308,11 +331,25 @@ struct AppDataTests {
         let event2 = OfficeEvent(entryTime: prevDay2, exitTime: prevDay2.addingTimeInterval(3600))
         let visit2 = OfficeVisit(date: prevDay2, events: [event2], coordinate: testCoord)
 
-        // Current month met (2 visits)
+        // Current month met (2 visits) - both must be in current month
+        // Use dates that are guaranteed to be in the current month
+        let currYear = calendar.component(.year, from: now)
+        let currMonth = calendar.component(.month, from: now)
+        let dayOfMonth = calendar.component(.day, from: now)
+        
+        // First visit: current date
         let currDay1 = now
-        let currDay2 = calendar.date(byAdding: .day, value: -1, to: now)!
         let ce1 = OfficeEvent(entryTime: currDay1.addingTimeInterval(-3600), exitTime: currDay1)
         let cv1 = OfficeVisit(date: currDay1, events: [ce1], coordinate: testCoord)
+        
+        // Second visit: if we're on day 1, use same day earlier; otherwise use an earlier day in month
+        let currDay2: Date
+        if dayOfMonth > 1 {
+            currDay2 = calendar.date(from: DateComponents(year: currYear, month: currMonth, day: 1, hour: 10))!
+        } else {
+            // On day 1, create second visit as different event on same day
+            currDay2 = now.addingTimeInterval(-7200)
+        }
         let ce2 = OfficeEvent(entryTime: currDay2.addingTimeInterval(-3600), exitTime: currDay2)
         let cv2 = OfficeVisit(date: currDay2, events: [ce2], coordinate: testCoord)
 

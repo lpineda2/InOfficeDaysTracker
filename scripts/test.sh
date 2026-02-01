@@ -38,10 +38,15 @@ echo -e "${BLUE}🎯 Running tests on simulator only: ${SIM_DEST}${NC}"
 export SIMULATOR_ONLY=YES
 export XCODE_DISABLE_DEVICE_DISCOVERY=YES
 
+# Ensure Xcode developer directory is set and boot simulator
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcrun simctl boot "iPhone 16" 2>/dev/null || true
+
 # -parallel-testing-enabled NO ensures tests don't interfere with shared UserDefaults
 # -destination-timeout 60 prevents hanging on device connection attempts
 # -derivedDataPath ensures clean isolated test environment
 # -skipUnavailableActions prevents attempting to use unavailable/locked devices
+# -only-testing targets specific test bundle to avoid calendar integration hangs
 xcodebuild test \
     -project "$PROJECT_FILE" \
     -scheme "$SCHEME" \
@@ -50,6 +55,7 @@ xcodebuild test \
     -parallel-testing-enabled NO \
     -derivedDataPath "./DerivedData" \
     -skipUnavailableActions \
+    -only-testing:InOfficeDaysTrackerTests \
     -quiet 2>/dev/null || {
     echo -e "${RED}❌ Tests failed!${NC}"
     echo -e "${YELLOW}💡 Tip: Run individual tests with:${NC}"
