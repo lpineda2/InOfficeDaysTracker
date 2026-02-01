@@ -20,14 +20,14 @@ final class AutoCalculateGoalTests: XCTestCase {
         // 20 working days → 10 required (50%)
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 20), 10)
         
-        // 21 working days → 10 required (floor of 10.5)
-        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 10)
+        // 21 working days → 11 required (ceil of 10.5)
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 11)
         
         // 22 working days → 11 required
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 22), 11)
         
-        // 19 working days → 9 required (floor of 9.5)
-        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 9)
+        // 19 working days → 10 required (ceil of 9.5)
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 10)
     }
     
     func testHybrid40PolicyCalculation() {
@@ -37,8 +37,8 @@ final class AutoCalculateGoalTests: XCTestCase {
         // 20 working days → 8 required (40%)
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 20), 8)
         
-        // 21 working days → 8 required (floor of 8.4)
-        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 8)
+        // 21 working days → 9 required (ceil of 8.4)
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 9)
     }
     
     func testHybrid60PolicyCalculation() {
@@ -73,8 +73,8 @@ final class AutoCalculateGoalTests: XCTestCase {
         // 20 working days → 15 required (75%)
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 20), 15)
         
-        // 21 working days → 15 required (floor of 15.75)
-        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 15)
+        // 21 working days → 16 required (ceil of 15.75)
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 16)
     }
     
     func testPolicyRequiredPercentage() {
@@ -347,12 +347,12 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     func testFebruary2026Requirements() {
         // February 2026: 20 weekdays, 1 holiday (Presidents Day)
-        // Business days = 19, 50% = 9 required (floor of 9.5)
+        // Business days = 19, 50% = 10 required (ceil of 9.5)
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
         let businessDays = 20 - 1
         let required = policy.calculateRequiredDays(workingDays: businessDays)
-        XCTAssertEqual(required, 9)
+        XCTAssertEqual(required, 10)
     }
     
     func testMarch2026Requirements() {
@@ -367,12 +367,12 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     func testApril2026Requirements() {
         // April 2026: 22 weekdays, 1 holiday (Good Friday)
-        // Business days = 21, 50% = 10 required (floor of 10.5)
+        // Business days = 21, 50% = 11 required (ceil of 10.5)
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
         let businessDays = 22 - 1
         let required = policy.calculateRequiredDays(workingDays: businessDays)
-        XCTAssertEqual(required, 10)
+        XCTAssertEqual(required, 11)
     }
     
     func testMay2026Requirements() {
@@ -387,12 +387,12 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     func testJune2026Requirements() {
         // June 2026: 22 weekdays, 1 holiday (Juneteenth)
-        // Business days = 21, 50% = 10 required (floor of 10.5)
+        // Business days = 21, 50% = 11 required (ceil of 10.5)
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
         let businessDays = 22 - 1
         let required = policy.calculateRequiredDays(workingDays: businessDays)
-        XCTAssertEqual(required, 10)
+        XCTAssertEqual(required, 11)
     }
     
     func testJuly2026Requirements() {
@@ -407,22 +407,22 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     func testAugust2026Requirements() {
         // August 2026: 21 weekdays, 0 holidays
-        // Business days = 21, 50% = 10 required (floor of 10.5)
+        // Business days = 21, 50% = 11 required (ceil of 10.5)
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
         let businessDays = 21 - 0
         let required = policy.calculateRequiredDays(workingDays: businessDays)
-        XCTAssertEqual(required, 10)
+        XCTAssertEqual(required, 11)
     }
     
     func testSeptember2026Requirements() {
         // September 2026: 22 weekdays, 1 holiday (Labor Day)
-        // Business days = 21, 50% = 10 required (floor of 10.5)
+        // Business days = 21, 50% = 11 required (ceil of 10.5)
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
         let businessDays = 22 - 1
         let required = policy.calculateRequiredDays(workingDays: businessDays)
-        XCTAssertEqual(required, 10)
+        XCTAssertEqual(required, 11)
     }
     
     func testOctober2026Requirements() {
@@ -1170,7 +1170,7 @@ final class AutoCalculateGoalTests: XCTestCase {
         
         // Setup: Configure manual goal and policy
         var settings = appData.settings
-        settings.monthlyGoal = 10
+        settings.monthlyGoal = 8  // Changed from 10 to ensure difference
         settings.autoCalculateGoal = false
         settings.companyPolicy = CompanyPolicy(policyType: .hybrid50)
         settings.holidayCalendar = HolidayCalendar(preset: .none)
@@ -1180,7 +1180,7 @@ final class AutoCalculateGoalTests: XCTestCase {
         
         // With auto-calculate OFF, should use manual goal
         let manualGoal = appData.getGoalForMonth(currentMonth)
-        XCTAssertEqual(manualGoal, 10, "Manual goal should be 10")
+        XCTAssertEqual(manualGoal, 8, "Manual goal should be 8")
         
         // Toggle auto-calculate ON
         var newSettings = appData.settings
@@ -1193,8 +1193,9 @@ final class AutoCalculateGoalTests: XCTestCase {
         // Verify settings actually changed
         XCTAssertTrue(appData.settings.autoCalculateGoal, "autoCalculateGoal should be true after update")
         
-        // Calculated goal should be based on business days (likely different from 10)
-        // For January 2026: ~23 weekdays, 50% hybrid = ~11-12 days
+        // Calculated goal should be based on business days
+        // For February 2026: 20 weekdays, 50% hybrid = ceil(10.0) = 10 days
+        XCTAssertEqual(calculatedGoal, 10, "Calculated goal should be 10 for February 2026")
         XCTAssertNotEqual(calculatedGoal, manualGoal, "Calculated goal should differ from manual goal")
     }
     
