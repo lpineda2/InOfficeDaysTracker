@@ -132,7 +132,60 @@ The app includes `ITSAppUsesNonExemptEncryption` set to `false` in both main app
    - Uploads to App Store Connect
    - Shows processing status
 
-## 📊 What Each Script Does
+## � Release Best Practices
+
+### ✅ Always Release from Main Branch
+
+To avoid version mismatches and maintain a clean git history, **always release from the main branch**.
+
+#### Standard Release Process:
+
+```bash
+# 1. Merge your feature branch to main first
+git checkout main
+git pull origin main
+git merge feature/your-feature-name
+
+# 2. Increment build number on main (or let release.sh do it)
+git add -A
+git commit -m "Merge feature branch"
+
+# 3. Release from main with version increment
+./scripts/release.sh -i
+# Or use VS Code task: "📈 Release with Version Increment"
+
+# 4. Tag the release
+VERSION=$(defaults read "$(pwd)/InOfficeDaysTracker/Info.plist" CFBundleShortVersionString)
+git tag v$VERSION
+git push origin main --tags
+
+# 5. Continue development from a new branch
+git checkout -b feature/next-feature
+```
+
+### ⚠️ Why This Matters
+
+- **Main reflects production** - No confusion about deployed versions
+- **Clean history** - Easy to track releases
+- **Proper tagging** - Tags on main point to exact App Store releases
+- **No divergence** - Avoid branches getting ahead of main
+
+### 🚫 Don't Release from Feature Branches
+
+❌ **Wrong:**
+```bash
+git checkout feature/my-feature
+./scripts/release.sh  # Released but main is now behind!
+```
+
+✅ **Correct:**
+```bash
+git checkout main
+git merge feature/my-feature
+./scripts/release.sh -i  # Main stays in sync with production
+```
+
+## �📊 What Each Script Does
 
 ### test.sh
 - ✅ Runs unit tests on iPhone 16 Pro simulator
