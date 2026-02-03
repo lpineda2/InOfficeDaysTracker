@@ -117,6 +117,12 @@ echo -e "${YELLOW}☁️ Uploading to TestFlight...${NC}"
     exit 1
 }
 
+# Step 5: Tag Release
+TAG="v$MARKETING_VERSION-$BUILD_NUMBER"
+echo -e "${YELLOW}🏷️  Tagging release as $TAG...${NC}"
+git tag "$TAG"
+git push origin "$TAG" || echo -e "${RED}⚠️  Failed to push tag to remote. Please push manually: git push origin $TAG${NC}"
+
 # Success!
 echo -e "${PURPLE}🎉 RELEASE COMPLETE! 🎉${NC}"
 echo -e "${GREEN}✅ Version $MARKETING_VERSION (Build $BUILD_NUMBER) uploaded to TestFlight${NC}"

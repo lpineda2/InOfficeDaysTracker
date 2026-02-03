@@ -97,6 +97,51 @@ This project includes automatic version synchronization to prevent the common Ap
 
 All targets must have matching versions to pass Apple's validation.
 
+## 🛡️ Code Quality & CI
+
+### 1. SwiftLint
+Code style is enforced using [SwiftLint](https://github.com/realm/SwiftLint).
+
+**Prerequisite:**
+You need **SwiftLint** installed.
+
+**Option 1: Homebrew (Recommended)**
+```bash
+brew install swiftlint
+```
+
+**Option 2: Manual Installation**
+1. Download `SwiftLint.pkg` from [GitHub Releases](https://github.com/realm/SwiftLint/releases/latest)
+2. Open the package (Right-click > Open if blocked by Gatekeeper) and install.
+
+**VS Code Setup:**
+Do not install the deprecated "SwiftLint" extension. Instead, install the **Official Swift Extension**:
+- **Name:** Swift
+- **Publisher:** Swift Server Work Group
+- **ID:** `sswg.swift-lang`
+
+This extension automatically detects your installed `swiftlint` and provides real-time feedback.
+
+### 2. Pre-commit Hook
+To prevent bad commits, use the pre-commit script locally:
+
+```bash
+# Run manually before committing
+./scripts/pre-commit.sh
+
+# Install as git hook (optional but recommended)
+ln -s ../../scripts/pre-commit.sh .git/hooks/pre-commit
+```
+
+### 3. GitHub Actions CI
+A continuous integration pipeline (`.github/workflows/ci.yml`) is configured to run on every:
+- Push to `main`
+- Pull Request to `main`
+
+**What it checks:**
+- Runs `swiftlint` to check code style
+- Runs `./scripts/test.sh` to execute all unit tests
+
 ## 🔧 Configuration Files
 
 ### App Export Compliance
@@ -126,10 +171,11 @@ The app includes `ITSAppUsesNonExemptEncryption` set to `false` in both main app
 1. **📈 Release with Version Increment** - Automatically:
    - Increments build number
    - Commits version change to git
-   - Runs all 38 unit tests
+   - Runs all unit tests
    - Creates production archive
    - Exports IPA for TestFlight
    - Uploads to App Store Connect
+   - **Tags the release in git** (e.g., v1.10.0-82)
    - Shows processing status
 
 ## � Release Best Practices
@@ -153,13 +199,9 @@ git commit -m "Merge feature branch"
 # 3. Release from main with version increment
 ./scripts/release.sh -i
 # Or use VS Code task: "📈 Release with Version Increment"
+# (The script automatically creates and pushes the git tag)
 
-# 4. Tag the release
-VERSION=$(defaults read "$(pwd)/InOfficeDaysTracker/Info.plist" CFBundleShortVersionString)
-git tag v$VERSION
-git push origin main --tags
-
-# 5. Continue development from a new branch
+# 4. Continue development from a new branch
 git checkout -b feature/next-feature
 ```
 
