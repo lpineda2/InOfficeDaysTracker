@@ -5,9 +5,9 @@
 //  SwiftUI component for address input with autocomplete functionality
 //
 
-import SwiftUI
-import MapKit
 import CoreLocation
+import MapKit
+import SwiftUI
 
 struct AddressAutocompleteField: View {
     
@@ -79,6 +79,7 @@ struct AddressAutocompleteField: View {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(DesignTokens.textSecondary)
                         }
+                        .buttonStyle(.plain)
                         .accessibilityLabel("Clear address")
                     }
                 }
@@ -153,7 +154,7 @@ struct AddressAutocompleteField: View {
     private func suggestionRow(_ suggestion: MKLocalSearchCompletion) -> some View {
         Button(action: {
             selectSuggestion(suggestion)
-        }) {
+        }, label: {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(suggestion.title)
@@ -178,7 +179,7 @@ struct AddressAutocompleteField: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .contentShape(Rectangle())
-        }
+        })
         .buttonStyle(PlainButtonStyle())
         .background(
             Rectangle()
