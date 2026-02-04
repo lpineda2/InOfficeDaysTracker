@@ -1,0 +1,5 @@
+app_identifier("xyz.luistech.InOfficeDays") # The bundle identifier of your app
+apple_id("luispineda.me@gmail.com") # Your Apple Developer Account email
+
+itc_team_id("121665488") # App Store Connect Team ID
+team_id("5G586TFR2Y") # Developer Portal Team ID

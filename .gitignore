@@ -81,6 +81,12 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+fastlane/AuthKey_*.p8
+fastlane/api_key.json
+
+# Bundler
+vendor/bundle
+.bundle
 
 # Code Injection
 #
