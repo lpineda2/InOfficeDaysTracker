@@ -80,7 +80,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         let location = await waitForLocationUpdate(timeout: 30.0)
         
         guard let currentLocation = location else {
-            print("[LocationVerification] Failed to get current location")
+            debugLog("📍", "[LocationVerification] Failed to get current location")
             return
         }
         
@@ -88,7 +88,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         let distanceToOffice = currentLocation.distance(from: officeLocationCL)
         let isWithinGeofence = distanceToOffice <= appData.settings.detectionRadius
         
-        print("[LocationVerification] Distance to office: \(Int(distanceToOffice))m, Geofence radius: \(Int(appData.settings.detectionRadius))m")
+        debugLog("📍", "[LocationVerification] Distance to office: \(Int(distanceToOffice))m, Geofence radius: \(Int(appData.settings.detectionRadius))m")
         
         // Only correct if there's a significant status mismatch
         // Allow a small delay buffer to avoid conflicts with geofencing
@@ -98,16 +98,16 @@ class LocationVerificationService: NSObject, ObservableObject {
             
             // Check again after delay in case geofencing already handled it
             if !appData.isCurrentlyInOffice {
-                print("[LocationVerification] User is in office but status shows away - correcting after delay")
+                debugLog("📍", "[LocationVerification] User is in office but status shows away - correcting after delay")
                 await handleManualEntry(at: officeLocation)
             } else {
-                print("[LocationVerification] Geofencing already handled entry, no correction needed")
+                debugLog("📍", "[LocationVerification] Geofencing already handled entry, no correction needed")
             }
         } else if !isWithinGeofence && appData.isCurrentlyInOffice {
-            print("[LocationVerification] User is away but status shows in office - correcting")
+            debugLog("📍", "[LocationVerification] User is away but status shows in office - correcting")
             await handleManualExit()
         } else {
-            print("[LocationVerification] Status is correct, no action needed")
+            debugLog("📍", "[LocationVerification] Status is correct, no action needed")
         }
     }
     
@@ -165,7 +165,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         // Start visit if not already in progress
         if !appData.isCurrentlyInOffice {
             appData.startVisit(at: location)
-            print("[LocationVerification] Manually started office visit")
+            debugLog("📍", "[LocationVerification] Manually started office visit")
         }
     }
     
@@ -174,7 +174,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         if appData.isCurrentlyInOffice {
             appData.endVisit()
-            print("[LocationVerification] Manually ended office visit")
+            debugLog("📍", "[LocationVerification] Manually ended office visit")
         }
     }
 }
@@ -192,7 +192,7 @@ extension LocationVerificationService: CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor in
-            print("[LocationVerification] Location update failed: \(error.localizedDescription)")
+            debugLog("📍", "[LocationVerification] Location update failed: \(error.localizedDescription)")
             self.locationContinuation?(self.lastKnownLocation)
             self.locationContinuation = nil
         }

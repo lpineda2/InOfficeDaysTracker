@@ -32,7 +32,7 @@ class NotificationService: NSObject, ObservableObject {
             
             return granted
         } catch {
-            print("Error requesting notification permission: \(error)")
+            debugLog("❌", "Error requesting notification permission: \(error)")
             return false
         }
     }
@@ -67,7 +67,7 @@ class NotificationService: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error sending notification: \(error)")
+                debugLog("❌", "Error sending notification: \(error)")
             }
         }
     }
@@ -88,7 +88,7 @@ class NotificationService: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error sending goal reminder: \(error)")
+                debugLog("❌", "Error sending goal reminder: \(error)")
             }
         }
     }
@@ -116,7 +116,7 @@ class NotificationService: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error scheduling weekly reminder: \(error)")
+                debugLog("❌", "Error scheduling weekly reminder: \(error)")
             }
         }
     }

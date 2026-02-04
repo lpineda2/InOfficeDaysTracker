@@ -51,27 +51,27 @@ class CalendarPermissionHandler: ObservableObject {
     
     func updateAuthorizationStatus() {
         authorizationStatus = EKEventStore.authorizationStatus(for: .event)
-        print("📅 [CalendarPermission] Status updated: \(authorizationStatus.rawValue), hasAccess: \(hasAccess)")
+        debugLog("📅", "[CalendarPermission] Status updated: \(authorizationStatus.rawValue), hasAccess: \(hasAccess)")
     }
     
     func requestPermission() async -> Bool {
-        print("📅 [CalendarPermission] requestPermission called")
+        debugLog("📅", "[CalendarPermission] requestPermission called")
         isRequestingPermission = true
         defer { 
             isRequestingPermission = false 
-            print("📅 [CalendarPermission] requestPermission completed")
+            debugLog("📅", "[CalendarPermission] requestPermission completed")
         }
         
         do {
-            print("📅 [CalendarPermission] Requesting full access to events...")
+            debugLog("📅", "[CalendarPermission] Requesting full access to events...")
             let granted = try await eventStore.requestFullAccessToEvents()
-            print("📅 [CalendarPermission] Permission result: \(granted)")
+            debugLog("📅", "[CalendarPermission] Permission result: \(granted)")
             
             // If granted, set status directly rather than re-querying
             // (iOS may not have updated the class-level status yet)
             if granted {
                 authorizationStatus = .fullAccess
-                print("📅 [CalendarPermission] Status set to fullAccess")
+                debugLog("📅", "[CalendarPermission] Status set to fullAccess")
             } else {
                 // Small delay to let iOS update the status
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
@@ -79,7 +79,7 @@ class CalendarPermissionHandler: ObservableObject {
             }
             return granted
         } catch {
-            print("📅 [CalendarPermission] Permission request failed: \(error.localizedDescription)")
+            debugLog("📅", "[CalendarPermission] Permission request failed: \(error.localizedDescription)")
             updateAuthorizationStatus()
             return false
         }

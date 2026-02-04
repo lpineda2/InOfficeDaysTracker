@@ -669,7 +669,7 @@ extension LocationService: CLLocationManagerDelegate {
             }
             
             locationError = errorMessage
-            print("LocationService Error: \(errorMessage)")
+            debugLog("❌", "LocationService Error: \(errorMessage)")
         }
     }
     

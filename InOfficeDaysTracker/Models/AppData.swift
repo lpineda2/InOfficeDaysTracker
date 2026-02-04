@@ -960,7 +960,7 @@ class AppData: ObservableObject {
             return
         }
         
-        print("📅 [AppData] Ensuring calendar event exists for current visit")
+        debugLog("📅", "[AppData] Ensuring calendar event exists for current visit")
         await calendarEventManager.handleVisitUpdate(visit, settings: settings)
     }
     
