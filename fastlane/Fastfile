@@ -22,12 +22,14 @@ platform :ios do
     )
 
     # 2. Increment Build Number using custom script (syncs Main App + Widget Extension)
-    sh("../scripts/update_version.sh --increment-build")
+    Dir.chdir("..") do
+      sh("./scripts/update_version.sh --increment-build")
+    end
 
     # 3. Build the App
     build_app(
       scheme: "InOfficeDaysTracker",
-      workspace: "InOfficeDaysTracker.xcodeproj",
+      project: "InOfficeDaysTracker.xcodeproj",
       export_method: "app-store",
       clean: true
     )
@@ -41,6 +43,46 @@ platform :ios do
       skip_screenshots: true,
       skip_metadata: false,
       precheck_include_in_app_purchases: false
+    )
+  end
+
+  desc "Deploy to TestFlight for testing"
+  lane :deploy_testflight do
+    # Load API Key
+    api_key = app_store_connect_api_key(
+      key_id: "ZWWB48GR96",
+      issuer_id: "281d6b58-259e-4b20-aad6-06fb53291bc7",
+      key_filepath: "fastlane/AuthKey_ZWWB48GR96.p8",
+      duration: 1200,
+      in_house: false
+    )
+
+    # 1. Run Unit Tests
+    run_tests(
+      scheme: "InOfficeDaysTracker",
+      device: "iPhone 16",
+      only_testing: "InOfficeDaysTrackerTests",
+      parallel_testing: false,
+      clean: true
+    )
+
+    # 2. Increment Build Number
+    Dir.chdir("..") do
+      sh("./scripts/update_version.sh --increment-build")
+    end
+
+    # 3. Build the App
+    build_app(
+      scheme: "InOfficeDaysTracker",
+      project: "InOfficeDaysTracker.xcodeproj",
+      export_method: "app-store",
+      clean: true
+    )
+
+    # 4. Upload to TestFlight only (no App Store submission)
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: false
     )
   end
 
