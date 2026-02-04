@@ -24,23 +24,23 @@ class WidgetDataManager {
     
     func saveWidgetData(_ data: WidgetData) {
         guard let defaults = sharedDefaults else {
-            print("❌ [WidgetDataManager] Could not access shared UserDefaults")
+            debugLog("❌", "[WidgetDataManager] Could not access shared UserDefaults")
             return
         }
         
         do {
             let encoded = try JSONEncoder().encode(data)
             defaults.set(encoded, forKey: widgetDataKey)
-            print("✅ [WidgetDataManager] Widget data saved successfully")
+            debugLog("✅", "[WidgetDataManager] Widget data saved successfully")
         } catch {
-            print("❌ [WidgetDataManager] Failed to encode widget data: \(error)")
+            debugLog("❌", "[WidgetDataManager] Failed to encode widget data: \(error)")
         }
     }
     
     func getCurrentData() -> WidgetData {
         guard let defaults = sharedDefaults,
               let data = defaults.data(forKey: widgetDataKey) else {
-            print("⚠️ [WidgetDataManager] No shared data found, returning placeholder")
+            debugLog("⚠️", "[WidgetDataManager] No shared data found, returning placeholder")
             return WidgetData.noData
         }
         
@@ -50,13 +50,13 @@ class WidgetDataManager {
             // Check if data is stale (older than 24 hours)
             let hoursSinceUpdate = Date().timeIntervalSince(decoded.lastUpdated) / 3600
             if hoursSinceUpdate > 24 {
-                print("⚠️ [WidgetDataManager] Data is stale (>24h old), returning fallback")
+                debugLog("⚠️", "[WidgetDataManager] Data is stale (>24h old), returning fallback")
                 return createStaleDataFallback(from: decoded)
             }
             
             return decoded
         } catch {
-            print("❌ [WidgetDataManager] Failed to decode widget data: \(error)")
+            debugLog("❌", "[WidgetDataManager] Failed to decode widget data: \(error)")
             return WidgetData.noData
         }
     }
@@ -65,16 +65,16 @@ class WidgetDataManager {
     
     func createWidgetData() -> WidgetData {
         let timestamp = Date()
-        print("🔍 [WidgetDataManager] Creating widget data at \(timestamp)...")
+        debugLog("🔍", "[WidgetDataManager] Creating widget data at \(timestamp)...")
         
         guard let userDefaults = sharedDefaults else {
-            print("❌ [WidgetDataManager] No shared UserDefaults available")
+            debugLog("❌", "[WidgetDataManager] No shared UserDefaults available")
             return WidgetData.noData
         }
         
         // Force synchronization to get the latest data
         userDefaults.synchronize()
-        print("🔄 [WidgetDataManager] UserDefaults synchronized")
+        debugLog("🔄", "[WidgetDataManager] UserDefaults synchronized")
         
         let progressData = getCurrentMonthProgress()
         let monthName = getCurrentMonthName()
@@ -96,8 +96,8 @@ class WidgetDataManager {
         
         // Get current office status
         let isCurrentlyInOffice = userDefaults.bool(forKey: "IsCurrentlyInOffice")
-        print("🔍 [WidgetDataManager] Office status from UserDefaults: \(isCurrentlyInOffice)")
-        print("🔍 [WidgetDataManager] Month progress: current=\(progressData.current), goal=\(progressData.goal)")
+        debugLog("🔍", "[WidgetDataManager] Office status from UserDefaults: \(isCurrentlyInOffice)")
+        debugLog("🔍", "[WidgetDataManager] Month progress: current=\(progressData.current), goal=\(progressData.goal)")
         
         // Calculate current visit duration if in office
         var currentVisitDuration: TimeInterval? = nil
@@ -254,11 +254,11 @@ class WidgetDataManager {
     
     private func getCurrentMonthProgress() -> (current: Int, goal: Int, percentage: Double) {
         guard let userDefaults = sharedDefaults else {
-            print("❌ [WidgetDataManager] No shared UserDefaults in getCurrentMonthProgress")
+            debugLog("❌", "[WidgetDataManager] No shared UserDefaults in getCurrentMonthProgress")
             return (0, 10, 0.0) // Fallback values
         }
         
-        print("🔍 [WidgetDataManager] Checking for visits data...")
+        debugLog("🔍", "[WidgetDataManager] Checking for visits data...")
         
         // Get settings
         let goal = getMonthlyGoal()
@@ -266,11 +266,11 @@ class WidgetDataManager {
         // Get visits
         guard let visitsData = userDefaults.data(forKey: "OfficeVisits"),
               let visits = try? JSONDecoder().decode([OfficeVisit].self, from: visitsData) else {
-            print("❌ [WidgetDataManager] No visits data found")
+            debugLog("❌", "[WidgetDataManager] No visits data found")
             return (0, goal, 0.0)
         }
         
-        print("✅ [WidgetDataManager] Found \(visits.count) visits")
+        debugLog("✅", "[WidgetDataManager] Found \(visits.count) visits")
         
         let validVisits = getValidVisits(from: visits)
         let visitsInProgress = getVisitsInProgress(from: visits)

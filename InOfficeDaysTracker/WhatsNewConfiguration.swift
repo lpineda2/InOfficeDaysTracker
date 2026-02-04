@@ -67,7 +67,7 @@ struct WhatsNewConfiguration {
                 foregroundColor: .white,
                 hapticFeedback: .notification(.success),
                 onDismiss: {
-                    print("✅ [WhatsNew] Auto-calculate goal showcase dismissed")
+                    debugLog("✅", "[WhatsNew] Auto-calculate goal showcase dismissed")
                 }
             )
         )
@@ -120,7 +120,7 @@ struct WhatsNewConfiguration {
                 foregroundColor: .white,
                 hapticFeedback: .notification(.success),
                 onDismiss: {
-                    print("✅ [WhatsNew] Lock screen widgets showcase dismissed")
+                    debugLog("✅", "[WhatsNew] Lock screen widgets showcase dismissed")
                 }
             )
         )

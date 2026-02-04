@@ -77,7 +77,7 @@ class CalendarService: ObservableObject {
     /// Recreate the event store - needed after permission changes
     func refreshEventStore() {
         eventStore = EKEventStore()
-        print("📅 [CalendarService] Event store refreshed")
+        debugLog("📅", "[CalendarService] Event store refreshed")
     }
     
     // MARK: - Authorization
@@ -93,7 +93,7 @@ class CalendarService: ObservableObject {
             }
             return granted
         } catch {
-            print("📅 [Calendar] Permission error: \(error.localizedDescription)")
+            debugLog("📅", "[Calendar] Permission error: \(error.localizedDescription)")
             await MainActor.run {
                 updateAuthorizationStatus()
             }
@@ -111,7 +111,7 @@ class CalendarService: ObservableObject {
             // Allow revocation to take effect
             authorizationStatus = status
         }
-        print("📅 [CalendarService] Status: \(authorizationStatus.rawValue), hasAccess: \(hasCalendarAccess)")
+        debugLog("📅", "[CalendarService] Status: \(authorizationStatus.rawValue), hasAccess: \(hasCalendarAccess)")
     }
     
     var hasCalendarAccess: Bool {
@@ -123,16 +123,16 @@ class CalendarService: ObservableObject {
         authorizationStatus = .fullAccess
         // Recreate event store to pick up new permission
         refreshEventStore()
-        print("📅 [CalendarService] Access granted, status set to fullAccess, event store refreshed")
+        debugLog("📅", "[CalendarService] Access granted, status set to fullAccess, event store refreshed")
     }
     
     // MARK: - Calendar Management
     
     func loadAvailableCalendars() {
         let allCalendars = eventStore.calendars(for: .event)
-        print("📅 [Calendar] Total calendars found: \(allCalendars.count)")
+        debugLog("📅", "[Calendar] Total calendars found: \(allCalendars.count)")
         for cal in allCalendars {
-            print("📅 [Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue) source=\(cal.source.title)")
+            debugLog("📅", "[Calendar]   - '\(cal.title)' writable=\(cal.allowsContentModifications) type=\(cal.type.rawValue) source=\(cal.source.title)")
         }
         // Filter calendars:
         // 1. Exclude subscription and birthday types (always read-only)
@@ -142,11 +142,11 @@ class CalendarService: ObservableObject {
             $0.type != .birthday && 
             $0.allowsContentModifications
         }
-        print("📅 [Calendar] Loaded \(availableCalendars.count) writable calendars")
+        debugLog("📅", "[Calendar] Loaded \(availableCalendars.count) writable calendars")
         
         if availableCalendars.isEmpty && allCalendars.isEmpty {
-            print("📅 [Calendar] ⚠️ No calendars found - this is normal on iOS Simulator")
-            print("📅 [Calendar] ⚠️ To test, open Calendar app in simulator and add an event (this creates a local calendar)")
+            debugLog("📅", "[Calendar] ⚠️ No calendars found - this is normal on iOS Simulator")
+            debugLog("📅", "[Calendar] ⚠️ To test, open Calendar app in simulator and add an event (this creates a local calendar)")
         }
     }
     
@@ -167,33 +167,33 @@ class CalendarService: ObservableObject {
             throw CalendarError.noWriteAccess
         }
         
-        print("📅 [Calendar] createOrUpdateEvent called with UID: \(data.uid)")
-        print("📅 [Calendar] Notes preview: \(String(data.notes.prefix(100)))...")
+        debugLog("📅", "[Calendar] createOrUpdateEvent called with UID: \(data.uid)")
+        debugLog("📅", "[Calendar] Notes preview: \(String(data.notes.prefix(100)))...")
         
         // Try to find existing event by UID
         if let existingEvent = findEvent(uid: data.uid, in: calendar) {
             // Update existing event
-            print("📅 [Calendar] Found existing event, updating...")
+            debugLog("📅", "[Calendar] Found existing event, updating...")
             updateEvent(existingEvent, with: data)
             do {
                 try eventStore.save(existingEvent, span: .thisEvent)
-                print("📅 [Calendar] Updated event: \(data.title)")
+                debugLog("📅", "[Calendar] Updated event: \(data.title)")
             } catch {
-                print("📅 [Calendar] Failed to update event: \(error.localizedDescription)")
+                debugLog("📅", "[Calendar] Failed to update event: \(error.localizedDescription)")
                 throw CalendarError.eventUpdateFailed(error.localizedDescription)
             }
         } else {
             // Create new event
-            print("📅 [Calendar] No existing event found, creating new...")
+            debugLog("📅", "[Calendar] No existing event found, creating new...")
             let event = EKEvent(eventStore: eventStore)
             event.calendar = calendar
             updateEvent(event, with: data)
             
             do {
                 try eventStore.save(event, span: .thisEvent)
-                print("📅 [Calendar] Created event: \(data.title)")
+                debugLog("📅", "[Calendar] Created event: \(data.title)")
             } catch {
-                print("📅 [Calendar] Failed to create event: \(error.localizedDescription)")
+                debugLog("📅", "[Calendar] Failed to create event: \(error.localizedDescription)")
                 throw CalendarError.eventCreationFailed(error.localizedDescription)
             }
         }
@@ -208,13 +208,13 @@ class CalendarService: ObservableObject {
         if let event = findEvent(uid: uid, in: calendar) {
             do {
                 try eventStore.remove(event, span: .thisEvent)
-                print("📅 [Calendar] Deleted event with UID: \(uid)")
+                debugLog("📅", "[Calendar] Deleted event with UID: \(uid)")
             } catch {
-                print("📅 [Calendar] Failed to delete event: \(error.localizedDescription)")
+                debugLog("📅", "[Calendar] Failed to delete event: \(error.localizedDescription)")
                 throw CalendarError.eventUpdateFailed(error.localizedDescription)
             }
         } else {
-            print("📅 [Calendar] No event found with UID: \(uid)")
+            debugLog("📅", "[Calendar] No event found with UID: \(uid)")
             throw CalendarError.eventNotFound(uid)
         }
     }

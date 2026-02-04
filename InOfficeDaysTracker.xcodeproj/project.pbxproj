@@ -82,6 +82,7 @@
 				Models/AppSettings.swift,
 				Models/CalendarSettings.swift,
 				Models/OfficeVisit.swift,
+				"Supporting Files/DebugLogger.swift",
 			);
 			target = 0AF2DAAE2E9062D8009CD9CA /* OfficeTrackerWidgetExtension */;
 		};

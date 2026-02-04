@@ -216,39 +216,39 @@ class LocationService: NSObject, ObservableObject {
     
     func setupGeofencing() {
         #if DEBUG
-        print("🎯 [LocationService] setupGeofencing called")
+        debugLog("🎯", "[LocationService] setupGeofencing called")
         #endif
         guard let appData = appData,
               let officeLocation = appData.settings.officeLocation else {
-            print("❌ [LocationService] Office location not set")
+            debugLog("❌", "[LocationService] Office location not set")
             locationError = "Office location not set"
             return
         }
         
         #if DEBUG
-        print("🎯 [LocationService] Office location: \(officeLocation.latitude), \(officeLocation.longitude)")
+        debugLog("🎯", "[LocationService] Office location: \(officeLocation.latitude), \(officeLocation.longitude)")
         #endif
         
         guard authorizationStatus == .authorizedAlways else {
-            print("❌ [LocationService] Always location permission required, current: \(authorizationStatus)")
+            debugLog("❌", "[LocationService] Always location permission required, current: \(authorizationStatus)")
             locationError = "Always location permission required for background tracking"
             return
         }
         
         guard isBackgroundLocationSupported else {
-            print("❌ [LocationService] Background location not supported")
+            debugLog("❌", "[LocationService] Background location not supported")
             locationError = "Background location monitoring not supported on this device"
             return
         }
         
-        print("✅ [LocationService] All preconditions met, setting up geofencing")
+        debugLog("✅", "[LocationService] All preconditions met, setting up geofencing")
         
         // Perform location services check asynchronously to avoid main thread blocking
         Task {
             let locationEnabled = await checkLocationServicesEnabled()
             await MainActor.run {
                 guard locationEnabled else {
-                    print("❌ [LocationService] Location services disabled")
+                    debugLog("❌", "[LocationService] Location services disabled")
                     self.locationError = "Location services are disabled on this device"
                     return
                 }
@@ -265,12 +265,12 @@ class LocationService: NSObject, ObservableObject {
     /// Configure geofencing with the provided parameters (called from main thread)
     private func configureGeofencing(for appData: AppData, at officeLocation: CLLocationCoordinate2D) {
         #if DEBUG
-        print("🎯 [LocationService] configureGeofencing called")
+        debugLog("🎯", "[LocationService] configureGeofencing called")
         #endif
         
         // Clear existing geofences
         #if DEBUG
-        print("🎯 [LocationService] Clearing \(locationManager.monitoredRegions.count) existing regions")
+        debugLog("🎯", "[LocationService] Clearing \(locationManager.monitoredRegions.count) existing regions")
         #endif
         locationManager.monitoredRegions.forEach { region in
             locationManager.stopMonitoring(for: region)
@@ -279,7 +279,7 @@ class LocationService: NSObject, ObservableObject {
         // Validate radius (iOS has limits)
         let radius = min(max(appData.settings.detectionRadius, 1), locationManager.maximumRegionMonitoringDistance)
         #if DEBUG
-        print("🎯 [LocationService] Using radius: \(radius) meters (requested: \(appData.settings.detectionRadius), max: \(locationManager.maximumRegionMonitoringDistance))")
+        debugLog("🎯", "[LocationService] Using radius: \(radius) meters (requested: \(appData.settings.detectionRadius), max: \(locationManager.maximumRegionMonitoringDistance))")
         #endif
         
         // Create office geofence
@@ -293,17 +293,17 @@ class LocationService: NSObject, ObservableObject {
         region.notifyOnExit = true
         
         #if DEBUG
-        print("🎯 [LocationService] Created region: center=(\(officeLocation.latitude), \(officeLocation.longitude)), radius=\(radius)")
+        debugLog("🎯", "[LocationService] Created region: center=(\(officeLocation.latitude), \(officeLocation.longitude)), radius=\(radius)")
         #endif
         
         // Check if we can monitor this region
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
-            print("❌ [LocationService] Region monitoring not available")
+            debugLog("❌", "[LocationService] Region monitoring not available")
             locationError = "Region monitoring not available"
             return
         }
         
-        print("✅ [LocationService] Starting monitoring for office region")
+        debugLog("✅", "[LocationService] Starting monitoring for office region")
         locationManager.startMonitoring(for: region)
         
         // Start periodic verification to handle intermittent status issues
@@ -312,7 +312,7 @@ class LocationService: NSObject, ObservableObject {
         // Request the current state of the region to handle cases where 
         // the user is already inside the geofence when it's created
         #if DEBUG
-        print("🎯 [LocationService] Requesting current state for region")
+        debugLog("🎯", "[LocationService] Requesting current state for region")
         #endif
         locationManager.requestState(for: region)
     }
@@ -391,8 +391,8 @@ class LocationService: NSObject, ObservableObject {
     /// This ensures widgets update quickly when entering/exiting office
     private func triggerWidgetRefresh(reason: String) {
         #if DEBUG
-        print("🔄 [LocationService] Triggering widget refresh for: \(reason)")
-        print("🔍 [LocationService] Current office status: \(appData?.isCurrentlyInOffice ?? false)")
+        debugLog("🔄", "[LocationService] Triggering widget refresh for: \(reason)")
+        debugLog("🔍", "[LocationService] Current office status: \(appData?.isCurrentlyInOffice ?? false)")
         #endif
         
         #if canImport(WidgetKit)
@@ -401,7 +401,7 @@ class LocationService: NSObject, ObservableObject {
                 // Force UserDefaults synchronization to ensure data is immediately available
                 if let appData = appData {
                     appData.sharedUserDefaults.synchronize()
-                    print("🔄 [LocationService] UserDefaults synchronized before widget refresh")
+                    debugLog("🔄", "[LocationService] UserDefaults synchronized before widget refresh")
                 }
                 
                 // Strategy 1: Immediate reload of all widget timelines
@@ -410,18 +410,18 @@ class LocationService: NSObject, ObservableObject {
                 // Strategy 2: Specifically reload our office tracker widget
                 WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
                 
-                print("🔄 [LocationService] Widget refresh triggered for \(reason)")
+                debugLog("🔄", "[LocationService] Widget refresh triggered for \(reason)")
                 
                 // Strategy 3: Multiple delayed refreshes for reliability
                 Task {
                     try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
                     WidgetCenter.shared.reloadAllTimelines()
-                    print("🔄 [LocationService] First delayed widget refresh completed for \(reason)")
+                    debugLog("🔄", "[LocationService] First delayed widget refresh completed for \(reason)")
                     
                     // Extra delayed refresh for stubborn cases
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second delay
                     WidgetCenter.shared.reloadAllTimelines()
-                    print("🔄 [LocationService] Second delayed widget refresh completed for \(reason)")
+                    debugLog("🔄", "[LocationService] Second delayed widget refresh completed for \(reason)")
                 }
                 
                 // Start fallback timer for persistent refresh attempts
@@ -429,7 +429,7 @@ class LocationService: NSObject, ObservableObject {
             }
         }
         #else
-        print("⚠️ [LocationService] WidgetKit not available for refresh")
+        debugLog("⚠️", "[LocationService] WidgetKit not available for refresh")
         #endif
     }
     
@@ -439,7 +439,7 @@ class LocationService: NSObject, ObservableObject {
         // Cancel any existing timer
         widgetRefreshTimer?.invalidate()
         
-        print("⏰ [LocationService] Starting fallback widget refresh timer for: \(reason)")
+        debugLog("⏰", "[LocationService] Starting fallback widget refresh timer for: \(reason)")
         
         // Create timer that fires every 15 seconds for the next 2 minutes
         var attempts = 0
@@ -447,14 +447,14 @@ class LocationService: NSObject, ObservableObject {
         
         widgetRefreshTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] timer in
             attempts += 1
-            print("⏰ [LocationService] Fallback widget refresh attempt \(attempts)/\(maxAttempts)")
+            debugLog("⏰", "[LocationService] Fallback widget refresh attempt \(attempts)/\(maxAttempts)")
             
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadAllTimelines()
             #endif
             
             if attempts >= maxAttempts {
-                print("⏰ [LocationService] Completed fallback widget refresh attempts")
+                debugLog("⏰", "[LocationService] Completed fallback widget refresh attempts")
                 timer.invalidate()
                 Task { @MainActor in
                     self?.widgetRefreshTimer = nil
@@ -504,14 +504,14 @@ extension LocationService: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
         Task { @MainActor in
             #if DEBUG
-            print("🎯 [LocationService] didDetermineState: \(state.rawValue) for region: \(region.identifier)")
+            debugLog("🎯", "[LocationService] didDetermineState: \(state.rawValue) for region: \(region.identifier)")
             #endif
             // Handle the case where user is already inside the geofence when monitoring starts
             if state == .inside && region.identifier == "office_location" {
-                print("✅ [LocationService] User is already inside office region")
+                debugLog("✅", "[LocationService] User is already inside office region")
                 handleRegionEntry(region)
             } else {
-                print("ℹ️ [LocationService] User is outside office region or unknown state")
+                debugLog("ℹ️", "[LocationService] User is outside office region or unknown state")
             }
         }
     }
@@ -519,7 +519,7 @@ extension LocationService: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         Task { @MainActor in
             #if DEBUG
-            print("🎯 [LocationService] didEnterRegion: \(region.identifier)")
+            debugLog("🎯", "[LocationService] didEnterRegion: \(region.identifier)")
             #endif
             handleRegionEntry(region)
         }
@@ -527,11 +527,11 @@ extension LocationService: CLLocationManagerDelegate {
     
     private func handleRegionEntry(_ region: CLRegion) {
         #if DEBUG
-        print("🎯 [LocationService] handleRegionEntry called for region: \(region.identifier)")
+        debugLog("🎯", "[LocationService] handleRegionEntry called for region: \(region.identifier)")
         #endif
         guard let appData = appData,
               region.identifier == "office_location" else {
-            print("❌ [LocationService] Invalid region or no appData")
+            debugLog("❌", "[LocationService] Invalid region or no appData")
             return
         }
 
@@ -541,13 +541,13 @@ extension LocationService: CLLocationManagerDelegate {
         let hour = calendar.component(.hour, from: now)
 
         #if DEBUG
-        print("🎯 [LocationService] Current time: weekday=\(weekday), hour=\(hour)")
-        print("🎯 [LocationService] Tracking days: \(appData.settings.trackingDays)")
+        debugLog("🎯", "[LocationService] Current time: weekday=\(weekday), hour=\(hour)")
+        debugLog("🎯", "[LocationService] Tracking days: \(appData.settings.trackingDays)")
         #endif
 
         // Check if today is a tracking day
         guard appData.settings.trackingDays.contains(weekday) else {
-            print("❌ [LocationService] Not a tracking day, ignoring entry")
+            debugLog("❌", "[LocationService] Not a tracking day, ignoring entry")
             return
         }
 
@@ -556,7 +556,7 @@ extension LocationService: CLLocationManagerDelegate {
         let officeEndHour = calendar.component(.hour, from: appData.settings.officeHours.endTime)
 
         #if DEBUG
-        print("🎯 [LocationService] Office hours: \(officeStartHour) - \(officeEndHour)")
+        debugLog("🎯", "[LocationService] Office hours: \(officeStartHour) - \(officeEndHour)")
         #endif
 
         // Allow 1 hour flexibility before and after office hours
@@ -564,38 +564,38 @@ extension LocationService: CLLocationManagerDelegate {
         let flexibleEndHour = min(23, officeEndHour + 1)
 
         #if DEBUG
-        print("🎯 [LocationService] Flexible hours: \(flexibleStartHour) - \(flexibleEndHour)")
+        debugLog("🎯", "[LocationService] Flexible hours: \(flexibleStartHour) - \(flexibleEndHour)")
         #endif
 
         guard hour >= flexibleStartHour && hour <= flexibleEndHour else {
-            print("❌ [LocationService] Outside office hours, ignoring entry")
+            debugLog("❌", "[LocationService] Outside office hours, ignoring entry")
             return
         }
 
         // Prevent duplicate notifications if already marked as in office
         if appData.isCurrentlyInOffice {
-            print("ℹ️ [LocationService] Already marked as in office")
+            debugLog("ℹ️", "[LocationService] Already marked as in office")
             return
         }
 
-        print("✅ [LocationService] Valid office entry detected")
+        debugLog("✅", "[LocationService] Valid office entry detected")
 
-        print("🔍 [LocationService] Office status before entry: \(appData.isCurrentlyInOffice)")
+        debugLog("🔍", "[LocationService] Office status before entry: \(appData.isCurrentlyInOffice)")
         
         // Start tracking visit
         if let officeLocation = appData.settings.officeLocation {
             appData.startVisit(at: officeLocation)
         }
 
-        print("🔍 [LocationService] Office status after startVisit(): \(appData.isCurrentlyInOffice)")
-        print("🔍 [LocationService] Current visit after entry: \(appData.currentVisit?.id.uuidString ?? "none")")
+        debugLog("🔍", "[LocationService] Office status after startVisit(): \(appData.isCurrentlyInOffice)")
+        debugLog("🔍", "[LocationService] Current visit after entry: \(appData.currentVisit?.id.uuidString ?? "none")")
         
         // Force immediate data synchronization
         appData.sharedUserDefaults.synchronize()
         
         // Verify UserDefaults was updated
         let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
-        print("🔍 [LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
+        debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
 
         // Trigger immediate widget refresh for office entry
         triggerWidgetRefresh(reason: "office entry")
@@ -610,25 +610,25 @@ extension LocationService: CLLocationManagerDelegate {
         Task { @MainActor in
             guard let appData = appData,
                   region.identifier == "office_location" else {
-                print("❌ [LocationService] Invalid region or no appData for exit")
+                debugLog("❌", "[LocationService] Invalid region or no appData for exit")
                 return
             }
             
-            print("🚪 [LocationService] Office exit detected at \(Date())")
-            print("🔍 [LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
+            debugLog("🚪", "[LocationService] Office exit detected at \(Date())")
+            debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
             
             // End tracking visit
             appData.endVisit()
             
-            print("🔍 [LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
-            print("🔍 [LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
+            debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
+            debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
             
             // Force immediate data synchronization
             appData.sharedUserDefaults.synchronize()
             
             // Verify UserDefaults was updated
             let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
-            print("🔍 [LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
+            debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
             
             // Trigger immediate widget refresh for office exit
             triggerWidgetRefresh(reason: "office exit")
@@ -676,7 +676,7 @@ extension LocationService: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
         Task { @MainActor in
             let regionName = region?.identifier ?? "unknown"
-            print("❌ [LocationService] Region monitoring failed for \(regionName): \(error.localizedDescription)")
+            debugLog("❌", "[LocationService] Region monitoring failed for \(regionName): \(error.localizedDescription)")
             var errorMessage = "Region monitoring failed for \(regionName): \(error.localizedDescription)"
             
             // Provide more specific error messages for region monitoring issues
@@ -696,13 +696,13 @@ extension LocationService: CLLocationManagerDelegate {
             }
             
             locationError = errorMessage
-            print("❌ [LocationService] Region Error: \(errorMessage)")
+            debugLog("❌", "[LocationService] Region Error: \(errorMessage)")
         }
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
         Task { @MainActor in
-            print("✅ [LocationService] Started monitoring region: \(region.identifier)")
+            debugLog("✅", "[LocationService] Started monitoring region: \(region.identifier)")
             // Clear any previous errors when monitoring starts successfully
             locationError = nil
         }

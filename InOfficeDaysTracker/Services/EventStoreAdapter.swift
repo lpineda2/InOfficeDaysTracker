@@ -123,38 +123,38 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
     
     func requestAccess() async throws -> Bool {
         let granted = try await eventStore.requestFullAccessToEvents()
-        print("🔧 [SimulatorAdapter] Permission request result: \(granted)")
+        debugLog("🔧", "[SimulatorAdapter] Permission request result: \(granted)")
         return granted
     }
     
     func loadAvailableCalendars() -> [EKCalendar] {
         return performanceMonitor.measureOperation("loadAvailableCalendars_simulator") {
-            print("🔧 [SimulatorAdapter] Loading calendars with pooled EventStore")
+            debugLog("🔧", "[SimulatorAdapter] Loading calendars with pooled EventStore")
             
             // iOS Simulator: Use pooled EventStore for better performance
             let pooledStore = EventStorePool.shared.borrowEventStore()
             let allCalendars = pooledStore.calendars(for: .event)
             EventStorePool.shared.returnEventStore(pooledStore)
             
-            print("🔧 [SimulatorAdapter] Found \(allCalendars.count) total calendars with pooled EventStore")
+            debugLog("🔧", "[SimulatorAdapter] Found \(allCalendars.count) total calendars with pooled EventStore")
         
         // iOS Simulator: Be more lenient with calendar filtering
         var availableCalendars = allCalendars.filter { calendar in
             // In simulator, some calendars may not properly report allowsContentModifications
             calendar.allowsContentModifications || calendar.type != .calDAV
         }
-        print("🔧 [SimulatorAdapter] Found \(availableCalendars.count) writable calendars")
+        debugLog("🔧", "[SimulatorAdapter] Found \(availableCalendars.count) writable calendars")
         
         // Fallback strategies for iOS Simulator
         if availableCalendars.isEmpty {
             availableCalendars = allCalendars.filter { $0.type == .local }
-            print("🔧 [SimulatorAdapter] Fallback to local calendars: \(availableCalendars.count)")
+            debugLog("🔧", "[SimulatorAdapter] Fallback to local calendars: \(availableCalendars.count)")
         }
         
         // Final fallback: use any available calendar
         if availableCalendars.isEmpty && !allCalendars.isEmpty {
             availableCalendars = Array(allCalendars.prefix(3))
-            print("🔧 [SimulatorAdapter] Final fallback: using first \(availableCalendars.count) calendars")
+            debugLog("🔧", "[SimulatorAdapter] Final fallback: using first \(availableCalendars.count) calendars")
         }
         
             return availableCalendars
@@ -163,7 +163,7 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
     
     func createEvent(_ data: CalendarEventData, in calendar: EKCalendar) throws -> String {
         return try performanceMonitor.measureOperation("createEvent_simulator") {
-            print("🔧 [SimulatorAdapter] Creating event with pooled EventStore")
+            debugLog("🔧", "[SimulatorAdapter] Creating event with pooled EventStore")
             
             // iOS Simulator: Use pooled EventStore for better performance and consistency
             let pooledStore = EventStorePool.shared.borrowEventStore()
@@ -178,29 +178,29 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             // Try to add details - location and notes are usually safe in simulator
             if let location = data.location, !location.isEmpty {
                 saveEvent.location = location
-                print("🔧 [SimulatorAdapter] Added location: \(location)")
+                debugLog("🔧", "[SimulatorAdapter] Added location: \(location)")
             }
             
             saveEvent.notes = createEventNotes(data: data)
-            print("🔧 [SimulatorAdapter] Added notes and management metadata")
+            debugLog("🔧", "[SimulatorAdapter] Added notes and management metadata")
             
             // Find the calendar in the pooled event store
             let availableCalendars = pooledStore.calendars(for: .event)
             if let matchingCalendar = availableCalendars.first(where: { $0.calendarIdentifier == calendar.calendarIdentifier }) {
                 saveEvent.calendar = matchingCalendar
-                print("🔧 [SimulatorAdapter] Using matching calendar in pooled EventStore")
+                debugLog("🔧", "[SimulatorAdapter] Using matching calendar in pooled EventStore")
             } else {
                 // Fallback to default calendar
                 saveEvent.calendar = pooledStore.defaultCalendarForNewEvents
-                print("🔧 [SimulatorAdapter] Using default calendar in pooled EventStore")
+                debugLog("🔧", "[SimulatorAdapter] Using default calendar in pooled EventStore")
             }
             
             do {
                 try pooledStore.save(saveEvent, span: .thisEvent)
-                print("✅ [SimulatorAdapter] Created event with pooled EventStore: \(data.title)")
+                debugLog("✅", "[SimulatorAdapter] Created event with pooled EventStore: \(data.title)")
                 return saveEvent.eventIdentifier
             } catch {
-                print("❌ [SimulatorAdapter] Pooled EventStore creation failed: \(error)")
+                debugLog("❌", "[SimulatorAdapter] Pooled EventStore creation failed: \(error)")
                 
                 // Final fallback: create minimal event with same pooled store
                 let minimalEvent = EKEvent(eventStore: pooledStore)
@@ -211,7 +211,7 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
                 minimalEvent.calendar = saveEvent.calendar
                 
                 try pooledStore.save(minimalEvent, span: .thisEvent)
-                print("✅ [SimulatorAdapter] Created minimal event as fallback")
+                debugLog("✅", "[SimulatorAdapter] Created minimal event as fallback")
                 return minimalEvent.eventIdentifier
             }
         }
@@ -219,7 +219,7 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
     
     func updateEvent(_ data: CalendarEventData, eventIdentifier: String, in calendar: EKCalendar) throws {
         try performanceMonitor.measureOperation("updateEvent_simulator") {
-            print("🔧 [SimulatorAdapter] Updating event with pooled EventStore")
+            debugLog("🔧", "[SimulatorAdapter] Updating event with pooled EventStore")
             
             // iOS Simulator: Use pooled EventStore for updates
             let pooledStore = EventStorePool.shared.borrowEventStore()
@@ -241,13 +241,13 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             event.notes = createEventNotes(data: data)
             
             try pooledStore.save(event, span: .thisEvent)
-            print("✅ [SimulatorAdapter] Updated event with pooled EventStore")
+            debugLog("✅", "[SimulatorAdapter] Updated event with pooled EventStore")
         }
     }
     
     func deleteEvent(eventIdentifier: String) throws {
         try performanceMonitor.measureOperation("deleteEvent_simulator") {
-            print("🔧 [SimulatorAdapter] Deleting event with pooled EventStore")
+            debugLog("🔧", "[SimulatorAdapter] Deleting event with pooled EventStore")
             
             // iOS Simulator: Use pooled EventStore for deletion
             let pooledStore = EventStorePool.shared.borrowEventStore()
@@ -258,13 +258,13 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             }
             
             try pooledStore.remove(event, span: .thisEvent)
-            print("✅ [SimulatorAdapter] Deleted event with pooled EventStore")
+            debugLog("✅", "[SimulatorAdapter] Deleted event with pooled EventStore")
         }
     }
     
     func validateCalendar(_ calendar: EKCalendar) -> CalendarValidationResult {
         return performanceMonitor.measureOperation("validateCalendar_simulator") {
-            print("🔧 [SimulatorAdapter] Validating calendar with pooled EventStore")
+            debugLog("🔧", "[SimulatorAdapter] Validating calendar with pooled EventStore")
             
             // Use pooled EventStore for validation
             let pooledStore = EventStorePool.shared.borrowEventStore()
@@ -301,7 +301,7 @@ class SimulatorEventStoreAdapter: EventStoreAdapterProtocol {
             let testCalendars = pooledStore.calendars(for: .event)
             let hasAccess = !testCalendars.isEmpty
             
-            print("🔧 [SimulatorAdapter] Access check - Status: \(authStatus.rawValue), Calendars: \(testCalendars.count), HasAccess: \(hasAccess)")
+            debugLog("🔧", "[SimulatorAdapter] Access check - Status: \(authStatus.rawValue), Calendars: \(testCalendars.count), HasAccess: \(hasAccess)")
             return hasAccess
         }
     }
@@ -341,10 +341,10 @@ extension EventStoreAdapterProtocol {
 struct EventStoreAdapterFactory {
     static func createAdapter() -> EventStoreAdapterProtocol {
         #if targetEnvironment(simulator)
-        print("🔧 [AdapterFactory] Creating iOS Simulator adapter")
+        debugLog("🔧", "[AdapterFactory] Creating iOS Simulator adapter")
         return SimulatorEventStoreAdapter()
         #else
-        print("🔧 [AdapterFactory] Creating production adapter")
+        debugLog("🔧", "[AdapterFactory] Creating production adapter")
         return ProductionEventStoreAdapter()
         #endif
     }
