@@ -218,16 +218,34 @@ class LocationService: NSObject, ObservableObject {
         #if DEBUG
         debugLog("🎯", "[LocationService] setupGeofencing called")
         #endif
-        guard let appData = appData,
-              let officeLocation = appData.settings.officeLocation else {
-            debugLog("❌", "[LocationService] Office location not set")
-            locationError = "Office location not set"
+        guard let appData = appData else {
+            debugLog("❌", "[LocationService] AppData not available")
+            locationError = "AppData not available"
             return
         }
         
-        #if DEBUG
-        debugLog("🎯", "[LocationService] Office location: \(officeLocation.latitude), \(officeLocation.longitude)")
-        #endif
+        // Support both new multi-location array and legacy single location
+        let locationsToMonitor: [OfficeLocation]
+        if !appData.settings.officeLocations.isEmpty {
+            // Use new multi-location array
+            locationsToMonitor = appData.settings.officeLocations
+            debugLog("🎯", "[LocationService] Using \(locationsToMonitor.count) office locations from array")
+        } else if let legacyLocation = appData.settings.officeLocation {
+            // Fallback to legacy single location for backward compatibility
+            let legacyOffice = OfficeLocation(
+                name: "Office",
+                coordinate: legacyLocation,
+                address: appData.settings.officeAddress,
+                detectionRadius: appData.settings.detectionRadius,
+                isPrimary: true
+            )
+            locationsToMonitor = [legacyOffice]
+            debugLog("🎯", "[LocationService] Using legacy single office location")
+        } else {
+            debugLog("❌", "[LocationService] No office locations configured")
+            locationError = "No office locations configured"
+            return
+        }
         
         guard authorizationStatus == .authorizedAlways else {
             debugLog("❌", "[LocationService] Always location permission required, current: \(authorizationStatus)")
@@ -256,16 +274,16 @@ class LocationService: NSObject, ObservableObject {
                 // Clear any existing location error
                 self.locationError = nil
                 
-                // Continue with geofencing setup
-                self.configureGeofencing(for: appData, at: officeLocation)
+                // Continue with geofencing setup for all locations
+                self.configureGeofencing(for: appData, locations: locationsToMonitor)
             }
         }
     }
     
     /// Configure geofencing with the provided parameters (called from main thread)
-    private func configureGeofencing(for appData: AppData, at officeLocation: CLLocationCoordinate2D) {
+    private func configureGeofencing(for appData: AppData, locations: [OfficeLocation]) {
         #if DEBUG
-        debugLog("🎯", "[LocationService] configureGeofencing called")
+        debugLog("🎯", "[LocationService] configureGeofencing called for \(locations.count) locations")
         #endif
         
         // Clear existing geofences
@@ -276,45 +294,52 @@ class LocationService: NSObject, ObservableObject {
             locationManager.stopMonitoring(for: region)
         }
         
-        // Validate radius (iOS has limits)
-        let radius = min(max(appData.settings.detectionRadius, 1), locationManager.maximumRegionMonitoringDistance)
-        #if DEBUG
-        debugLog("🎯", "[LocationService] Using radius: \(radius) meters (requested: \(appData.settings.detectionRadius), max: \(locationManager.maximumRegionMonitoringDistance))")
-        #endif
-        
-        // Create office geofence
-        let region = CLCircularRegion(
-            center: officeLocation,
-            radius: radius,
-            identifier: "office_location"
-        )
-        
-        region.notifyOnEntry = true
-        region.notifyOnExit = true
-        
-        #if DEBUG
-        debugLog("🎯", "[LocationService] Created region: center=(\(officeLocation.latitude), \(officeLocation.longitude)), radius=\(radius)")
-        #endif
-        
-        // Check if we can monitor this region
+        // Check if we can monitor regions
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             debugLog("❌", "[LocationService] Region monitoring not available")
             locationError = "Region monitoring not available"
             return
         }
         
-        debugLog("✅", "[LocationService] Starting monitoring for office region")
-        locationManager.startMonitoring(for: region)
+        // Create geofence for each office location
+        var monitoredCount = 0
+        for office in locations {
+            guard let coordinate = office.coordinate else {
+                debugLog("⚠️", "[LocationService] Skipping \(office.name) - no coordinate")
+                continue
+            }
+            
+            // Validate radius (iOS has limits)
+            let radius = min(max(office.detectionRadius, 1), locationManager.maximumRegionMonitoringDistance)
+            
+            // Create region with unique identifier based on office ID
+            let region = CLCircularRegion(
+                center: coordinate,
+                radius: radius,
+                identifier: office.id.uuidString
+            )
+            
+            region.notifyOnEntry = true
+            region.notifyOnExit = true
+            
+            debugLog("✅", "[LocationService] Monitoring \(office.name) at (\(coordinate.latitude), \(coordinate.longitude)), radius=\(radius)m")
+            locationManager.startMonitoring(for: region)
+            monitoredCount += 1
+            
+            // Request the current state of the region to handle cases where 
+            // the user is already inside the geofence when it's created
+            locationManager.requestState(for: region)
+        }
         
-        // Start periodic verification to handle intermittent status issues
-        verificationService.startPeriodicVerification()
-        
-        // Request the current state of the region to handle cases where 
-        // the user is already inside the geofence when it's created
-        #if DEBUG
-        debugLog("🎯", "[LocationService] Requesting current state for region")
-        #endif
-        locationManager.requestState(for: region)
+        if monitoredCount > 0 {
+            debugLog("✅", "[LocationService] Successfully monitoring \(monitoredCount) office location(s)")
+            
+            // Start periodic verification to handle intermittent status issues
+            verificationService.startPeriodicVerification()
+        } else {
+            debugLog("❌", "[LocationService] No valid office locations to monitor")
+            locationError = "No valid office locations configured"
+        }
     }
     
     func geocodeAddress(_ address: String) async throws -> CLLocationCoordinate2D {
@@ -529,11 +554,37 @@ extension LocationService: CLLocationManagerDelegate {
         #if DEBUG
         debugLog("🎯", "[LocationService] handleRegionEntry called for region: \(region.identifier)")
         #endif
-        guard let appData = appData,
-              region.identifier == "office_location" else {
-            debugLog("❌", "[LocationService] Invalid region or no appData")
+        guard let appData = appData else {
+            debugLog("❌", "[LocationService] No appData available")
             return
         }
+        
+        // Find which office location was entered
+        let enteredOffice: OfficeLocation?
+        if region.identifier == "office_location" {
+            // Legacy single location identifier
+            if let legacyCoord = appData.settings.officeLocation {
+                enteredOffice = OfficeLocation(
+                    name: "Office",
+                    coordinate: legacyCoord,
+                    address: appData.settings.officeAddress,
+                    detectionRadius: appData.settings.detectionRadius,
+                    isPrimary: true
+                )
+            } else {
+                enteredOffice = nil
+            }
+        } else {
+            // New multi-location: find by UUID
+            enteredOffice = appData.settings.officeLocations.first { $0.id.uuidString == region.identifier }
+        }
+        
+        guard let office = enteredOffice, let officeCoordinate = office.coordinate else {
+            debugLog("❌", "[LocationService] Could not identify entered office")
+            return
+        }
+        
+        debugLog("🎯", "[LocationService] Entered office: \(office.name)")
 
         let now = Date()
         let calendar = Calendar.current
@@ -582,10 +633,8 @@ extension LocationService: CLLocationManagerDelegate {
 
         debugLog("🔍", "[LocationService] Office status before entry: \(appData.isCurrentlyInOffice)")
         
-        // Start tracking visit
-        if let officeLocation = appData.settings.officeLocation {
-            appData.startVisit(at: officeLocation)
-        }
+        // Start tracking visit at the entered office location
+        appData.startVisit(at: officeCoordinate)
 
         debugLog("🔍", "[LocationService] Office status after startVisit(): \(appData.isCurrentlyInOffice)")
         debugLog("🔍", "[LocationService] Current visit after entry: \(appData.currentVisit?.id.uuidString ?? "none")")
@@ -608,13 +657,37 @@ extension LocationService: CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         Task { @MainActor in
-            guard let appData = appData,
-                  region.identifier == "office_location" else {
-                debugLog("❌", "[LocationService] Invalid region or no appData for exit")
+            guard let appData = appData else {
+                debugLog("❌", "[LocationService] No appData for exit")
                 return
             }
             
-            debugLog("🚪", "[LocationService] Office exit detected at \(Date())")
+            // Find which office location was exited
+            let exitedOffice: OfficeLocation?
+            if region.identifier == "office_location" {
+                // Legacy identifier
+                if let legacyCoord = appData.settings.officeLocation {
+                    exitedOffice = OfficeLocation(
+                        name: "Office",
+                        coordinate: legacyCoord,
+                        address: appData.settings.officeAddress,
+                        detectionRadius: appData.settings.detectionRadius,
+                        isPrimary: true
+                    )
+                } else {
+                    exitedOffice = nil
+                }
+            } else {
+                // New multi-location: find by UUID
+                exitedOffice = appData.settings.officeLocations.first { $0.id.uuidString == region.identifier }
+            }
+            
+            guard let office = exitedOffice else {
+                debugLog("❌", "[LocationService] Could not identify exited office")
+                return
+            }
+            
+            debugLog("🚪", "[LocationService] Exited office: \(office.name) at \(Date())")
             debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
             
             // End tracking visit
