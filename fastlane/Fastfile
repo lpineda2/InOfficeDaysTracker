@@ -43,4 +43,27 @@ platform :ios do
       precheck_include_in_app_purchases: false
     )
   end
+
+  desc "Submit existing TestFlight build for App Store review"
+  lane :submit_for_review do
+    # Load API Key
+    api_key = app_store_connect_api_key(
+      key_id: "ZWWB48GR96",
+      issuer_id: "281d6b58-259e-4b20-aad6-06fb53291bc7",
+      key_filepath: "fastlane/AuthKey_ZWWB48GR96.p8",
+      duration: 1200,
+      in_house: false
+    )
+
+    # Submit for review without uploading a new binary
+    upload_to_app_store(
+      api_key: api_key,
+      skip_binary_upload: true,      # Don't upload, use existing TestFlight build
+      submit_for_review: true,
+      automatic_release: false,
+      skip_screenshots: true,
+      skip_metadata: false,
+      precheck_include_in_app_purchases: false
+    )
+  end
 end
