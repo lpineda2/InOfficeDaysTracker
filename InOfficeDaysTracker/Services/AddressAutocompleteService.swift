@@ -180,7 +180,7 @@ extension AddressAutocompleteService: MKLocalSearchCompleterDelegate {
         Task { @MainActor in
             self.isLoading = false
             self.errorMessage = "Search failed. Please try again."
-            print("Address autocomplete error: \(error.localizedDescription)")
+            debugLog("❌", "Address autocomplete error: \(error.localizedDescription)")
         }
     }
 }

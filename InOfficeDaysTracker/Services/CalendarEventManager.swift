@@ -17,22 +17,22 @@ class CalendarEventManager: ObservableObject {
     /// Called when user enters the office geofence
     func handleVisitStart(_ visit: OfficeVisit, settings: AppSettings) async {
         guard settings.calendarSettings.isEnabled else {
-            print("📅 [Calendar] Integration disabled - skipping event creation")
+            debugLog("📅", "[Calendar] Integration disabled - skipping event creation")
             return
         }
         
         guard let calendar = await getSelectedCalendar(settings: settings) else {
-            print("📅 [Calendar] No calendar selected - skipping event creation")
+            debugLog("📅", "[Calendar] No calendar selected - skipping event creation")
             return
         }
         
-        print("📅 [Calendar] Creating office event for \(visit.date)")
+        debugLog("📅", "[Calendar] Creating office event for \(visit.date)")
         
         let eventData = createEventData(for: visit, settings: settings, isOngoing: true)
         do {
             try await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
         } catch {
-            print("📅 [CalendarManager] Failed to create visit event: \(error.localizedDescription)")
+            debugLog("📅", "[CalendarManager] Failed to create visit event: \(error.localizedDescription)")
             // For now, we log errors. Later we can bubble them up to UI
         }
     }
@@ -47,52 +47,52 @@ class CalendarEventManager: ObservableObject {
             return
         }
         
-        print("📅 [Calendar] Updating office event for \(visit.date)")
+        debugLog("📅", "[Calendar] Updating office event for \(visit.date)")
         
         let eventData = createEventData(for: visit, settings: settings, isOngoing: true)
         do {
             try await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
         } catch {
-            print("📅 [CalendarManager] Failed to update visit event: \(error.localizedDescription)")
+            debugLog("📅", "[CalendarManager] Failed to update visit event: \(error.localizedDescription)")
             // For now, we log errors. Later we can bubble them up to UI
         }
     }
     
     /// Called when user leaves the office geofence
     func handleVisitEnd(_ visit: OfficeVisit, settings: AppSettings) async {
-        print("📅 [CalendarManager] handleVisitEnd called")
-        print("📅 [CalendarManager] Visit details: date=\(visit.date), entry=\(visit.entryTime), exit=\(String(describing: visit.exitTime))")
-        print("📅 [CalendarManager] Visit isValidVisit=\(visit.isValidVisit), duration=\(String(describing: visit.duration))")
+        debugLog("📅", "[CalendarManager] handleVisitEnd called")
+        debugLog("📅", "[CalendarManager] Visit details: date=\(visit.date), entry=\(visit.entryTime), exit=\(String(describing: visit.exitTime))")
+        debugLog("📅", "[CalendarManager] Visit isValidVisit=\(visit.isValidVisit), duration=\(String(describing: visit.duration))")
         
         guard settings.calendarSettings.isEnabled else {
-            print("📅 [CalendarManager] Calendar integration disabled")
+            debugLog("📅", "[CalendarManager] Calendar integration disabled")
             return
         }
         
         guard let calendar = await getSelectedCalendar(settings: settings) else {
-            print("📅 [CalendarManager] No calendar selected")
+            debugLog("📅", "[CalendarManager] No calendar selected")
             return
         }
         
         if visit.isValidVisit {
             // Finalize the event
-            print("📅 [CalendarManager] Finalizing office event for \(visit.date)")
+            debugLog("📅", "[CalendarManager] Finalizing office event for \(visit.date)")
             let eventData = createEventData(for: visit, settings: settings, isOngoing: false)
-            print("📅 [CalendarManager] Event notes: \(eventData.notes)")
+            debugLog("📅", "[CalendarManager] Event notes: \(eventData.notes)")
             do {
                 try await calendarService.createOrUpdateEvent(data: eventData, in: calendar)
             } catch {
-                print("📅 [CalendarManager] Failed to finalize visit event: \(error.localizedDescription)")
+                debugLog("📅", "[CalendarManager] Failed to finalize visit event: \(error.localizedDescription)")
                 // For now, we log errors. Later we can bubble them up to UI
             }
         } else {
             // Visit was too short - delete the event
-            print("📅 [CalendarManager] Visit too short - deleting event for \(visit.date)")
+            debugLog("📅", "[CalendarManager] Visit too short - deleting event for \(visit.date)")
             let uid = CalendarEventUID.generate(for: visit.date)
             do {
                 try await calendarService.deleteEvent(uid: uid, from: calendar)
             } catch {
-                print("📅 [CalendarManager] Failed to delete short visit event: \(error.localizedDescription)")
+                debugLog("📅", "[CalendarManager] Failed to delete short visit event: \(error.localizedDescription)")
                 // For now, we log errors. Later we can bubble them up to UI
             }
         }

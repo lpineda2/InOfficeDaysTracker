@@ -77,9 +77,9 @@ class AppData: ObservableObject {
     // MARK: - Settings Management
     
     func updateSettings(_ newSettings: AppSettings) {
-        print("🔧 [AppData] updateSettings called")
-        print("  - Calendar enabled: \(newSettings.calendarSettings.isEnabled)")
-        print("  - Calendar ID: \(newSettings.calendarSettings.selectedCalendarId ?? "none")")
+        debugLog("🔧", "[AppData] updateSettings called")
+        debugLog("  - Calendar enabled: \(newSettings.calendarSettings.isEnabled)")
+        debugLog("  - Calendar ID: \(newSettings.calendarSettings.selectedCalendarId ?? "none")")
         
         let wasCalendarEnabled = settings.calendarSettings.isEnabled
         let isCalendarNowEnabled = newSettings.calendarSettings.isEnabled
@@ -90,18 +90,18 @@ class AppData: ObservableObject {
         // If calendar integration was just enabled and there's an active office visit,
         // create a calendar event for the current visit
         if !wasCalendarEnabled && isCalendarNowEnabled {
-            print("  📅 Calendar integration was just enabled!")
+            debugLog("📅", "Calendar integration was just enabled!")
             if let activeVisit = currentVisit, activeVisit.isActiveSession {
-                print("  📅 Found active office visit - creating calendar event")
+                debugLog("📅", "Found active office visit - creating calendar event")
                 Task {
                     await calendarEventManager.handleVisitStart(activeVisit, settings: settings)
                 }
             } else {
-                print("  📅 No active visit to create calendar event for")
+                debugLog("📅", "No active visit to create calendar event for")
             }
         }
         
-        print("  ✅ Settings updated and saved")
+        debugLog("✅", "Settings updated and saved")
     }
     
     func completeSetup() {
@@ -110,52 +110,52 @@ class AppData: ObservableObject {
     }
     
     private func saveSettings() {
-        print("💾 [AppData] saveSettings called")
-        print("  📋 Settings to save:")
-        print("    - Calendar enabled: \(settings.calendarSettings.isEnabled)")
-        print("    - Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
-        print("    - Setup complete: \(settings.isSetupComplete)")
+        debugLog("💾", "[AppData] saveSettings called")
+        debugLog("📋 Settings to save:")
+        debugLog("  - Calendar enabled: \(settings.calendarSettings.isEnabled)")
+        debugLog("  - Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
+        debugLog("  - Setup complete: \(settings.isSetupComplete)")
         
         if let encoded = try? JSONEncoder().encode(settings) {
             sharedUserDefaults.set(encoded, forKey: settingsKey)
-            print("  ✅ Settings encoded and saved to UserDefaults")
+            debugLog("✅", "Settings encoded and saved to UserDefaults")
             
             // Verify the data was actually written
             if let savedData = sharedUserDefaults.data(forKey: settingsKey) {
-                print("  📄 Saved data size: \(savedData.count) bytes")
+                debugLog("📄", "Saved data size: \(savedData.count) bytes")
                 if let jsonString = String(data: savedData, encoding: .utf8) {
-                    print("  📄 JSON preview: \(String(jsonString.prefix(200)))...")
+                    debugLog("📄", "JSON preview: \(String(jsonString.prefix(200)))...")
                 }
             } else {
-                print("  ❌ No data found immediately after saving!")
+                debugLog("❌", "No data found immediately after saving!")
             }
         } else {
-            print("  ❌ Failed to encode settings")
+            debugLog("❌", "Failed to encode settings")
         }
     }
     
     private func loadSettings() {
-        print("🔍 [AppData] loadSettings called")
+        debugLog("🔍", "[AppData] loadSettings called")
         
         if let data = sharedUserDefaults.data(forKey: settingsKey) {
-            print("  📄 Found settings data: \(data.count) bytes")
+            debugLog("📄", "Found settings data: \(data.count) bytes")
             
             if let jsonString = String(data: data, encoding: .utf8) {
-                print("  📄 JSON preview: \(String(jsonString.prefix(200)))...")
+                debugLog("📄", "JSON preview: \(String(jsonString.prefix(200)))...")
             }
             
             if let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
                 settings = decoded
-                print("  ✅ Settings loaded successfully")
-                print("  📅 Calendar enabled: \(settings.calendarSettings.isEnabled)")
-                print("  📅 Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
-                print("  📅 Setup complete: \(settings.isSetupComplete)")
+                debugLog("✅", "Settings loaded successfully")
+                debugLog("📅", "Calendar enabled: \(settings.calendarSettings.isEnabled)")
+                debugLog("📅", "Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
+                debugLog("📅", "Setup complete: \(settings.isSetupComplete)")
             } else {
-                print("  ❌ Failed to decode settings JSON!")
+                debugLog("❌", "Failed to decode settings JSON!")
                 settings = AppSettings()
             }
         } else {
-            print("  ⚠️ No settings data found in UserDefaults")
+            debugLog("⚠️", "No settings data found in UserDefaults")
             settings = AppSettings()
         }
     }
@@ -178,9 +178,9 @@ class AppData: ObservableObject {
                 currentVisit = nil
                 isCurrentlyInOffice = false
                 clearCurrentVisit()
-                print("[AppData] Auto-closed and cleared stale visit from previous day")
+                debugLog("[AppData] Auto-closed and cleared stale visit from previous day")
             } else {
-                print("[AppData] Restored current visit from: \(visit.entryTime)")
+                debugLog("[AppData] Restored current visit from: \(visit.entryTime)")
                 
                 // Check if calendar event should be created for current visit
                 Task {
@@ -217,7 +217,7 @@ class AppData: ObservableObject {
             if let index = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
                 visits[index] = visit
                 saveVisits()
-                print("[AppData] Auto-closed stale visit with exit time: \(endOfDay)")
+                debugLog("[AppData] Auto-closed stale visit with exit time: \(endOfDay)")
             }
         }
     }
@@ -230,8 +230,8 @@ class AppData: ObservableObject {
         let calendar = Calendar.current
         
         #if DEBUG
-        print("[AppData] addVisit called for date: \(visit.date)")
-        print("[AppData] Current visits array has \(visits.count) items")
+        debugLog("[AppData] addVisit called for date: \(visit.date)")
+        debugLog("[AppData] Current visits array has \(visits.count) items")
         #endif
         
         // Check if a visit already exists for this day
@@ -240,22 +240,22 @@ class AppData: ObservableObject {
             
             // If existing visit has an active session, prevent duplicate
             if existingVisit.isActiveSession {
-                print("[AppData] DUPLICATE PREVENTED: Active session already exists for this day")
+                debugLog("[AppData] DUPLICATE PREVENTED: Active session already exists for this day")
                 return false
             }
             
             // Replace existing completed visit with new one (for manual edits)
             visits[existingIndex] = visit
-            print("[AppData] Replaced existing visit for \(visit.formattedDate)")
+            debugLog("[AppData] Replaced existing visit for \(visit.formattedDate)")
         } else {
             // No visit exists for this day, add new one
             visits.append(visit)
-            print("[AppData] Added new visit for \(visit.formattedDate)")
+            debugLog("[AppData] Added new visit for \(visit.formattedDate)")
         }
         
         saveVisits()
         #if DEBUG
-        print("[AppData] Visits saved to UserDefaults")
+        debugLog("[AppData] Visits saved to UserDefaults")
         #endif
         return true
     }
@@ -265,9 +265,9 @@ class AppData: ObservableObject {
         let calendar = Calendar.current
         
         #if DEBUG
-        print("[AppData] startVisit called at \(now)")
-        print("[AppData] Current visits count: \(visits.count)")
-        print("[AppData] Current visit exists: \(currentVisit != nil)")
+        debugLog("[AppData] startVisit called at \(now)")
+        debugLog("[AppData] Current visits count: \(visits.count)")
+        debugLog("[AppData] Current visit exists: \(currentVisit != nil)")
         #endif
         
         // Session Management: Check if there's already a visit for today
@@ -275,12 +275,12 @@ class AppData: ObservableObject {
             var todayVisit = visits[todayVisitIndex]
             
             #if DEBUG
-            print("[AppData] Found existing visit for today, managing session")
+            debugLog("[AppData] Found existing visit for today, managing session")
             #endif
             
             // If there's already an active session, don't create duplicate
             if todayVisit.isActiveSession {
-                print("[AppData] DUPLICATE PREVENTED: Session already active for today")
+                debugLog("[AppData] DUPLICATE PREVENTED: Session already active for today")
                 currentVisit = todayVisit
                 isCurrentlyInOffice = true
                 return
@@ -299,7 +299,7 @@ class AppData: ObservableObject {
                 await calendarEventManager.handleVisitUpdate(todayVisit, settings: settings)
             }
             
-            print("[AppData] Resumed office session for today")
+            debugLog("[AppData] Resumed office session for today")
             return
         }
         
@@ -315,21 +315,21 @@ class AppData: ObservableObject {
         saveVisits()
         
         // Handle calendar event creation
-        print("[AppData] About to call calendar event manager...")
+        debugLog("[AppData] About to call calendar event manager...")
         Task {
             await calendarEventManager.handleVisitStart(newVisit, settings: settings)
         }
         
-        print("[AppData] Started new office session for today")
+        debugLog("[AppData] Started new office session for today")
     }
     
     func endVisit() {
         guard var visit = currentVisit else { 
-            print("[AppData] No current visit to end")
+            debugLog("[AppData] No current visit to end")
             return 
         }
         
-        print("[AppData] Ending current session")
+        debugLog("[AppData] Ending current session")
         
         let exitTime = Date()
         
@@ -350,9 +350,9 @@ class AppData: ObservableObject {
         }
         
         if visit.isValidVisit {
-            print("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
+            debugLog("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
         } else {
-            print("[AppData] Completed session (\(visit.formattedDuration)), saved for record")
+            debugLog("[AppData] Completed session (\(visit.formattedDuration)), saved for record")
         }
         
         // Clear current visit state (session is paused, can be resumed later)
@@ -360,7 +360,7 @@ class AppData: ObservableObject {
         isCurrentlyInOffice = false
         clearCurrentVisit()
         
-        print("[AppData] Session ended successfully")
+        debugLog("[AppData] Session ended successfully")
     }
 
     func getVisits(for month: Date) -> [OfficeVisit] {
@@ -537,15 +537,15 @@ class AppData: ObservableObject {
     
     /// Update widget data whenever app data changes
     private func updateWidgetData() {
-        print("✅ [AppData] Triggering widget timeline reload")
-        print("🔄 [AppData] Current state: isInOffice=\(isCurrentlyInOffice), visits=\(getCurrentMonthProgress().current)")
+        debugLog("✅", "[AppData] Triggering widget timeline reload")
+        debugLog("🔄", "[AppData] Current state: isInOffice=\(isCurrentlyInOffice), visits=\(getCurrentMonthProgress().current)")
         
         // Force UserDefaults synchronization to ensure data is written immediately
         sharedUserDefaults.synchronize()
         
         // Verify the data was persisted correctly
         let verifyStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") 
-        print("🔍 [AppData] Verified persisted office status: \(verifyStatus)")
+        debugLog("🔍", "[AppData] Verified persisted office status: \(verifyStatus)")
         
         // Request widget timeline reload with multiple strategies for reliability
         #if canImport(WidgetKit)
@@ -557,22 +557,22 @@ class AppData: ObservableObject {
                 // Strategy 2: Also reload specific widget configuration
                 WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
                 
-                print("🔄 [AppData] Widget reload requests sent (all + specific)")
+                debugLog("🔄", "[AppData] Widget reload requests sent (all + specific)")
                 
                 // Strategy 3: Multiple delayed reloads to handle iOS widget caching issues
                 Task {
                     try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                     WidgetCenter.shared.reloadAllTimelines()
-                    print("🔄 [AppData] First delayed widget reload request sent")
+                    debugLog("🔄", "[AppData] First delayed widget reload request sent")
                     
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                     WidgetCenter.shared.reloadAllTimelines()
-                    print("🔄 [AppData] Second delayed widget reload request sent")
+                    debugLog("🔄", "[AppData] Second delayed widget reload request sent")
                 }
             }
         }
         #else
-        print("⚠️ [AppData] WidgetKit not available")
+        debugLog("⚠️", "[AppData] WidgetKit not available")
         #endif
     }
     
@@ -581,7 +581,7 @@ class AppData: ObservableObject {
     /// Clean up duplicate entries with session management awareness
     private func cleanupDuplicateEntries() {
         #if DEBUG
-        print("[AppData] Starting duplicate cleanup with session management...")
+        debugLog("[AppData] Starting duplicate cleanup with session management...")
         #endif
         
         // Group visits by date
@@ -602,13 +602,13 @@ class AppData: ObservableObject {
         
         for (dateKey, dayVisits) in visitsByDate {
             if dayVisits.count > 1 {
-                print("[AppData] Found \(dayVisits.count) visits for \(dateKey) - consolidating into session")
+                debugLog("[AppData] Found \(dayVisits.count) visits for \(dateKey) - consolidating into session")
                 
                 // Merge multiple visits for the same day into a single session-based visit
                 if let consolidatedVisit = consolidateVisitsIntoSession(dayVisits) {
                     cleanedVisits.append(consolidatedVisit)
                     duplicatesRemoved += dayVisits.count - 1
-                    print("[AppData] Consolidated \(dayVisits.count) visits into single session")
+                    debugLog("[AppData] Consolidated \(dayVisits.count) visits into single session")
                 }
             } else {
                 cleanedVisits.append(dayVisits[0])
@@ -619,11 +619,11 @@ class AppData: ObservableObject {
             visits = cleanedVisits
             saveVisits()
             #if DEBUG
-            print("[AppData] Cleanup complete: consolidated \(duplicatesRemoved) duplicate visits into sessions")
+            debugLog("[AppData] Cleanup complete: consolidated \(duplicatesRemoved) duplicate visits into sessions")
             #endif
         } else {
             #if DEBUG
-            print("[AppData] No duplicates found")
+            debugLog("[AppData] No duplicates found")
             #endif
         }
     }
@@ -659,7 +659,7 @@ class AppData: ObservableObject {
     private func validateCurrentVisitConsistency() {
         guard let currentVisit = currentVisit else {
             #if DEBUG
-            print("[AppData] No current visit to validate")
+            debugLog("[AppData] No current visit to validate")
             #endif
             return
         }
@@ -669,7 +669,7 @@ class AppData: ObservableObject {
         
         // Check if current visit is from today
         if !calendar.isDate(currentVisit.date, inSameDayAs: today) {
-            print("[AppData] Current visit is from wrong day, clearing it")
+            debugLog("[AppData] Current visit is from wrong day, clearing it")
             self.currentVisit = nil
             isCurrentlyInOffice = false
             clearCurrentVisit()
@@ -683,14 +683,14 @@ class AppData: ObservableObject {
             // If the visit in array doesn't have an active session but currentVisit exists,
             // it means we need to sync the state
             if !matchingVisit.isActiveSession && isCurrentlyInOffice {
-                print("[AppData] Syncing current visit state with session management")
+                debugLog("[AppData] Syncing current visit state with session management")
                 var updatedVisit = matchingVisit
                 updatedVisit.startNewSession()
                 visits[matchingIndex] = updatedVisit
                 self.currentVisit = updatedVisit
             }
         } else {
-            print("[AppData] Current visit not found in visits array, adding it")
+            debugLog("[AppData] Current visit not found in visits array, adding it")
             visits.append(currentVisit)
             saveVisits()
         }
@@ -816,11 +816,11 @@ class AppData: ObservableObject {
         
         // Check if migration already completed
         if sharedUserDefaults.bool(forKey: migrationKey) {
-            print("[AppData] Data migration already completed")
+            debugLog("[AppData] Data migration already completed")
             return
         }
         
-        print("[AppData] Starting data migration from standard UserDefaults...")
+        debugLog("[AppData] Starting data migration from standard UserDefaults...")
         var migrationCount = 0
         
         // Migrate settings
@@ -828,7 +828,7 @@ class AppData: ObservableObject {
            sharedUserDefaults.data(forKey: settingsKey) == nil {
             sharedUserDefaults.set(settingsData, forKey: settingsKey)
             migrationCount += 1
-            print("[AppData] Migrated app settings")
+            debugLog("[AppData] Migrated app settings")
         }
         
         // Migrate visits
@@ -836,7 +836,7 @@ class AppData: ObservableObject {
            sharedUserDefaults.data(forKey: visitsKey) == nil {
             sharedUserDefaults.set(visitsData, forKey: visitsKey)
             migrationCount += 1
-            print("[AppData] Migrated office visits history")
+            debugLog("[AppData] Migrated office visits history")
         }
         
         // Migrate current visit
@@ -844,7 +844,7 @@ class AppData: ObservableObject {
            sharedUserDefaults.data(forKey: currentVisitKey) == nil {
             sharedUserDefaults.set(currentVisitData, forKey: currentVisitKey)
             migrationCount += 1
-            print("[AppData] Migrated current visit state")
+            debugLog("[AppData] Migrated current visit state")
         }
         
         // Migrate office status
@@ -853,16 +853,16 @@ class AppData: ObservableObject {
             let isInOffice = standardDefaults.bool(forKey: "IsCurrentlyInOffice")
             sharedUserDefaults.set(isInOffice, forKey: "IsCurrentlyInOffice")
             migrationCount += 1
-            print("[AppData] Migrated office status: \(isInOffice)")
+            debugLog("[AppData] Migrated office status: \(isInOffice)")
         }
         
         // Mark migration as complete
         sharedUserDefaults.set(true, forKey: migrationKey)
         
-        print("[AppData] Migration completed! Migrated \(migrationCount) data items")
+        debugLog("[AppData] Migration completed! Migrated \(migrationCount) data items")
         
         if migrationCount > 0 {
-            print("[AppData] ✅ Your previous app data has been restored!")
+            debugLog("[AppData] ✅ Your previous app data has been restored!")
         }
     }
     
@@ -872,7 +872,7 @@ class AppData: ObservableObject {
     /// Force migration of office locations if data is inconsistent
     func ensureOfficeLocationConsistency() {
         if settings.officeLocation != nil && settings.officeLocations.isEmpty {
-            print("[AppData] Forcing office location migration due to inconsistent data...")
+            debugLog("[AppData] Forcing office location migration due to inconsistent data...")
             // Reset migration flag to force it to run
             let migrationKey = "DataMigratedToMultipleLocations_v1.9.0_v2"
             sharedUserDefaults.set(false, forKey: migrationKey)
@@ -898,9 +898,9 @@ class AppData: ObservableObject {
         }
         
         if needsForcedMigration {
-            print("[AppData] Detected inconsistent office location data - forcing migration...")
+            debugLog("[AppData] Detected inconsistent office location data - forcing migration...")
         } else {
-            print("[AppData] Starting v1.9.0 office location migration...")
+            debugLog("[AppData] Starting v1.9.0 office location migration...")
         }
         
         // If user has an existing single office location but no office locations array
@@ -915,12 +915,12 @@ class AppData: ObservableObject {
             )
             settings.officeLocations = [migratedLocation]
             saveSettings()
-            print("[AppData] Migrated single office location to locations array")
+            debugLog("[AppData] Migrated single office location to locations array")
         }
         
         // Mark migration as complete
         sharedUserDefaults.set(true, forKey: migrationKey)
-        print("[AppData] v1.9.0 migration completed!")
+        debugLog("[AppData] v1.9.0 migration completed!")
     }
     
     // MARK: - Multiple Office Location Helpers
@@ -960,7 +960,7 @@ class AppData: ObservableObject {
             return
         }
         
-        print("📅 [AppData] Ensuring calendar event exists for current visit")
+        debugLog("📅", "[AppData] Ensuring calendar event exists for current visit")
         await calendarEventManager.handleVisitUpdate(visit, settings: settings)
     }
     

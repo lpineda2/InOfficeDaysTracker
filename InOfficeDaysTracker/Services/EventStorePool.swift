@@ -46,7 +46,7 @@ class EventStorePool: ObservableObject {
     
     private init() {
         setupCleanupTimer()
-        print("🏊 [EventStorePool] Initialized with max pool size: \(maxPoolSize)")
+        debugLog("🏊", "[EventStorePool] Initialized with max pool size: \(maxPoolSize)")
     }
     
     deinit {
@@ -58,7 +58,8 @@ class EventStorePool: ObservableObject {
         // Try to reuse an existing store
         if let pooledStore = pooledStores.first(where: { !$0.isExpired }) {
             pooledStore.markUsed()
-            print("🏊 [EventStorePool] Reusing EventStore (age: \(String(format: "%.1f", pooledStore.age))s, usage: \(pooledStore.usageCount))")
+            let formattedAge = String(format: "%.1f", pooledStore.age)
+            debugLog("🏊", "[EventStorePool] Reusing EventStore (age: \(formattedAge)s, usage: \(pooledStore.usageCount))")
             return pooledStore.eventStore
         }
         
@@ -67,7 +68,7 @@ class EventStorePool: ObservableObject {
             let newStore = PooledEventStore()
             pooledStores.append(newStore)
             newStore.markUsed()
-            print("🏊 [EventStorePool] Created new EventStore (pool size: \(pooledStores.count)/\(maxPoolSize))")
+            debugLog("🏊", "[EventStorePool] Created new EventStore (pool size: \(pooledStores.count)/\(maxPoolSize))")
             return newStore.eventStore
         }
         
@@ -80,14 +81,14 @@ class EventStorePool: ObservableObject {
             let newStore = PooledEventStore()
             pooledStores.append(newStore)
             newStore.markUsed()
-            print("🏊 [EventStorePool] Replaced expired EventStore")
+            debugLog("🏊", "[EventStorePool] Replaced expired EventStore")
             return newStore.eventStore
         }
         
         // No expired stores, use least recently used
         let leastUsed = pooledStores.min { $0.lastUsed < $1.lastUsed }!
         leastUsed.markUsed()
-        print("🏊 [EventStorePool] Reusing least recently used EventStore")
+        debugLog("🏊", "[EventStorePool] Reusing least recently used EventStore")
         return leastUsed.eventStore
     }
     
@@ -106,7 +107,7 @@ class EventStorePool: ObservableObject {
         let removedCount = initialCount - pooledStores.count
         
         if removedCount > 0 {
-            print("🏊 [EventStorePool] Cleaned up \(removedCount) expired EventStores (remaining: \(pooledStores.count))")
+            debugLog("🏊", "[EventStorePool] Cleaned up \(removedCount) expired EventStores (remaining: \(pooledStores.count))")
         }
     }
     
@@ -128,7 +129,7 @@ class EventStorePool: ObservableObject {
     func clearPool() {
         let clearedCount = pooledStores.count
         pooledStores.removeAll()
-        print("🏊 [EventStorePool] Cleared all EventStores (cleared: \(clearedCount))")
+        debugLog("🏊", "[EventStorePool] Cleared all EventStores (cleared: \(clearedCount))")
     }
     
     private func setupCleanupTimer() {
@@ -157,7 +158,7 @@ struct PoolStatistics {
 extension EventStorePool {
     /// Handle memory pressure by clearing old stores
     func handleMemoryPressure() {
-        print("⚠️ [EventStorePool] Handling memory pressure - clearing expired stores")
+        debugLog("⚠️", "[EventStorePool] Handling memory pressure - clearing expired stores")
         
         // First, remove expired stores
         cleanupExpiredStores()
@@ -168,7 +169,7 @@ extension EventStorePool {
             pooledStores.sort { $0.lastUsed > $1.lastUsed } // Keep most recently used
             let removedCount = pooledStores.count - keepCount
             pooledStores = Array(pooledStores.prefix(keepCount))
-            print("⚠️ [EventStorePool] Removed \(removedCount) stores due to memory pressure")
+            debugLog("⚠️", "[EventStorePool] Removed \(removedCount) stores due to memory pressure")
         }
     }
     
@@ -197,7 +198,8 @@ class EventStorePerformanceMonitor {
         recordOperationTime(operationName, duration: duration)
         
         if duration > 1.0 { // Log slow operations
-            print("⏱️ [Performance] Slow operation '\(operationName)': \(String(format: "%.3f", duration))s")
+            let formattedDuration = String(format: "%.3f", duration)
+            debugLog("⏱️", "[Performance] Slow operation '\(operationName)': \(formattedDuration)s")
         }
         
         return result
@@ -212,7 +214,8 @@ class EventStorePerformanceMonitor {
         recordOperationTime(operationName, duration: duration)
         
         if duration > 1.0 { // Log slow operations
-            print("⏱️ [Performance] Slow async operation '\(operationName)': \(String(format: "%.3f", duration))s")
+            let formattedDuration = String(format: "%.3f", duration)
+            debugLog("⏱️", "[Performance] Slow async operation '\(operationName)': \(formattedDuration)s")
         }
         
         return result
