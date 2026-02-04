@@ -23,6 +23,22 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Push a new release to the App Store
 
+### ios deploy_testflight
+
+```sh
+[bundle exec] fastlane ios deploy_testflight
+```
+
+Deploy to TestFlight for testing
+
+### ios submit_for_review
+
+```sh
+[bundle exec] fastlane ios submit_for_review
+```
+
+Submit existing TestFlight build for App Store review
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
