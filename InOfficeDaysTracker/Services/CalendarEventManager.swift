@@ -7,6 +7,7 @@
 
 import Foundation
 import EventKit
+import CoreLocation
 
 @MainActor
 class CalendarEventManager: ObservableObject {
@@ -112,7 +113,10 @@ class CalendarEventManager: ObservableObject {
         
         let uid = CalendarEventUID.generate(for: visit.date)
         
-        var notes = "Office Location: \(settings.officeAddress)\n"
+        // Determine which office was visited based on coordinates
+        let officeAddress = determineOfficeAddress(for: visit, settings: settings)
+        
+        var notes = "Office Location: \(officeAddress)\n"
         if isOngoing {
             notes += "Status: Currently in office\n"
             notes += "Entry Time: \(formatTime(visit.entryTime))\n"
@@ -131,10 +135,45 @@ class CalendarEventManager: ObservableObject {
             startDate: startOfDay,
             endDate: endOfDay,
             isAllDay: true,
-            location: settings.officeAddress,
+            location: officeAddress,
             notes: notes,
             uid: uid
         )
+    }
+    
+    private func determineOfficeAddress(for visit: OfficeVisit, settings: AppSettings) -> String {
+        // Try to match visit coordinates to configured offices
+        if !settings.officeLocations.isEmpty {
+            let visitLocation = CLLocation(
+                latitude: visit.coordinate.latitude,
+                longitude: visit.coordinate.longitude
+            )
+            
+            // Find closest office (should be very close if visit was triggered by geofence)
+            var closestOffice: OfficeLocation?
+            var closestDistance: CLLocationDistance = .infinity
+            
+            for office in settings.officeLocations {
+                guard let coord = office.coordinate else { continue }
+                let officeLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+                let distance = visitLocation.distance(from: officeLocation)
+                
+                if distance < closestDistance {
+                    closestDistance = distance
+                    closestOffice = office
+                }
+            }
+            
+            // If within reasonable range (1km), use that office's address
+            if let office = closestOffice, closestDistance < 1000 {
+                debugLog("📅", "[Calendar] Using \(office.name) address for event (\(Int(closestDistance))m away)")
+                return office.address
+            }
+        }
+        
+        // Fallback to legacy single office address
+        debugLog("📅", "[Calendar] Using legacy office address for event")
+        return settings.officeAddress
     }
     
     // MARK: - Helper Methods
