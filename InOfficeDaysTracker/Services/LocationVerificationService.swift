@@ -43,9 +43,9 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         guard let appData = appData else { return }
         
-        // Only start verification if we have proper permissions and office location
+        // Only start verification if we have proper permissions and at least one office location
         guard locationService?.isLocationEnabled == true,
-              appData.settings.officeLocation != nil else {
+              (!appData.settings.officeLocations.isEmpty || appData.settings.officeLocation != nil) else {
             return
         }
         
@@ -68,10 +68,27 @@ class LocationVerificationService: NSObject, ObservableObject {
     }
     
     private func verifyCurrentLocation() async {
-        guard let appData = appData,
-              let officeLocation = appData.settings.officeLocation else {
+        guard let appData = appData else {
             return
         }
+        
+        // Get office locations - prioritize array, fallback to legacy single location
+        let officeLocations: [(coordinate: CLLocationCoordinate2D, name: String, radius: Double)]
+        
+        if !appData.settings.officeLocations.isEmpty {
+            // Use multi-location array
+            officeLocations = appData.settings.officeLocations.compactMap { office in
+                guard let coord = office.coordinate else { return nil }
+                return (coord, office.name, office.detectionRadius)
+            }
+        } else if let legacyLocation = appData.settings.officeLocation {
+            // Fallback to legacy single location
+            officeLocations = [(legacyLocation, "Office", appData.settings.detectionRadius)]
+        } else {
+            return
+        }
+        
+        guard !officeLocations.isEmpty else { return }
         
         // Request a fresh location update
         locationManager.requestLocation()
@@ -84,27 +101,43 @@ class LocationVerificationService: NSObject, ObservableObject {
             return
         }
         
-        let officeLocationCL = CLLocation(latitude: officeLocation.latitude, longitude: officeLocation.longitude)
-        let distanceToOffice = currentLocation.distance(from: officeLocationCL)
-        let isWithinGeofence = distanceToOffice <= appData.settings.detectionRadius
+        // Find closest office and check if within any geofence
+        var closestOffice: (coordinate: CLLocationCoordinate2D, name: String, distance: Double)? = nil
+        var isWithinAnyGeofence = false
         
-        debugLog("📍", "[LocationVerification] Distance to office: \(Int(distanceToOffice))m, Geofence radius: \(Int(appData.settings.detectionRadius))m")
+        for office in officeLocations {
+            let officeCL = CLLocation(latitude: office.coordinate.latitude, longitude: office.coordinate.longitude)
+            let distance = currentLocation.distance(from: officeCL)
+            
+            if distance <= office.radius {
+                isWithinAnyGeofence = true
+                if closestOffice == nil || distance < closestOffice!.distance {
+                    closestOffice = (office.coordinate, office.name, distance)
+                }
+            } else if closestOffice == nil || distance < closestOffice!.distance {
+                closestOffice = (office.coordinate, office.name, distance)
+            }
+        }
+        
+        if let closest = closestOffice {
+            debugLog("📍", "[LocationVerification] Distance to \(closest.name): \(Int(closest.distance))m")
+        }
         
         // Only correct if there's a significant status mismatch
         // Allow a small delay buffer to avoid conflicts with geofencing
-        if isWithinGeofence && !appData.isCurrentlyInOffice {
+        if isWithinAnyGeofence && !appData.isCurrentlyInOffice {
             // Add a small delay to allow geofencing to handle the entry first
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             
             // Check again after delay in case geofencing already handled it
-            if !appData.isCurrentlyInOffice {
-                debugLog("📍", "[LocationVerification] User is in office but status shows away - correcting after delay")
-                await handleManualEntry(at: officeLocation)
+            if !appData.isCurrentlyInOffice, let closest = closestOffice {
+                debugLog("📍", "[LocationVerification] User is in \(closest.name) but status shows away - correcting after delay")
+                await handleManualEntry(at: closest.coordinate, officeName: closest.name)
             } else {
                 debugLog("📍", "[LocationVerification] Geofencing already handled entry, no correction needed")
             }
-        } else if !isWithinGeofence && appData.isCurrentlyInOffice {
-            debugLog("📍", "[LocationVerification] User is away but status shows in office - correcting")
+        } else if !isWithinAnyGeofence && appData.isCurrentlyInOffice {
+            debugLog("📍", "[LocationVerification] User is away from all offices but status shows in office - correcting")
             await handleManualExit()
         } else {
             debugLog("📍", "[LocationVerification] Status is correct, no action needed")
@@ -139,7 +172,7 @@ class LocationVerificationService: NSObject, ObservableObject {
     
     private var locationContinuation: ((CLLocation?) -> Void)?
     
-    private func handleManualEntry(at location: CLLocationCoordinate2D) async {
+    private func handleManualEntry(at location: CLLocationCoordinate2D, officeName: String) async {
         guard let appData = appData else { return }
         
         let now = Date()
@@ -165,7 +198,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         // Start visit if not already in progress
         if !appData.isCurrentlyInOffice {
             appData.startVisit(at: location)
-            debugLog("📍", "[LocationVerification] Manually started office visit")
+            debugLog("📍", "[LocationVerification] Manually started office visit at \(officeName)")
         }
     }
     
