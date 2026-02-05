@@ -157,25 +157,6 @@ struct SettingsView: View {
     private var locationSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Office Address")
-                    .font(.subheadline)
-                    .foregroundColor(DesignTokens.textSecondary)
-                
-                AddressAutocompleteField(
-                    selectedAddress: $officeAddress,
-                    selectedCoordinate: $officeCoordinate,
-                    placeholder: "Enter office address"
-                )
-                
-                if let error = updateError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-            }
-            .padding(.vertical, 4)
-            
-            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Detection Radius")
                         .font(.subheadline)
