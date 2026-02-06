@@ -375,4 +375,218 @@ struct AppDataTests {
         #expect(appData.settings.trackingDays == [2, 3, 4, 5, 6])
         #expect(appData.settings.isSetupComplete == true)
     }
+    
+    // MARK: - Chart Data Tests (Bug Fix Verification)
+    
+    @Test("AppData - getVisitTrend returns data for days range")
+    func testGetVisitTrendDays() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add visits over the past 10 days
+        for dayOffset in 0..<10 {
+            let visitDate = calendar.date(byAdding: .day, value: -dayOffset, to: now)!
+            let event = OfficeEvent(
+                entryTime: visitDate,
+                exitTime: visitDate.addingTimeInterval(3600) // 1 hour
+            )
+            let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+            appData.visits.append(visit)
+        }
+        
+        // Get trend data for 30 days
+        let trendData = appData.getVisitTrend(days: 30)
+        
+        #expect(trendData.count == 30) // Should return 30 data points
+        
+        // Check that recent days have counts
+        let recentDays = trendData.suffix(10)
+        for (_, count) in recentDays {
+            #expect(count > 0) // All recent days should have visits
+        }
+        
+        // Check that older days have zero counts
+        let olderDays = trendData.prefix(10)
+        for (_, count) in olderDays {
+            #expect(count == 0) // Older days should have no visits
+        }
+    }
+    
+    @Test("AppData - getVisitTrend returns data for months range")
+    func testGetVisitTrendMonths() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add visits over the past 2 months
+        for dayOffset in 0..<60 {
+            // Add visits every 3 days
+            if dayOffset % 3 == 0 {
+                let visitDate = calendar.date(byAdding: .day, value: -dayOffset, to: now)!
+                let event = OfficeEvent(
+                    entryTime: visitDate,
+                    exitTime: visitDate.addingTimeInterval(3600)
+                )
+                let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+                appData.visits.append(visit)
+            }
+        }
+        
+        // Get trend data for 2 months
+        let trendData = appData.getVisitTrend(months: 2)
+        
+        #expect(!trendData.isEmpty) // Should return data points
+        
+        // Verify data structure - each element should be a tuple with date and count
+        for (date, count) in trendData {
+            #expect(date is Date) // date should be a Date
+            #expect(count >= 0) // count should be non-negative
+        }
+        
+        // Count days with visits
+        let daysWithVisits = trendData.filter { $0.count > 0 }.count
+        #expect(daysWithVisits == 20) // Should have 20 days with visits (60 / 3)
+    }
+    
+    @Test("AppData - hasEnoughChartData with sufficient data (days)")
+    func testHasEnoughChartDataDaysSufficient() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add 10 visits over the past 30 days (more than 7 required)
+        for dayOffset in 0..<10 {
+            let visitDate = calendar.date(byAdding: .day, value: -dayOffset, to: now)!
+            let event = OfficeEvent(
+                entryTime: visitDate,
+                exitTime: visitDate.addingTimeInterval(3600)
+            )
+            let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+            appData.visits.append(visit)
+        }
+        
+        let hasEnoughData = appData.hasEnoughChartData(days: 30)
+        
+        #expect(hasEnoughData == true) // Should have enough data (10 > 7)
+    }
+    
+    @Test("AppData - hasEnoughChartData with insufficient data (days)")
+    func testHasEnoughChartDataDaysInsufficient() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add only 3 visits (less than 7 required)
+        for dayOffset in 0..<3 {
+            let visitDate = calendar.date(byAdding: .day, value: -dayOffset, to: now)!
+            let event = OfficeEvent(
+                entryTime: visitDate,
+                exitTime: visitDate.addingTimeInterval(3600)
+            )
+            let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+            appData.visits.append(visit)
+        }
+        
+        let hasEnoughData = appData.hasEnoughChartData(days: 30)
+        
+        #expect(hasEnoughData == false) // Should not have enough data (3 < 7)
+    }
+    
+    @Test("AppData - hasEnoughChartData with sufficient data (months)")
+    func testHasEnoughChartDataMonthsSufficient() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add 15 visits over the past 2 months (more than 7 required)
+        for dayOffset in 0..<15 {
+            let visitDate = calendar.date(byAdding: .day, value: -dayOffset * 4, to: now)!
+            let event = OfficeEvent(
+                entryTime: visitDate,
+                exitTime: visitDate.addingTimeInterval(3600)
+            )
+            let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+            appData.visits.append(visit)
+        }
+        
+        let hasEnoughData = appData.hasEnoughChartData(months: 2)
+        
+        #expect(hasEnoughData == true) // Should have enough data (15 > 7)
+    }
+    
+    @Test("AppData - hasEnoughChartData with insufficient data (months)")
+    func testHasEnoughChartDataMonthsInsufficient() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add only 4 visits over 2 months (less than 7 required)
+        for dayOffset in 0..<4 {
+            let visitDate = calendar.date(byAdding: .day, value: -dayOffset * 15, to: now)!
+            let event = OfficeEvent(
+                entryTime: visitDate,
+                exitTime: visitDate.addingTimeInterval(3600)
+            )
+            let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+            appData.visits.append(visit)
+        }
+        
+        let hasEnoughData = appData.hasEnoughChartData(months: 2)
+        
+        #expect(hasEnoughData == false) // Should not have enough data (4 < 7)
+    }
+    
+    @Test("AppData - hasEnoughChartData with exactly 7 days of data")
+    func testHasEnoughChartDataExactlySevenDays() async throws {
+        let appData = createTestAppData()
+        let testCoord = testCoordinate()
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Add exactly 7 visits
+        for dayOffset in 0..<7 {
+            let visitDate = calendar.date(byAdding: .day, value: -dayOffset, to: now)!
+            let event = OfficeEvent(
+                entryTime: visitDate,
+                exitTime: visitDate.addingTimeInterval(3600)
+            )
+            let visit = OfficeVisit(date: visitDate, events: [event], coordinate: testCoord)
+            appData.visits.append(visit)
+        }
+        
+        let hasEnoughData = appData.hasEnoughChartData(days: 30)
+        
+        #expect(hasEnoughData == true) // Should have enough data (7 == 7)
+    }
+    
+    @Test("AppData - getVisitTrend handles empty visits array")
+    func testGetVisitTrendEmptyVisits() async throws {
+        let appData = createTestAppData()
+        
+        // Don't add any visits
+        let trendData = appData.getVisitTrend(days: 30)
+        
+        #expect(trendData.count == 30) // Should still return 30 data points
+        
+        // All counts should be zero
+        for (_, count) in trendData {
+            #expect(count == 0)
+        }
+    }
+    
+    @Test("AppData - hasEnoughChartData with no visits returns false")
+    func testHasEnoughChartDataNoVisits() async throws {
+        let appData = createTestAppData()
+        
+        let hasEnoughData = appData.hasEnoughChartData(days: 30)
+        
+        #expect(hasEnoughData == false) // No visits means not enough data
+    }
 }
