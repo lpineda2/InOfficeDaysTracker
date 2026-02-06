@@ -1000,7 +1000,7 @@ class AppData: ObservableObject {
     /// - Returns: True if at least 7 days of visit data exists
     func hasEnoughChartData(days: Int) -> Bool {
         let trendData = getVisitTrend(days: days)
-        let daysWithData = trendData.filter { !$0.isEmpty }.count
+        let daysWithData = trendData.filter { $0.count > 0 }.count
         return daysWithData >= 7
     }
 
@@ -1040,7 +1040,7 @@ class AppData: ObservableObject {
     /// - Returns: True if at least 7 days of visit data exists in the range
     func hasEnoughChartData(months: Int) -> Bool {
         let trendData = getVisitTrend(months: months)
-        let daysWithData = trendData.filter { !$0.isEmpty }.count
+        let daysWithData = trendData.filter { $0.count > 0 }.count
         return daysWithData >= 7
     }
     
