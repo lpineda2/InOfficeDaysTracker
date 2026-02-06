@@ -1,0 +1,6 @@
+Bug Fixes and Improvements:
+• Fixed multi-location geofencing to properly track multiple office locations
+• Improved location verification for secondary office locations  
+• Calendar events now display the correct office address
+• Enhanced reliability when working from different office locations
+• Removed legacy UI for cleaner settings experience

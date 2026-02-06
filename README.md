@@ -295,3 +295,14 @@ For questions, issues, or feature requests:
 - **ALWAYS check AUTOMATION.md first** for TestFlight deployments
 - Use documented VS Code tasks or release.sh scripts
 - Don't manually piece together deployment steps
+## Documentation
+
+All project documentation has been organized:
+
+- **Active Guides**: See [docs/guides/](docs/guides/) for current documentation
+  - Automation & CI/CD
+  - Product Requirements
+  - Widget Integration
+  - What's New Setup
+
+- **Historical**: See [docs/archive/](docs/archive/) for completed work and past summaries
