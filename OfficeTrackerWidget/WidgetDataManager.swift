@@ -211,12 +211,33 @@ class WidgetDataManager {
     }
     
     private func getDaysRemainingInMonth() -> Int {
+        guard let userDefaults = sharedDefaults,
+              let settingsData = userDefaults.data(forKey: "AppSettings"),
+              let settings = try? JSONDecoder().decode(AppSettings.self, from: settingsData) else {
+            // Fallback to just counting weekdays
+            let calendar = Calendar.current
+            let now = Date()
+            guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
+            
+            let defaultTrackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri
+            var count = 0
+            var date = calendar.startOfDay(for: now)
+            
+            while date < endOfMonth {
+                let weekday = calendar.component(.weekday, from: date)
+                if defaultTrackingDays.contains(weekday) {
+                    count += 1
+                }
+                date = calendar.date(byAdding: .day, value: 1, to: date)!
+            }
+            return count
+        }
+        
         let calendar = Calendar.current
         let now = Date()
         guard let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else { return 0 }
         
-        // Get user's tracking days from settings
-        let trackingDays = getTrackingDays()
+        let trackingDays = Set(settings.trackingDays)
         
         var count = 0
         var date = calendar.startOfDay(for: now)
@@ -229,7 +250,24 @@ class WidgetDataManager {
             }
             date = calendar.date(byAdding: .day, value: 1, to: date)!
         }
-        return count
+        
+        // Get remaining holidays (on tracking days, >= today)
+        let allHolidays = getHolidaysInMonth(settings: settings)
+        let remainingHolidays = allHolidays.filter { holiday in
+            holiday >= calendar.startOfDay(for: now)
+        }
+        
+        // Get remaining PTO days (on tracking days, >= today)
+        let allPTO = getPTODays(settings: settings)
+        let remainingPTO = allPTO.filter { pto in
+            let weekday = calendar.component(.weekday, from: pto)
+            return trackingDays.contains(weekday) && pto >= calendar.startOfDay(for: now)
+        }
+        
+        // Deduplicate: holiday + PTO on same day counted once
+        let holidayPTOSet = Set(remainingHolidays + remainingPTO)
+        
+        return max(0, count - holidayPTOSet.count)
     }
     
     private func createStaleDataFallback(from staleData: WidgetData) -> WidgetData {

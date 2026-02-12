@@ -1102,7 +1102,7 @@ class AppData: ObservableObject {
     }
     
     /// Get number of working days remaining in current month
-    /// - Returns: Count of remaining tracking days (includes today if it's a tracking day)
+    /// - Returns: Count of remaining tracking days (includes today if it's a tracking day), minus holidays and PTO
     func getWorkingDaysRemaining() -> Int {
         let calendar = Calendar.current
         let now = Date()
@@ -1120,7 +1120,23 @@ class AppData: ObservableObject {
             date = calendar.date(byAdding: .day, value: 1, to: date) ?? endOfMonth
         }
         
-        return count
+        // Get remaining holidays (on tracking days, >= today)
+        let allHolidays = getHolidaysInMonth(now)
+        let remainingHolidays = allHolidays.filter { holiday in
+            holiday >= calendar.startOfDay(for: now)
+        }
+        
+        // Get remaining PTO days (on tracking days, >= today)
+        let allPTO = getPTODays(for: now)
+        let remainingPTO = allPTO.filter { pto in
+            let weekday = calendar.component(.weekday, from: pto)
+            return settings.trackingDays.contains(weekday) && pto >= calendar.startOfDay(for: now)
+        }
+        
+        // Deduplicate: holiday + PTO on same day counted once
+        let holidayPTOSet = Set(remainingHolidays + remainingPTO)
+        
+        return max(0, count - holidayPTOSet.count)
     }
     
     /// Get number of weeks remaining in current month
