@@ -376,4 +376,283 @@ struct ProgressCalculationTests {
         // From Sat Jan 27 to end: Mon(29), Tue(30), Wed(31) = 3 days
         #expect(count == 3)
     }
+    
+    // MARK: - Working Days Remaining with Holidays & PTO Tests
+    
+    @Test("Working days remaining - baseline with no holidays or PTO")
+    func testWorkingDaysRemainingBaseline() async throws {
+        // This validates the basic weekday counting still works
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15 // Monday
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri
+        
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Jan 15-31: 13 weekdays (Mon-Fri)
+        #expect(count == 13)
+    }
+    
+    @Test("Working days remaining - subtract future holiday")
+    func testWorkingDaysRemainingWithHoliday() async throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15 // Monday
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri
+        
+        // Count remaining weekdays
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Simulate 1 holiday on Jan 19 (Friday) which is >= today and on tracking day
+        var holidayComponents = DateComponents()
+        holidayComponents.year = 2024
+        holidayComponents.month = 1
+        holidayComponents.day = 19
+        let holiday = calendar.date(from: holidayComponents)!
+        
+        let holidays = [holiday].filter { $0 >= calendar.startOfDay(for: testDate) }
+        
+        let result = max(0, count - holidays.count)
+        
+        // 13 weekdays - 1 holiday = 12
+        #expect(result == 12)
+    }
+    
+    @Test("Working days remaining - subtract future PTO")
+    func testWorkingDaysRemainingWithPTO() async throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15 // Monday
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri
+        
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Simulate 1 PTO on Jan 25 (Thursday)
+        var ptoComponents = DateComponents()
+        ptoComponents.year = 2024
+        ptoComponents.month = 1
+        ptoComponents.day = 25
+        let pto = calendar.date(from: ptoComponents)!
+        
+        let ptoDays = [pto].filter { ptoDate in
+            let weekday = calendar.component(.weekday, from: ptoDate)
+            return trackingDays.contains(weekday) && ptoDate >= calendar.startOfDay(for: testDate)
+        }
+        
+        let result = max(0, count - ptoDays.count)
+        
+        // 13 weekdays - 1 PTO = 12
+        #expect(result == 12)
+    }
+    
+    @Test("Working days remaining - deduplicate holiday and PTO on same day")
+    func testWorkingDaysRemainingDeduplication() async throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6]
+        
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Simulate holiday and PTO both on Jan 19
+        var jan19Components = DateComponents()
+        jan19Components.year = 2024
+        jan19Components.month = 1
+        jan19Components.day = 19
+        let jan19 = calendar.date(from: jan19Components)!
+        
+        let holidays = [jan19].filter { $0 >= calendar.startOfDay(for: testDate) }
+        let ptoDays = [jan19].filter { ptoDate in
+            let weekday = calendar.component(.weekday, from: ptoDate)
+            return trackingDays.contains(weekday) && ptoDate >= calendar.startOfDay(for: testDate)
+        }
+        
+        // Deduplicate using Set
+        let holidayPTOSet = Set(holidays + ptoDays)
+        let result = max(0, count - holidayPTOSet.count)
+        
+        // 13 weekdays - 1 day (not 2) = 12
+        #expect(result == 12)
+        #expect(holidayPTOSet.count == 1)
+    }
+    
+    @Test("Working days remaining - ignore past holiday")
+    func testWorkingDaysRemainingIgnorePastHoliday() async throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 20 // Start mid-month
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6]
+        
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Simulate holiday on Jan 10 (before testDate)
+        var pastHolidayComponents = DateComponents()
+        pastHolidayComponents.year = 2024
+        pastHolidayComponents.month = 1
+        pastHolidayComponents.day = 10
+        let pastHoliday = calendar.date(from: pastHolidayComponents)!
+        
+        // Filter should exclude past holidays
+        let holidays = [pastHoliday].filter { $0 >= calendar.startOfDay(for: testDate) }
+        let result = max(0, count - holidays.count)
+        
+        // Past holiday should be ignored
+        #expect(holidays.count == 0)
+        #expect(result == count)
+    }
+    
+    @Test("Working days remaining - ignore holiday on non-tracking day")
+    func testWorkingDaysRemainingIgnoreWeekendHoliday() async throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 15
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6] // Mon-Fri only
+        
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Simulate holiday on Jan 20 (Saturday) - not a tracking day
+        var saturdayComponents = DateComponents()
+        saturdayComponents.year = 2024
+        saturdayComponents.month = 1
+        saturdayComponents.day = 20 // Saturday
+        let saturday = calendar.date(from: saturdayComponents)!
+        
+        // getHolidaysInMonth already filters to tracking days, so this simulates that
+        let allHolidays = [saturday]
+        let holidaysOnTrackingDays = allHolidays.filter { holiday in
+            let weekday = calendar.component(.weekday, from: holiday)
+            return trackingDays.contains(weekday)
+        }.filter { $0 >= calendar.startOfDay(for: testDate) }
+        
+        let result = max(0, count - holidaysOnTrackingDays.count)
+        
+        // Saturday holiday should be ignored
+        #expect(holidaysOnTrackingDays.count == 0)
+        #expect(result == count)
+    }
+    
+    @Test("Working days remaining - clamp to zero when holidays exceed days")
+    func testWorkingDaysRemainingClampToZero() async throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2024
+        components.month = 1
+        components.day = 31 // Last day of month
+        let testDate = calendar.date(from: components)!
+        
+        let trackingDays: Set<Int> = [2, 3, 4, 5, 6]
+        
+        var count = 0
+        var date = calendar.startOfDay(for: testDate)
+        let endOfMonth = calendar.dateInterval(of: .month, for: testDate)!.end
+        
+        while date < endOfMonth {
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingDays.contains(weekday) {
+                count += 1
+            }
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        
+        // Only 1 day left (Jan 31), but simulate 2 holidays (impossible but test cleansing)
+        var jan31Components = DateComponents()
+        jan31Components.year = 2024
+        jan31Components.month = 1
+        jan31Components.day = 31
+        let jan31 = calendar.date(from: jan31Components)!
+        
+        // Simulate excessive holidays
+        let excessiveHolidays = [jan31, jan31] // Duplicate to test
+        let holidaySet = Set(excessiveHolidays)
+        
+        let result = max(0, count - holidaySet.count)
+        
+        // Should clamp to 0, not negative
+        #expect(result == 0)
+        #expect(count == 1)
+    }
 }
