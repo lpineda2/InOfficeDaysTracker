@@ -82,12 +82,7 @@ if [ "$INCREMENT_VERSION" = true ]; then
     git add -A
     git commit -m "Increment version to $NEW_VERSION build $NEW_BUILD with synchronized versions"
     echo -e "${GREEN}✅ Version change committed to git${NC}"
-elif [ "$INCREMENT_
-    esac
-done
-
-# Step 1: Version Management and Synchronization
-if [ "$INCREMENT_BUILD" = true ]; then
+elif [ "$INCREMENT_BUILD" = true ]; then
     echo -e "${YELLOW}📈 Incrementing build number with version synchronization...${NC}"
     ./scripts/update_version.sh --increment-build || {
         echo -e "${RED}❌ Version increment failed! Aborting release.${NC}"
