@@ -167,7 +167,7 @@ struct PTOManagementTests {
     @Test("PTO - Affects working days calculation")
     func testPTOAffectsWorkingDays() async throws {
         let appData = createTestAppData()
-        let currentMonth = createTestDate(day: 1)
+        _ = createTestDate(day: 1)
         
         // Get baseline working days
         let baselineWorkingDays = appData.getWorkingDaysRemaining()
