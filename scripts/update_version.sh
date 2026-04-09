@@ -26,12 +26,14 @@ echo -e "${BLUE}==================================${NC}"
 show_usage() {
     echo -e "${YELLOW}Usage: $0 <marketing_version> <build_number>${NC}"
     echo -e "${YELLOW}       $0 --increment-build${NC}"
+    echo -e "${YELLOW}       $0 --increment-version${NC}"
     echo -e "${YELLOW}       $0 --validate${NC}"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo -e "  $0 1.7.0 4           Set version to 1.7.0 build 4"
-    echo -e "  $0 --increment-build  Increment build number, keep version"
-    echo -e "  $0 --validate         Check for version mismatches"
+    echo -e "  $0 1.7.0 4            Set version to 1.7.0 build 4"
+    echo -e "  $0 --increment-build   Increment build number, keep version"
+    echo -e "  $0 --increment-version Increment minor version (1.12.0 → 1.12.1, build → 1)"
+    echo -e "  $0 --validate          Check for version mismatches"
     echo ""
     echo -e "${BLUE}This script ensures version synchronization across:${NC}"
     echo -e "  • Project file MARKETING_VERSION settings"
@@ -141,6 +143,28 @@ increment_build() {
     update_versions "$CURRENT_MARKETING_VERSION" "$NEW_BUILD_VERSION"
 }
 
+# Function to increment marketing version (minor version bump)
+increment_version() {
+    local CURRENT_MARKETING_VERSION=$(get_current_marketing_version)
+    local CURRENT_BUILD_VERSION=$(get_current_build_version)
+    
+    # Parse version components (X.Y.Z)
+    local MAJOR=$(echo "$CURRENT_MARKETING_VERSION" | cut -d. -f1)
+    local MINOR=$(echo "$CURRENT_MARKETING_VERSION" | cut -d. -f2)
+    local PATCH=$(echo "$CURRENT_MARKETING_VERSION" | cut -d. -f3)
+    
+    # Increment minor version, reset patch
+    local NEW_MINOR=$((MINOR + 1))
+    local NEW_MARKETING_VERSION="${MAJOR}.${NEW_MINOR}.0"
+    
+    # Reset build number to 1 for new version
+    local NEW_BUILD_VERSION=1
+    
+    echo -e "${YELLOW}📈 Incrementing version from $CURRENT_MARKETING_VERSION to $NEW_MARKETING_VERSION${NC}"
+    echo -e "${YELLOW}📈 Resetting build number to $NEW_BUILD_VERSION${NC}"
+    update_versions "$NEW_MARKETING_VERSION" "$NEW_BUILD_VERSION"
+}
+
 # Parse command line arguments
 if [ $# -eq 0 ]; then
     show_usage
@@ -149,6 +173,10 @@ elif [ $# -eq 1 ]; then
     case $1 in
         --increment-build)
             increment_build
+            exit 0
+            ;;
+        --increment-version)
+            increment_version
             exit 0
             ;;
         --validate)

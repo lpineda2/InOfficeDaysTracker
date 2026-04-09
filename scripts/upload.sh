@@ -54,12 +54,14 @@ mkdir -p "$EXPORT_PATH"
 
 # Export and upload to TestFlight in one step
 # The exportOptionsTestFlight.plist has destination=upload, so this automatically uploads
+# Capture output for error parsing
+UPLOAD_LOG="/tmp/testflight_upload_error.log"
 if xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
     -exportOptionsPlist "$EXPORT_OPTIONS" \
     -exportPath "$EXPORT_PATH" \
     -allowProvisioningUpdates \
-    -quiet; then
+    2>&1 | tee "$UPLOAD_LOG"; then
     
     echo -e "${GREEN}🎉 Upload successful!${NC}"
     echo -e "${BLUE}📱 Build ${BUILD_NUMBER} uploaded to TestFlight${NC}"
@@ -75,10 +77,31 @@ if xcodebuild -exportArchive \
 else
     echo -e "${RED}❌ Upload failed! Check the logs above.${NC}"
     echo ""
+    
+    # Parse error messages and provide specific guidance
+    UPLOAD_LOG="/tmp/testflight_upload_error.log"
+    if grep -q "Invalid Pre-Release Train" "$UPLOAD_LOG" 2>/dev/null || grep -q "train version.*closed" "$UPLOAD_LOG" 2>/dev/null; then
+        echo -e "${YELLOW}🚨 Detected: TestFlight train is closed for version $MARKETING_VERSION${NC}"
+        echo -e "${GREEN}✅ Solution: Increment marketing version${NC}"
+        echo -e "   ${BLUE}./scripts/update_version.sh --increment-version${NC}"
+        echo ""
+    elif grep -q "bundle version already used" "$UPLOAD_LOG" 2>/dev/null; then
+        echo -e "${YELLOW}🚨 Detected: Build number $BUILD_NUMBER already exists${NC}"
+        echo -e "${GREEN}✅ Solution: Increment build number${NC}"
+        echo -e "   ${BLUE}./scripts/update_version.sh --increment-build${NC}"
+        echo ""
+    elif grep -q "No signing certificate" "$UPLOAD_LOG" 2>/dev/null; then
+        echo -e "${YELLOW}🚨 Detected: Missing signing certificate${NC}"
+        echo -e "${GREEN}✅ Solution: Configure signing in Xcode${NC}"
+        echo -e "   Open Xcode → Preferences → Accounts → Download Manual Profiles"
+        echo ""
+    fi
+    
     echo -e "${YELLOW}Common solutions:${NC}"
-    echo -e "${YELLOW}� Build number collision: ./scripts/update_version.sh --increment-build${NC}"
+    echo -e "${YELLOW}📈 Version/build conflict: ./scripts/update_version.sh --increment-version${NC}"
+    echo -e "${YELLOW}🔢 Build number collision: ./scripts/update_version.sh --increment-build${NC}"
     echo -e "${YELLOW}🔐 Authentication issue: Check App-Specific Password in Keychain${NC}"
-    echo -e "${YELLOW}� Missing provisioning: Check certificates and provisioning profiles${NC}"
+    echo -e "${YELLOW}📝 Missing provisioning: Check certificates and provisioning profiles${NC}"
     echo ""
     echo -e "${BLUE}💡 For automated increment and retry, use: ./scripts/release.sh --increment${NC}"
     exit 1

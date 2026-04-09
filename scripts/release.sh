@@ -23,24 +23,31 @@ echo -e "${BLUE}=======================================${NC}"
 show_usage() {
     echo -e "${YELLOW}Usage: $0 [options]${NC}"
     echo -e "${YELLOW}Options:${NC}"
-    echo -e "  -i, --increment    Increment build number before release"
-    echo -e "  -s, --skip-tests   Skip running unit tests"
-    echo -e "  -h, --help         Show this help message"
+    echo -e "  -i, --increment         Increment build number before release"
+    echo -e "  -v, --increment-version Increment marketing version (e.g., 1.12.0 → 1.12.1)"
+    echo -e "  -s, --skip-tests        Skip running unit tests"
+    echo -e "  -h, --help              Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo -e "  $0                 Run full pipeline with current build number"
-    echo -e "  $0 --increment     Increment build number and run full pipeline"
-    echo -e "  $0 --skip-tests    Run pipeline without tests (not recommended)"
+    echo -e "  $0                      Run full pipeline with current build number"
+    echo -e "  $0 --increment          Increment build number and run full pipeline"
+    echo -e "  $0 --increment-version  Increment minor version (for closed TestFlight trains)"
+    echo -e "  $0 --skip-tests         Run pipeline without tests (not recommended)"
 }
 
 # Parse command line arguments
 INCREMENT_BUILD=false
+INCREMENT_VERSION=false
 SKIP_TESTS=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -i|--increment)
             INCREMENT_BUILD=true
+            shift
+            ;;
+        -v|--increment-version)
+            INCREMENT_VERSION=true
             shift
             ;;
         -s|--skip-tests)
@@ -56,6 +63,26 @@ while [[ $# -gt 0 ]]; do
             show_usage
             exit 1
             ;;
+    esac
+done
+
+# Step 1: Version Management and Synchronization
+if [ "$INCREMENT_VERSION" = true ]; then
+    echo -e "${YELLOW}📈 Incrementing marketing version with version synchronization...${NC}"
+    ./scripts/update_version.sh --increment-version || {
+        echo -e "${RED}❌ Version increment failed! Aborting release.${NC}"
+        exit 1
+    }
+    
+    # Get the new version for commit message
+    NEW_VERSION=$(grep -m 1 "MARKETING_VERSION = " InOfficeDaysTracker.xcodeproj/project.pbxproj | sed 's/.*MARKETING_VERSION = \(.*\);/\1/' | tr -d ' ')
+    NEW_BUILD=$(grep -m 1 "CURRENT_PROJECT_VERSION = " InOfficeDaysTracker.xcodeproj/project.pbxproj | sed 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/' | tr -d ' ')
+    
+    # Commit version change
+    git add -A
+    git commit -m "Increment version to $NEW_VERSION build $NEW_BUILD with synchronized versions"
+    echo -e "${GREEN}✅ Version change committed to git${NC}"
+elif [ "$INCREMENT_
     esac
 done
 
