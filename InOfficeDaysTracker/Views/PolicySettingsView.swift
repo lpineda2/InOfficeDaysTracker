@@ -336,9 +336,17 @@ struct CalculationRow: View {
 struct PTOPickerSheet: View {
     @ObservedObject var appData: AppData
     let month: Date
+    let editingDate: Date?
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedDate = Date()
+    
+    init(appData: AppData, month: Date, editingDate: Date? = nil) {
+        self.appData = appData
+        self.month = month
+        self.editingDate = editingDate
+        _selectedDate = State(initialValue: editingDate ?? Date())
+    }
     
     var body: some View {
         NavigationView {
@@ -376,7 +384,7 @@ struct PTOPickerSheet: View {
                     Text("Holidays (Already Excluded)")
                 }
             }
-            .navigationTitle("Add PTO Day")
+            .navigationTitle(editingDate == nil ? "Add PTO Day" : "Edit PTO Day")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -385,7 +393,10 @@ struct PTOPickerSheet: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add") {
+                    Button(editingDate == nil ? "Add" : "Update") {
+                        if let oldDate = editingDate {
+                            appData.removePTODay(oldDate)
+                        }
                         appData.addPTODay(selectedDate)
                         dismiss()
                     }

@@ -471,6 +471,10 @@ struct GoalProgressSection: View {
     
     @State private var showingCalculationDetails = false
     @State private var showingPTOPicker = false
+    @State private var editingPTODate: Date?
+    @State private var isPTOExpanded = false
+    @State private var showingDeleteConfirmation = false
+    @State private var dateToDelete: Date?
     
     private let currentMonth = Date()
     
@@ -540,25 +544,103 @@ struct GoalProgressSection: View {
                     }
                     .buttonStyle(.plain)
                     
-                    Button {
-                        showingPTOPicker = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "figure.walk")
-                                .foregroundColor(DesignTokens.successGreen)
-                            Text("PTO/Sick Days")
-                                .foregroundColor(DesignTokens.textSecondary)
-                            Spacer()
-                            let ptoCount = appData.getPTODays(for: currentMonth).count
-                            Text(ptoCount > 0 ? "\(ptoCount) day\(ptoCount == 1 ? "" : "s")" : "Add")
-                                .fontWeight(.medium)
-                                .foregroundColor(DesignTokens.cyanAccent)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(DesignTokens.textSecondary)
+                    // PTO/Sick Days Section
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Header Button
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                let ptoCount = appData.getPTODays(for: currentMonth).count
+                                if ptoCount > 0 {
+                                    isPTOExpanded.toggle()
+                                } else {
+                                    editingPTODate = nil
+                                    showingPTOPicker = true
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "figure.walk")
+                                    .foregroundColor(DesignTokens.successGreen)
+                                Text("PTO/Sick Days")
+                                    .foregroundColor(DesignTokens.textSecondary)
+                                Spacer()
+                                let ptoCount = appData.getPTODays(for: currentMonth).count
+                                Text(ptoCount > 0 ? "\(ptoCount) day\(ptoCount == 1 ? "" : "s")" : "Add")
+                                    .fontWeight(.medium)
+                                    .foregroundColor(DesignTokens.cyanAccent)
+                                Image(systemName: ptoCount > 0 ? (isPTOExpanded ? "chevron.up" : "chevron.down") : "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(DesignTokens.textSecondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        
+                        // Expanded PTO List
+                        if isPTOExpanded {
+                            VStack(alignment: .leading, spacing: 0) {
+                                let ptoDays = appData.getPTODays(for: currentMonth).sorted()
+                                
+                                if ptoDays.isEmpty {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("No PTO days this month")
+                                            .foregroundColor(DesignTokens.textSecondary)
+                                            .font(.subheadline)
+                                            .padding(.top, 12)
+                                    }
+                                } else {
+                                    ForEach(ptoDays, id: \.self) { date in
+                                        Button {
+                                            editingPTODate = date
+                                            showingPTOPicker = true
+                                        } label: {
+                                            HStack {
+                                                Image(systemName: "calendar")
+                                                    .foregroundColor(DesignTokens.successGreen)
+                                                    .font(.subheadline)
+                                                Text(formatPTODate(date))
+                                                    .foregroundColor(DesignTokens.textPrimary)
+                                                Spacer()
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.top, date == ptoDays.first ? 12 : 0)
+                                            .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            Button(role: .destructive) {
+                                                dateToDelete = date
+                                                showingDeleteConfirmation = true
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                        .accessibilityLabel("\(formatPTODate(date)), double tap to edit")
+                                        .accessibilityHint("Swipe up for more actions")
+                                    }
+                                }
+                                
+                                // Add PTO Button
+                                Button {
+                                    editingPTODate = nil
+                                    showingPTOPicker = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(DesignTokens.cyanAccent)
+                                        Text("Add PTO Day")
+                                            .foregroundColor(DesignTokens.cyanAccent)
+                                        Spacer()
+                                    }
+                                    .padding(.top, 12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .move(edge: .top).combined(with: .opacity)
+                            ))
                         }
                     }
-                    .buttonStyle(.plain)
                 } else {
                     HStack {
                         Image(systemName: "slider.horizontal.3")
@@ -579,8 +661,33 @@ struct GoalProgressSection: View {
             CalculationDetailsSheet(appData: appData)
         }
         .sheet(isPresented: $showingPTOPicker) {
-            PTOPickerSheet(appData: appData, month: currentMonth)
+            PTOPickerSheet(appData: appData, month: currentMonth, editingDate: editingPTODate)
         }
+        .alert("Remove PTO Day?", isPresented: $showingDeleteConfirmation, presenting: dateToDelete) { date in
+            Button("Cancel", role: .cancel) {
+                dateToDelete = nil
+            }
+            Button("Remove", role: .destructive) {
+                let impact = UIImpactFeedbackGenerator(style: .medium)
+                impact.impactOccurred()
+                appData.removePTODay(date)
+                dateToDelete = nil
+            }
+        } message: { date in
+            Text("Remove PTO/Sick day for \(formatDeleteConfirmation(date))?")
+        }
+    }
+    
+    private func formatPTODate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter.string(from: date)
+    }
+    
+    private func formatDeleteConfirmation(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .full
+        return formatter.string(from: date)
     }
     
     private func calculatePace() -> String {
@@ -609,6 +716,7 @@ struct GoalProgressSection: View {
         }
     }
 }
+
 
 // MARK: - Calculation Details Sheet
 
