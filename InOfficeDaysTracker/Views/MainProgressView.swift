@@ -589,33 +589,32 @@ struct GoalProgressSection: View {
                                     }
                                 } else {
                                     ForEach(ptoDays, id: \.self) { date in
-                                        Button {
-                                            editingPTODate = date
-                                            showingPTOPicker = true
-                                        } label: {
-                                            HStack {
-                                                Image(systemName: "calendar")
-                                                    .foregroundColor(DesignTokens.successGreen)
-                                                    .font(.subheadline)
-                                                Text(formatPTODate(date))
-                                                    .foregroundColor(DesignTokens.textPrimary)
-                                                Spacer()
-                                            }
-                                            .padding(.vertical, 8)
-                                            .padding(.top, date == ptoDays.first ? 12 : 0)
-                                            .contentShape(Rectangle())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                            Button(role: .destructive) {
+                                        HStack {
+                                            Image(systemName: "calendar")
+                                                .foregroundColor(DesignTokens.successGreen)
+                                                .font(.subheadline)
+                                            Text(formatPTODate(date))
+                                                .foregroundColor(DesignTokens.textPrimary)
+                                            Spacer()
+                                            Button {
                                                 dateToDelete = date
                                                 showingDeleteConfirmation = true
                                             } label: {
-                                                Label("Delete", systemImage: "trash")
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .foregroundColor(DesignTokens.textSecondary)
+                                                    .font(.system(size: 16))
                                             }
+                                            .buttonStyle(.plain)
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.top, date == ptoDays.first ? 12 : 0)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            editingPTODate = date
+                                            showingPTOPicker = true
                                         }
                                         .accessibilityLabel("\(formatPTODate(date)), double tap to edit")
-                                        .accessibilityHint("Swipe up for more actions")
+                                        .accessibilityHint("Tap delete button to remove")
                                     }
                                 }
                                 
