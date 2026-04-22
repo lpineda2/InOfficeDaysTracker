@@ -15,6 +15,7 @@ struct PolicySettingsView: View {
     @State private var manualGoal: Int
     @State private var policyType: PolicyType
     @State private var customPercentage: Int
+    @State private var roundingMode: RoundingMode
     @State private var showingPTOPicker = false
     
     private let currentMonth = Date()
@@ -25,6 +26,7 @@ struct PolicySettingsView: View {
         _manualGoal = State(initialValue: appData.settings.monthlyGoal)
         _policyType = State(initialValue: appData.settings.companyPolicy.policyType)
         _customPercentage = State(initialValue: appData.settings.companyPolicy.customPercentage)
+        _roundingMode = State(initialValue: appData.settings.companyPolicy.roundingMode)
     }
     
     var body: some View {
@@ -53,6 +55,9 @@ struct PolicySettingsView: View {
         }
         .onChange(of: customPercentage) { _, newValue in
             saveCustomPercentage(newValue)
+        }
+        .onChange(of: roundingMode) { _, newValue in
+            saveRoundingMode(newValue)
         }
         .sheet(isPresented: $showingPTOPicker) {
             PTOPickerSheet(appData: appData, month: currentMonth)
@@ -117,10 +122,19 @@ struct PolicySettingsView: View {
                 }
                 .padding(.vertical, 4)
             }
+            
+            // Rounding Mode Picker
+            Picker("Rounding Mode", selection: $roundingMode) {
+                ForEach(RoundingMode.allCases) { mode in
+                    Text(mode.displayName)
+                        .tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
         } header: {
             Text("Company Policy")
         } footer: {
-            Text(policyType.description)
+            Text(roundingMode.description)
         }
     }
     
@@ -307,6 +321,12 @@ struct PolicySettingsView: View {
     private func saveCustomPercentage(_ value: Int) {
         var newSettings = appData.settings
         newSettings.companyPolicy.customPercentage = value
+        appData.updateSettings(newSettings)
+    }
+    
+    private func saveRoundingMode(_ value: RoundingMode) {
+        var newSettings = appData.settings
+        newSettings.companyPolicy.roundingMode = value
         appData.updateSettings(newSettings)
     }
 }

@@ -7,10 +7,41 @@
 
 import Foundation
 
+/// Rounding mode for calculating required days from fractional values
+enum RoundingMode: String, Codable, CaseIterable, Identifiable {
+    case up = "up"       // ceil() - rounds up (e.g., 9.5 → 10)
+    case down = "down"   // floor() - rounds down (e.g., 9.5 → 9)
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .up: return "Round Up"
+        case .down: return "Round Down"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .up: return "Rounds up fractional days (e.g., 9.5 → 10)"
+        case .down: return "Rounds down fractional days (e.g., 9.5 → 9)"
+        }
+    }
+    
+    /// Apply rounding to a value
+    func apply(_ value: Double) -> Int {
+        switch self {
+        case .up: return Int(ceil(value))
+        case .down: return Int(floor(value))
+        }
+    }
+}
+
 /// Represents the company's in-office attendance policy
 struct CompanyPolicy: Codable, Equatable {
     var policyType: PolicyType = .hybrid50
     var customPercentage: Int = 50  // Used when policyType is .custom
+    var roundingMode: RoundingMode = .up  // Default: round up (maintains backward compatibility)
     
     /// The percentage of business days required in office
     var requiredPercentage: Double {
@@ -31,9 +62,10 @@ struct CompanyPolicy: Codable, Equatable {
     }
     
     /// Calculate required days from working days (business days minus PTO)
-    /// Formula: ceil(workingDays × percentage)
+    /// Formula: workingDays × percentage, then apply selected rounding mode
     func calculateRequiredDays(workingDays: Int) -> Int {
-        return Int(ceil(Double(workingDays) * requiredPercentage))
+        let exactValue = Double(workingDays) * requiredPercentage
+        return roundingMode.apply(exactValue)
     }
     
     /// Human-readable description of the policy
@@ -57,7 +89,8 @@ struct CompanyPolicy: Codable, Equatable {
     /// Formula description for UI display
     var formulaDescription: String {
         let percentageText = policyType == .custom ? "\(customPercentage)%" : "\(Int(requiredPercentage * 100))%"
-        return "(Business Days − PTO) × \(percentageText), rounded up"
+        let roundingText = roundingMode == .up ? "rounded up" : "rounded down"
+        return "(Business Days − PTO) × \(percentageText), \(roundingText)"
     }
 }
 

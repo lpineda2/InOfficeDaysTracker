@@ -100,6 +100,90 @@ final class AutoCalculateGoalTests: XCTestCase {
         XCTAssertEqual(policy.requiredPercentage, 0.33)
     }
     
+    // MARK: - Rounding Mode Tests
+    
+    func testRoundingModeUp() {
+        var policy = CompanyPolicy()
+        policy.policyType = .hybrid50
+        policy.roundingMode = .up  // Explicit round up
+        
+        // 19 working days × 50% = 9.5 → rounds UP to 10
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 10)
+        
+        // 21 working days × 50% = 10.5 → rounds UP to 11
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 11)
+        
+        // 20 working days × 50% = 10.0 → stays 10 (no fraction)
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 20), 10)
+    }
+    
+    func testRoundingModeDown() {
+        var policy = CompanyPolicy()
+        policy.policyType = .hybrid50
+        policy.roundingMode = .down  // Round down
+        
+        // 19 working days × 50% = 9.5 → rounds DOWN to 9
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 9)
+        
+        // 21 working days × 50% = 10.5 → rounds DOWN to 10
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 10)
+        
+        // 20 working days × 50% = 10.0 → stays 10 (no fraction)
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 20), 10)
+    }
+    
+    func testRoundingModeDownWithDifferentPercentages() {
+        var policy = CompanyPolicy()
+        policy.roundingMode = .down
+        
+        // 40% policy: 21 working days × 40% = 8.4 → rounds DOWN to 8
+        policy.policyType = .hybrid40
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 8)
+        
+        // 60% policy: 22 working days × 60% = 13.2 → rounds DOWN to 13
+        policy.policyType = .hybrid60
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 22), 13)
+        
+        // Custom 75%: 21 working days × 75% = 15.75 → rounds DOWN to 15
+        policy.policyType = .custom
+        policy.customPercentage = 75
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 21), 15)
+    }
+    
+    func testRoundingModeDefault() {
+        // Test that default rounding mode is .up (backward compatibility)
+        let policy = CompanyPolicy()
+        XCTAssertEqual(policy.roundingMode, .up)
+        
+        // Verify default behavior: 19 working days × 50% = 9.5 → rounds UP to 10
+        XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 10)
+    }
+    
+    func testRoundingModeEnum() {
+        // Test RoundingMode enum functionality
+        XCTAssertEqual(RoundingMode.up.apply(9.5), 10)
+        XCTAssertEqual(RoundingMode.down.apply(9.5), 9)
+        
+        XCTAssertEqual(RoundingMode.up.apply(10.0), 10)
+        XCTAssertEqual(RoundingMode.down.apply(10.0), 10)
+        
+        XCTAssertEqual(RoundingMode.up.apply(8.4), 9)
+        XCTAssertEqual(RoundingMode.down.apply(8.4), 8)
+    }
+    
+    func testFormulaDescriptionWithRounding() {
+        var policy = CompanyPolicy()
+        policy.policyType = .hybrid50
+        
+        // Test round up formula description
+        policy.roundingMode = .up
+        XCTAssertTrue(policy.formulaDescription.contains("rounded up"))
+        
+        // Test round down formula description
+        policy.roundingMode = .down
+        XCTAssertTrue(policy.formulaDescription.contains("rounded down"))
+    }
+    
     // MARK: - HolidayCalendar Tests
     
     func testNYSEPresetHolidayCount() {
