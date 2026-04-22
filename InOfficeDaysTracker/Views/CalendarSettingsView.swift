@@ -5,8 +5,8 @@
 //  Simplified calendar integration settings UI
 //
 
-import SwiftUI
 import EventKit
+import SwiftUI
 
 struct CalendarSettingsView: View {
     @ObservedObject var appData: AppData

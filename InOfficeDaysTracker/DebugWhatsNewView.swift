@@ -10,7 +10,7 @@ import WhatsNewKit
 
 #if DEBUG
 struct DebugWhatsNewView: View {
-    @State private var whatsNew: WhatsNew? = nil
+    @State private var whatsNew: WhatsNew?
     
     var body: some View {
         VStack(spacing: 20) {

@@ -5,8 +5,8 @@
 //  Created by Luis Pineda on 7/6/25.
 //
 
-import SwiftUI
 import CoreLocation
+import SwiftUI
 
 struct HistoryView: View {
     @ObservedObject var appData: AppData

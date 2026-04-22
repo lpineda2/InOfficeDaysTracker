@@ -5,8 +5,8 @@
 //  Calendar picker grouped by account source
 //
 
-import SwiftUI
 import EventKit
+import SwiftUI
 
 struct CalendarPickerView: View {
     @ObservedObject var calendarService: CalendarService

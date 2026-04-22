@@ -5,8 +5,8 @@
 //  Created to improve location accuracy and handle intermittent status issues
 //
 
-import Foundation
 import CoreLocation
+import Foundation
 
 @MainActor
 class LocationVerificationService: NSObject, ObservableObject {
@@ -45,7 +45,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         // Only start verification if we have proper permissions and at least one office location
         guard locationService?.isLocationEnabled == true,
-              (!appData.settings.officeLocations.isEmpty || appData.settings.officeLocation != nil) else {
+              !appData.settings.officeLocations.isEmpty || appData.settings.officeLocation != nil else {
             return
         }
         
@@ -102,7 +102,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         }
         
         // Find closest office and check if within any geofence
-        var closestOffice: (coordinate: CLLocationCoordinate2D, name: String, distance: Double)? = nil
+        var closestOffice: (coordinate: CLLocationCoordinate2D, name: String, distance: Double)?
         var isWithinAnyGeofence = false
         
         for office in officeLocations {

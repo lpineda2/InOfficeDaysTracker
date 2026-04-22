@@ -182,7 +182,7 @@ struct VisitRowCompact: View {
             dayOfWeek: "Thursday",
             duration: "9h 0m",
             isActiveSession: false
-        ),
+        )
     ]
     
     ScrollView {

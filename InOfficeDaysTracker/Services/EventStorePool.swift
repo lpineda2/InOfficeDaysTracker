@@ -5,8 +5,8 @@
 //  EventStore pooling and memory management for performance optimization
 //
 
-import Foundation
 import EventKit
+import Foundation
 
 /// EventStore pool manager for efficient resource management
 class EventStorePool: ObservableObject {

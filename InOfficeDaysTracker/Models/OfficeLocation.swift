@@ -5,8 +5,8 @@
 //  Created by Luis Pineda on 1/13/26.
 //
 
-import Foundation
 import CoreLocation
+import Foundation
 
 /// Represents a configured office location for tracking visits
 struct OfficeLocation: Codable, Identifiable, Equatable {
