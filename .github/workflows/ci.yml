@@ -24,12 +24,8 @@ jobs:
     - name: Make scripts executable
       run: chmod +x scripts/*.sh
 
-    - name: List Available Simulators
-      run: xcrun simctl list devices available
-
     - name: Run Tests
-      env:
-        # Use a more generic simulator configuration for CI
-        # GitHub Actions may not have the exact simulator versions we use locally
-        SIM_DEST: "platform=iOS Simulator,name=iPhone 15 Pro"
+      # Using our existing test script, but simplifying it for CI if needed 
+      # or just running strict xcodebuild if the script is too environment-specific
+      # For now, let's try the existing script as it encapsulates the logic well.
       run: ./scripts/test.sh
