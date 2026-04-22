@@ -43,6 +43,36 @@ struct CompanyPolicy: Codable, Equatable {
     var customPercentage: Int = 50  // Used when policyType is .custom
     var roundingMode: RoundingMode = .up  // Default: round up (maintains backward compatibility)
     
+    // MARK: - Codable Implementation (Backward Compatible)
+    
+    enum CodingKeys: String, CodingKey {
+        case policyType, customPercentage, roundingMode
+    }
+    
+    init() {}
+    
+    init(policyType: PolicyType, customPercentage: Int = 50, roundingMode: RoundingMode = .up) {
+        self.policyType = policyType
+        self.customPercentage = customPercentage
+        self.roundingMode = roundingMode
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        policyType = try container.decode(PolicyType.self, forKey: .policyType)
+        customPercentage = try container.decode(Int.self, forKey: .customPercentage)
+        // Use decodeIfPresent for new properties to maintain backward compatibility
+        // Old saved data won't have this field - use default value
+        roundingMode = try container.decodeIfPresent(RoundingMode.self, forKey: .roundingMode) ?? .up
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(policyType, forKey: .policyType)
+        try container.encode(customPercentage, forKey: .customPercentage)
+        try container.encode(roundingMode, forKey: .roundingMode)
+    }
+    
     /// The percentage of business days required in office
     var requiredPercentage: Double {
         switch policyType {

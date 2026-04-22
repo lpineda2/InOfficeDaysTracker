@@ -556,6 +556,105 @@ final class AutoCalculateGoalTests: XCTestCase {
         XCTAssertEqual(decoded.customPercentage, original.customPercentage)
     }
     
+    /// Tests backward compatibility: old JSON without roundingMode should decode successfully
+    /// This prevents data loss when upgrading from versions before roundingMode was added
+    func testCompanyPolicyBackwardCompatibility() throws {
+        // Simulate old JSON format from before roundingMode was added (v1.12.0 and earlier)
+        let oldJSON = """
+        {
+            "policyType": "hybrid_50",
+            "customPercentage": 50
+        }
+        """
+        
+        let data = oldJSON.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(CompanyPolicy.self, from: data)
+        
+        // Verify new properties get sensible defaults
+        XCTAssertEqual(decoded.roundingMode, .up, "Missing roundingMode should default to .up")
+        XCTAssertEqual(decoded.policyType, .hybrid50, "Old fields should decode correctly")
+        XCTAssertEqual(decoded.customPercentage, 50, "Old fields should decode correctly")
+    }
+    
+    /// Tests backward compatibility with custom policy percentage
+    func testCompanyPolicyBackwardCompatibilityCustomPolicy() throws {
+        // Old JSON with custom policy
+        let oldJSON = """
+        {
+            "policyType": "custom",
+            "customPercentage": 65
+        }
+        """
+        
+        let data = oldJSON.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(CompanyPolicy.self, from: data)
+        
+        XCTAssertEqual(decoded.roundingMode, .up, "Missing roundingMode should default to .up")
+        XCTAssertEqual(decoded.policyType, .custom)
+        XCTAssertEqual(decoded.customPercentage, 65)
+        
+        // Verify calculation works with default rounding mode
+        let required = decoded.calculateRequiredDays(workingDays: 20)
+        // 20 * 0.65 = 13.0, rounded up = 13
+        XCTAssertEqual(required, 13)
+    }
+    
+    /// Tests that AppSettings can decode old data without roundingMode in nested CompanyPolicy
+    /// This is critical: if AppSettings fails to decode, user loses ALL settings
+    func testAppSettingsBackwardCompatibilityWithOldCompanyPolicy() throws {
+        // Simulate old AppSettings JSON before roundingMode was added
+        let oldJSON = """
+        {
+            "officeAddress": "123 Office St",
+            "detectionRadius": 1609.34,
+            "trackingDays": [2, 3, 4, 5, 6],
+            "officeHours": {
+                "startTime": 648648000.0,
+                "endTime": 648676800.0
+            },
+            "monthlyGoal": 12,
+            "notificationsEnabled": true,
+            "isSetupComplete": true,
+            "calendarSettings": {
+                "isEnabled": false,
+                "officeEventTitle": "In Office Day"
+            },
+            "hasSeenCalendarSetup": true,
+            "companyPolicy": {
+                "policyType": "hybrid_60",
+                "customPercentage": 50
+            },
+            "holidayCalendar": {
+                "preset": "nyse",
+                "customRemovals": [],
+                "customAdditions": []
+            },
+            "officeLocations": [],
+            "autoCalculateGoal": false,
+            "ptoSickDays": {},
+            "lockedMonthlyGoals": {}
+        }
+        """
+        
+        let data = oldJSON.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(AppSettings.self, from: data)
+        
+        // CRITICAL: isSetupComplete must remain true (not reset to false)
+        XCTAssertTrue(decoded.isSetupComplete, "Setup complete flag must be preserved during migration")
+        
+        // CompanyPolicy should decode with default roundingMode
+        XCTAssertEqual(decoded.companyPolicy.policyType, .hybrid60)
+        XCTAssertEqual(decoded.companyPolicy.roundingMode, .up, "Missing roundingMode should default to .up")
+        
+        // Verify other settings are preserved
+        XCTAssertFalse(decoded.autoCalculateGoal)
+        XCTAssertEqual(decoded.officeAddress, "123 Office St")
+        XCTAssertEqual(decoded.monthlyGoal, 12)
+    }
+    
     func testHolidayCalendarCodable() throws {
         var original = HolidayCalendar(preset: .nyse)
         original.customRemovals = [HolidayDate(holiday: .goodFriday)]
