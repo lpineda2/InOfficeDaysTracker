@@ -40,7 +40,13 @@ export XCODE_DISABLE_DEVICE_DISCOVERY=YES
 
 # Ensure Xcode developer directory is set and boot simulator
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-xcrun simctl boot "iPhone 16" 2>/dev/null || true
+
+# Extract simulator name from SIM_DEST and boot it if available
+SIMULATOR_NAME=$(echo "$SIM_DEST" | grep -o 'name=[^,]*' | cut -d= -f2)
+if [ -n "$SIMULATOR_NAME" ]; then
+    echo -e "${BLUE}Booting simulator: $SIMULATOR_NAME${NC}"
+    xcrun simctl boot "$SIMULATOR_NAME" 2>/dev/null || echo "Simulator already booted or unavailable"
+fi
 
 # -parallel-testing-enabled NO ensures tests don't interfere with shared UserDefaults
 # -destination-timeout 60 prevents hanging on device connection attempts
