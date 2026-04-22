@@ -5,21 +5,21 @@
 //  Main widget entry point with TimelineProvider
 //
 
-import SwiftUI
 import WidgetKit
+import SwiftUI
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(date: Date(), widgetData: WidgetData.placeholder)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
         let data = WidgetDataManager.shared.createWidgetData()
         let entry = SimpleEntry(date: Date(), widgetData: data)
         completion(entry)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         var entries: [SimpleEntry] = []
         let currentDate = Date()
         

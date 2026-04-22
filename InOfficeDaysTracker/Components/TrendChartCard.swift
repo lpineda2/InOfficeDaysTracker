@@ -6,8 +6,8 @@
 //  Attendance trend chart using Swift Charts with 3/6/9 month picker
 //
 
-import Charts
 import SwiftUI
+import Charts
 
 /// Data point for the trend chart
 struct TrendDataPoint: Identifiable {
@@ -146,7 +146,7 @@ struct TrendChartCard: View {
             .symbolSize(30)
         }
         .chartXAxis {
-            AxisMarks(values: aggregatedData.map { $0.date }) { _ in
+            AxisMarks(values: aggregatedData.map { $0.date }) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
                 AxisTick()
@@ -155,7 +155,7 @@ struct TrendChartCard: View {
             }
         }
         .chartYAxis {
-            AxisMarks { _ in
+            AxisMarks { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
                 AxisValueLabel()

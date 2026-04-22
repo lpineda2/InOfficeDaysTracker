@@ -5,8 +5,8 @@
 //  Simplified calendar service for event management
 //
 
-import EventKit
 import Foundation
+import EventKit
 
 // MARK: - Calendar Event Data
 

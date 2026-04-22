@@ -105,7 +105,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     func testRoundingModeUp() {
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
-        policy.roundingMode = .roundUp  // Explicit round up
+        policy.roundingMode = .up  // Explicit round up
         
         // 19 working days × 50% = 9.5 → rounds UP to 10
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 10)
@@ -120,7 +120,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     func testRoundingModeDown() {
         var policy = CompanyPolicy()
         policy.policyType = .hybrid50
-        policy.roundingMode = .roundDown  // Round down
+        policy.roundingMode = .down  // Round down
         
         // 19 working days × 50% = 9.5 → rounds DOWN to 9
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 9)
@@ -151,9 +151,9 @@ final class AutoCalculateGoalTests: XCTestCase {
     }
     
     func testRoundingModeDefault() {
-        // Test that default rounding mode is .roundUp (backward compatibility)
+        // Test that default rounding mode is .up (backward compatibility)
         let policy = CompanyPolicy()
-        XCTAssertEqual(policy.roundingMode, .roundUp)
+        XCTAssertEqual(policy.roundingMode, .up)
         
         // Verify default behavior: 19 working days × 50% = 9.5 → rounds UP to 10
         XCTAssertEqual(policy.calculateRequiredDays(workingDays: 19), 10)
@@ -161,13 +161,13 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     func testRoundingModeEnum() {
         // Test RoundingMode enum functionality
-        XCTAssertEqual(RoundingMode.roundUp.apply(9.5), 10)
-        XCTAssertEqual(RoundingMode.roundDown.apply(9.5), 9)
+        XCTAssertEqual(RoundingMode.up.apply(9.5), 10)
+        XCTAssertEqual(RoundingMode.down.apply(9.5), 9)
         
-        XCTAssertEqual(RoundingMode.roundUp.apply(10.0), 10)
-        XCTAssertEqual(RoundingMode.roundDown.apply(10.0), 10)
+        XCTAssertEqual(RoundingMode.up.apply(10.0), 10)
+        XCTAssertEqual(RoundingMode.down.apply(10.0), 10)
         
-        XCTAssertEqual(RoundingMode.roundUp.apply(8.4), 9)
+        XCTAssertEqual(RoundingMode.up.apply(8.4), 9)
         XCTAssertEqual(RoundingMode.down.apply(8.4), 8)
     }
     

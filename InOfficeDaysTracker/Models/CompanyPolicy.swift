@@ -9,30 +9,30 @@ import Foundation
 
 /// Rounding mode for calculating required days from fractional values
 enum RoundingMode: String, Codable, CaseIterable, Identifiable {
-    case roundUp = "up"       // ceil() - rounds up (e.g., 9.5 → 10)
-    case roundDown = "down"   // floor() - rounds down (e.g., 9.5 → 9)
+    case up = "up"       // ceil() - rounds up (e.g., 9.5 → 10)
+    case down = "down"   // floor() - rounds down (e.g., 9.5 → 9)
     
     var id: String { rawValue }
     
     var displayName: String {
         switch self {
-        case .roundUp: return "Round Up"
-        case .roundDown: return "Round Down"
+        case .up: return "Round Up"
+        case .down: return "Round Down"
         }
     }
     
     var description: String {
         switch self {
-        case .roundUp: return "Rounds up fractional days (e.g., 9.5 → 10)"
-        case .roundDown: return "Rounds down fractional days (e.g., 9.5 → 9)"
+        case .up: return "Rounds up fractional days (e.g., 9.5 → 10)"
+        case .down: return "Rounds down fractional days (e.g., 9.5 → 9)"
         }
     }
     
     /// Apply rounding to a value
     func apply(_ value: Double) -> Int {
         switch self {
-        case .roundUp: return Int(ceil(value))
-        case .roundDown: return Int(floor(value))
+        case .up: return Int(ceil(value))
+        case .down: return Int(floor(value))
         }
     }
 }
@@ -41,7 +41,7 @@ enum RoundingMode: String, Codable, CaseIterable, Identifiable {
 struct CompanyPolicy: Codable, Equatable {
     var policyType: PolicyType = .hybrid50
     var customPercentage: Int = 50  // Used when policyType is .custom
-    var roundingMode: RoundingMode = .roundUp  // Default: round up (maintains backward compatibility)
+    var roundingMode: RoundingMode = .up  // Default: round up (maintains backward compatibility)
     
     // MARK: - Codable Implementation (Backward Compatible)
     
@@ -51,7 +51,7 @@ struct CompanyPolicy: Codable, Equatable {
     
     init() {}
     
-    init(policyType: PolicyType, customPercentage: Int = 50, roundingMode: RoundingMode = .roundUp) {
+    init(policyType: PolicyType, customPercentage: Int = 50, roundingMode: RoundingMode = .up) {
         self.policyType = policyType
         self.customPercentage = customPercentage
         self.roundingMode = roundingMode
@@ -63,7 +63,7 @@ struct CompanyPolicy: Codable, Equatable {
         customPercentage = try container.decode(Int.self, forKey: .customPercentage)
         // Use decodeIfPresent for new properties to maintain backward compatibility
         // Old saved data won't have this field - use default value
-        roundingMode = try container.decodeIfPresent(RoundingMode.self, forKey: .roundingMode) ?? .roundUp
+        roundingMode = try container.decodeIfPresent(RoundingMode.self, forKey: .roundingMode) ?? .up
     }
     
     func encode(to encoder: Encoder) throws {
@@ -119,7 +119,7 @@ struct CompanyPolicy: Codable, Equatable {
     /// Formula description for UI display
     var formulaDescription: String {
         let percentageText = policyType == .custom ? "\(customPercentage)%" : "\(Int(requiredPercentage * 100))%"
-        let roundingText = roundingMode == .roundUp ? "rounded up" : "rounded down"
+        let roundingText = roundingMode == .up ? "rounded up" : "rounded down"
         return "(Business Days − PTO) × \(percentageText), \(roundingText)"
     }
 }

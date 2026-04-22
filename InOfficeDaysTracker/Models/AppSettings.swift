@@ -5,8 +5,8 @@
 //  Created by Luis Pineda on 7/6/25.
 //
 
-import CoreLocation
 import Foundation
+import CoreLocation
 
 struct AppSettings: Codable {
     var officeLocation: CLLocationCoordinate2D?

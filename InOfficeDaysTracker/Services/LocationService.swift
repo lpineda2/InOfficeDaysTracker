@@ -5,10 +5,10 @@
 //  Updated to integrate LocationVerificationService for fixing intermittent status issues
 //
 
-import CoreLocation
 import Foundation
-import UIKit
+import CoreLocation
 import UserNotifications
+import UIKit
 #if canImport(WidgetKit)
 import WidgetKit
 #endif

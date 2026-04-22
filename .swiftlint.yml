@@ -42,18 +42,4 @@ identifier_name:
     - id
     - URL
     - GlobalAPIKey
-    - a  # Algorithm variables (Easter calculation, color components)
-    - b
-    - c
-    - d
-    - e
-    - f
-    - g
-    - h
-    - i
-    - k
-    - l
-    - m
-    - r  # Color component (red)
-    - km # Kilometers unit
 reporter: "xcode" # reporter type (xcode, json, csv, checkstyle, junit, html, emoji, sonarqube, markdown)

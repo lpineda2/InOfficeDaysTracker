@@ -256,6 +256,7 @@ struct MainProgressView: View {
     
 }
 
+
 // MARK: - Pulse Animation Modifier
 
 struct PulseAnimation: ViewModifier {
@@ -714,6 +715,7 @@ struct GoalProgressSection: View {
         }
     }
 }
+
 
 // MARK: - Calculation Details Sheet
 

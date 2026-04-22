@@ -6,8 +6,8 @@
 //
 
 import ActivityKit
-import SwiftUI
 import WidgetKit
+import SwiftUI
 
 struct OfficeTrackerWidgetAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {

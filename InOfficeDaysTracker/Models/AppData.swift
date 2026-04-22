@@ -5,8 +5,8 @@
 //  Updated to add status persistence and improve visit management
 //
 
-import CoreLocation
 import Foundation
+import CoreLocation
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -866,9 +866,9 @@ class AppData: ObservableObject {
         }
     }
     
+    /// Migrate single office location to multiple office locations array (v1.9.0)
     // MARK: - Public Migration Helper
     
-    /// Migrate single office location to multiple office locations array (v1.9.0)
     /// Force migration of office locations if data is inconsistent
     func ensureOfficeLocationConsistency() {
         if settings.officeLocation != nil && settings.officeLocations.isEmpty {
@@ -1000,7 +1000,7 @@ class AppData: ObservableObject {
     /// - Returns: True if at least 7 days of visit data exists
     func hasEnoughChartData(days: Int) -> Bool {
         let trendData = getVisitTrend(days: days)
-        let daysWithData = trendData.filter { !$0.isEmpty }.count
+        let daysWithData = trendData.filter { $0.count > 0 }.count
         return daysWithData >= 7
     }
 
@@ -1040,7 +1040,7 @@ class AppData: ObservableObject {
     /// - Returns: True if at least 7 days of visit data exists in the range
     func hasEnoughChartData(months: Int) -> Bool {
         let trendData = getVisitTrend(months: months)
-        let daysWithData = trendData.filter { !$0.isEmpty }.count
+        let daysWithData = trendData.filter { $0.count > 0 }.count
         return daysWithData >= 7
     }
     

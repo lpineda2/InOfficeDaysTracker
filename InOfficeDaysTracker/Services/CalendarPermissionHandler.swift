@@ -5,8 +5,8 @@
 //  Simplified calendar permission handling
 //
 
-import EventKit
 import Foundation
+import EventKit
 import SwiftUI
 
 @MainActor

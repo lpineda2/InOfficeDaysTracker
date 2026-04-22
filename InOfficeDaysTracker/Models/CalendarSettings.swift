@@ -5,8 +5,8 @@
 //  Simplified calendar integration settings
 //
 
-import EventKit
 import Foundation
+import EventKit
 
 // MARK: - Calendar Settings
 

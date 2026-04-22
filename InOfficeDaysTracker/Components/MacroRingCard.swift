@@ -156,8 +156,8 @@ struct MacroRingItem: View {
         ringSize: CGFloat = 80,
         strokeWidth: CGFloat = 10,
         centerNumberFont: Font = Typography.statNumber,
-        centerNumberColor: Color = DesignTokens.textPrimary,
-        centerOverride: String? = nil,
+        centerNumberColor: Color = DesignTokens.textPrimary
+        , centerOverride: String? = nil,
         hideCenter: Bool = false
     ) {
         self.title = title

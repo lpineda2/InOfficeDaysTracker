@@ -100,7 +100,7 @@ class WidgetDataManager {
         debugLog("🔍", "[WidgetDataManager] Month progress: current=\(progressData.current), goal=\(progressData.goal)")
         
         // Calculate current visit duration if in office
-        var currentVisitDuration: TimeInterval?
+        var currentVisitDuration: TimeInterval? = nil
         if let currentVisitData = userDefaults.data(forKey: "CurrentVisit"),
            let currentVisit = try? JSONDecoder().decode(OfficeVisit.self, from: currentVisitData) {
             currentVisitDuration = Date().timeIntervalSince(currentVisit.entryTime)

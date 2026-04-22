@@ -5,8 +5,8 @@
 //  Created by Luis Pineda on 11/6/25.
 //
 
-import EventKit
 import Foundation
+import EventKit
 
 /// Protocol for abstracting EventKit operations with platform-specific implementations
 protocol EventStoreAdapterProtocol {

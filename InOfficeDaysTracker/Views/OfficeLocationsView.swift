@@ -5,8 +5,8 @@
 //  Created by Luis Pineda on 1/13/26.
 //
 
-import CoreLocation
 import SwiftUI
+import CoreLocation
 
 struct OfficeLocationsView: View {
     @ObservedObject var appData: AppData

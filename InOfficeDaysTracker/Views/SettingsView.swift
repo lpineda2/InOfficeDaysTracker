@@ -5,8 +5,8 @@
 //  Created by Luis Pineda on 7/6/25.
 //
 
-import CoreLocation
 import SwiftUI
+import CoreLocation
 import UIKit
 
 struct SettingsView: View {
@@ -466,12 +466,12 @@ struct DataExportView: View {
                 // Reset state when ShareSheet is dismissed
                 exportFileURL = nil
                 exportedData = ""
-            }, content: {
+            }) {
                 ShareSheet(
                     fileURL: exportFileURL,
                     csvContent: exportedData
                 )
-            })
+            }
             .onChange(of: exportFileURL) { _, _ in
                 // Only present if file/data is ready and not already showing
                 if (exportFileURL != nil || !exportedData.isEmpty) && !showingShareSheet {

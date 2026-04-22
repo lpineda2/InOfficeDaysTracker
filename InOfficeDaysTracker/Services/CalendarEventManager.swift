@@ -5,9 +5,9 @@
 //  Simplified calendar event management for office visits
 //
 
-import CoreLocation
-import EventKit
 import Foundation
+import EventKit
+import CoreLocation
 
 @MainActor
 class CalendarEventManager: ObservableObject {

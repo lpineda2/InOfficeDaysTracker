@@ -5,9 +5,9 @@
 //  Address autocomplete functionality using MKLocalSearchCompleter
 //
 
-import Combine
 import Foundation
 import MapKit
+import Combine
 
 @MainActor
 class AddressAutocompleteService: NSObject, ObservableObject {
