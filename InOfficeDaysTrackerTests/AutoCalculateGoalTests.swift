@@ -134,7 +134,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     
     func testRoundingModeDownWithDifferentPercentages() {
         var policy = CompanyPolicy()
-        policy.roundingMode = .down
+        policy.roundingMode = .roundDown
         
         // 40% policy: 21 working days × 40% = 8.4 → rounds DOWN to 8
         policy.policyType = .hybrid40
@@ -168,7 +168,7 @@ final class AutoCalculateGoalTests: XCTestCase {
         XCTAssertEqual(RoundingMode.roundDown.apply(10.0), 10)
         
         XCTAssertEqual(RoundingMode.roundUp.apply(8.4), 9)
-        XCTAssertEqual(RoundingMode.down.apply(8.4), 8)
+        XCTAssertEqual(RoundingMode.roundDown.apply(8.4), 8)
     }
     
     func testFormulaDescriptionWithRounding() {
@@ -176,11 +176,11 @@ final class AutoCalculateGoalTests: XCTestCase {
         policy.policyType = .hybrid50
         
         // Test round up formula description
-        policy.roundingMode = .up
+        policy.roundingMode = .roundUp
         XCTAssertTrue(policy.formulaDescription.contains("rounded up"))
         
         // Test round down formula description
-        policy.roundingMode = .down
+        policy.roundingMode = .roundDown
         XCTAssertTrue(policy.formulaDescription.contains("rounded down"))
     }
     
@@ -572,7 +572,7 @@ final class AutoCalculateGoalTests: XCTestCase {
         let decoded = try decoder.decode(CompanyPolicy.self, from: data)
         
         // Verify new properties get sensible defaults
-        XCTAssertEqual(decoded.roundingMode, .up, "Missing roundingMode should default to .up")
+        XCTAssertEqual(decoded.roundingMode, .roundUp, "Missing roundingMode should default to .roundUp")
         XCTAssertEqual(decoded.policyType, .hybrid50, "Old fields should decode correctly")
         XCTAssertEqual(decoded.customPercentage, 50, "Old fields should decode correctly")
     }
@@ -591,7 +591,7 @@ final class AutoCalculateGoalTests: XCTestCase {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(CompanyPolicy.self, from: data)
         
-        XCTAssertEqual(decoded.roundingMode, .up, "Missing roundingMode should default to .up")
+        XCTAssertEqual(decoded.roundingMode, .roundUp, "Missing roundingMode should default to .roundUp")
         XCTAssertEqual(decoded.policyType, .custom)
         XCTAssertEqual(decoded.customPercentage, 65)
         
@@ -647,7 +647,7 @@ final class AutoCalculateGoalTests: XCTestCase {
         
         // CompanyPolicy should decode with default roundingMode
         XCTAssertEqual(decoded.companyPolicy.policyType, .hybrid60)
-        XCTAssertEqual(decoded.companyPolicy.roundingMode, .up, "Missing roundingMode should default to .up")
+        XCTAssertEqual(decoded.companyPolicy.roundingMode, .roundUp, "Missing roundingMode should default to .roundUp")
         
         // Verify other settings are preserved
         XCTAssertFalse(decoded.autoCalculateGoal)
