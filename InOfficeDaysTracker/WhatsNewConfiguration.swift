@@ -73,6 +73,49 @@ struct WhatsNewConfiguration {
         )
     }
     
+    // MARK: - Version 1.13.0: PTO Management & Rounding Options
+    
+    /// The WhatsNew instance for version 1.13.0 PTO management and rounding control
+    static var ptoManagementAndRounding: WhatsNew {
+        WhatsNew(
+            version: "1.13.0",
+            title: WhatsNew.Title(
+                text: "Enhanced Control & Flexibility",
+                foregroundColor: DesignTokens.textPrimary
+            ),
+            features: [
+                // View and Delete PTO/Sick Days
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "calendar.badge.minus",
+                        foregroundColor: DesignTokens.successGreen
+                    ),
+                    title: "Manage Your Time Off",
+                    subtitle: "View all your PTO and sick days in one place. Easily delete past entries when plans change"
+                ),
+                
+                // Rounding Mode Control
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "arrow.up.arrow.down.circle",
+                        foregroundColor: DesignTokens.cyanAccent
+                    ),
+                    title: "Goal Rounding Control",
+                    subtitle: "Choose how to round fractional office days—round up (default) or down. Find it in Settings → Goals"
+                )
+            ],
+            primaryAction: WhatsNew.PrimaryAction(
+                title: "Got It",
+                backgroundColor: .accentColor,
+                foregroundColor: .white,
+                hapticFeedback: .notification(.success),
+                onDismiss: {
+                    debugLog("✅", "[WhatsNew] PTO management and rounding showcase dismissed")
+                }
+            )
+        )
+    }
+    
     // MARK: - Version 1.7.0: Lock Screen Widgets
     
     /// The WhatsNew instance for version 1.7.0 lock screen and home screen widgets
@@ -151,7 +194,8 @@ extension InOfficeDaysTrackerApp: WhatsNewCollectionProvider {
     
     /// Provide all WhatsNew instances for different versions
     var whatsNewCollection: WhatsNewCollection {
-        WhatsNewConfiguration.autoCalculateGoal  // 1.9.0
-        WhatsNewConfiguration.lockScreenWidgets  // 1.7.0
+        WhatsNewConfiguration.ptoManagementAndRounding  // 1.13.0
+        WhatsNewConfiguration.autoCalculateGoal          // 1.9.0
+        WhatsNewConfiguration.lockScreenWidgets          // 1.7.0
     }
 }
