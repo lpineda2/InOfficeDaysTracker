@@ -268,13 +268,30 @@ If anything unexpected happens (test failures, build errors, behavior regression
 
 ---
 
-## Git and Change Hygiene (If Applicable)
+## Git and Change Hygiene
 
-- Keep commits atomic and describable; avoid "misc fixes" bundles.
-- Don't rewrite history unless explicitly requested.
-- Don't mix formatting-only changes with behavioral changes unless the repo standard requires it.
-- Treat generated files carefully:
-  - only commit them if the project expects it.
+### Branching Strategy (REQUIRED)
+- **Always create a feature branch** for bug fixes and new features
+- Never commit directly to `main` branch
+- Branch naming convention:
+  - `feature/descriptive-name` for new features
+  - `bugfix/descriptive-name` for bug fixes
+  - Example: `feature/office-hours-save-fix`, `bugfix/whatsnew-config`
+
+### Workflow
+1. Check git status before starting work
+2. Create and checkout feature branch: `git checkout -b feature/name`
+3. Make changes, commit atomically with descriptive messages
+4. Verify (build/test) before committing
+5. Push branch to remote: `git push origin feature/name`
+6. Hand off to user for review and merge to main
+7. After merge to main → triggers TestFlight deployment
+
+### Commit Standards
+- Keep commits atomic and describable; avoid "misc fixes" bundles
+- Don't rewrite history unless explicitly requested
+- Don't mix formatting-only changes with behavioral changes unless the repo standard requires it
+- Treat generated files carefully: only commit them if the project expects it
 
 ---
 
