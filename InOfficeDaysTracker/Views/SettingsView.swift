@@ -62,6 +62,12 @@ struct SettingsView: View {
         .onChange(of: notificationsEnabled) {
             autoSaveSettings()
         }
+        .onChange(of: startTime) {
+            autoSaveSettings()
+        }
+        .onChange(of: endTime) {
+            autoSaveSettings()
+        }
         .alert("Reset All Data", isPresented: $showingResetAlert) {
             Button("Reset", role: .destructive) {
                 appData.clearAllData()
