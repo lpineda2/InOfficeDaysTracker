@@ -32,6 +32,19 @@ class LocationService: NSObject, ObservableObject {
     // Fallback timer for widget refresh reliability
     private var widgetRefreshTimer: Timer?
     
+    // Exit grace period to prevent false exits from GPS drift
+    private var exitGraceTimer: Timer?
+    private var pendingExitRegion: CLRegion?
+    
+    // Track when user exited - public so verification service can check minimum away duration
+    private(set) var exitTime: Date?
+    
+    // Grace period duration (5 minutes default)
+    private let exitGracePeriod: TimeInterval = 300 // 5 minutes
+    
+    // Minimum away duration to confirm user actually left (3 minutes)
+    private let minimumAwayDuration: TimeInterval = 180 // 3 minutes
+    
     override init() {
         super.init()
         setupLocationManager()
@@ -571,6 +584,23 @@ extension LocationService: CLLocationManagerDelegate {
             return
         }
         
+        // Cancel exit grace timer if user re-entered during grace period
+        if let pendingRegion = pendingExitRegion, pendingRegion.identifier == region.identifier {
+            exitGraceTimer?.invalidate()
+            exitGraceTimer = nil
+            pendingExitRegion = nil
+            
+            if let exitTime = exitTime {
+                let awayDuration = Date().timeIntervalSince(exitTime)
+                debugLog("✅", "[LocationService] Re-entry detected during grace period (away for \(Int(awayDuration))s), canceling exit")
+            }
+            
+            exitTime = nil
+            
+            // User re-entered quickly - don't end/restart session
+            return
+        }
+        
         // Find which office location was entered
         let enteredOffice: OfficeLocation?
         if region.identifier == "office_location" {
@@ -699,28 +729,50 @@ extension LocationService: CLLocationManagerDelegate {
                 return
             }
             
-            debugLog("🚪", "[LocationService] Exited office: \(office.name) at \(Date())")
-            debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
+            debugLog("🚪", "[LocationService] Detected exit from: \(office.name) at \(Date())")
+            debugLog("🔍", "[LocationService] Starting exit grace period (\(exitGracePeriod)s)")
             
-            // End tracking visit
-            appData.endVisit()
+            // Cancel any existing grace timer
+            exitGraceTimer?.invalidate()
             
-            debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
-            debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
+            // Store the region and exit time
+            pendingExitRegion = region
+            exitTime = Date()
             
-            // Force immediate data synchronization
-            appData.sharedUserDefaults.synchronize()
-            
-            // Verify UserDefaults was updated
-            let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
-            debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
-            
-            // Trigger immediate widget refresh for office exit
-            triggerWidgetRefresh(reason: "office exit")
-            
-            // Send notification
-            if appData.settings.notificationsEnabled {
-                NotificationService.shared.sendVisitNotification(type: .exit)
+            // Start grace period timer
+            exitGraceTimer = Timer.scheduledTimer(withTimeInterval: exitGracePeriod, repeats: false) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self = self, let appData = self.appData else { return }
+                    
+                    // Grace period expired - confirm exit
+                    debugLog("⏰", "[LocationService] Grace period expired, confirming exit from \(office.name)")
+                    debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
+                    
+                    // End tracking visit
+                    appData.endVisit()
+                    
+                    debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
+                    debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
+                    
+                    // Force immediate data synchronization
+                    appData.sharedUserDefaults.synchronize()
+                    
+                    // Verify UserDefaults was updated
+                    let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+                    debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
+                    
+                    // Trigger immediate widget refresh for office exit
+                    self.triggerWidgetRefresh(reason: "office exit after grace period")
+                    
+                    // Send notification
+                    if appData.settings.notificationsEnabled {
+                        NotificationService.shared.sendVisitNotification(type: .exit)
+                    }
+                    
+                    // Clear pending exit
+                    self.pendingExitRegion = nil
+                    self.exitTime = nil
+                }
             }
         }
     }

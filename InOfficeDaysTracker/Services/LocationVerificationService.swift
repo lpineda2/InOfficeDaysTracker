@@ -243,13 +243,38 @@ class LocationVerificationService: NSObject, ObservableObject {
     private func handleManualExit() async {
         guard let appData = appData else { return }
         
-        if appData.isCurrentlyInOffice {
-            appData.endVisit()
-            debugLog("📍", "[LocationVerification] Manually ended office visit")
-            
-            // Trigger aggressive widget refresh for foreground corrections
-            await triggerWidgetRefresh(reason: "foreground verification - exit")
+        // CRITICAL FIX: Never end active sessions prematurely
+        // Check if there's an active session before ending
+        guard appData.isCurrentlyInOffice else {
+            debugLog("📍", "[LocationVerification] No active session to end")
+            return
         }
+        
+        // Check if user has been away long enough to confirm exit
+        // This prevents ending sessions during brief GPS fluctuations
+        guard let locationService = locationService,
+              let exitTime = locationService.exitTime else {
+            // No exit time tracked - this might be a foreground verification
+            // that detected the user is away. We should be conservative here.
+            debugLog("⚠️", "[LocationVerification] No exit time tracked, skipping manual exit")
+            return
+        }
+        
+        let awayDuration = Date().timeIntervalSince(exitTime)
+        let minimumAwayDuration: TimeInterval = 180 // 3 minutes
+        
+        guard awayDuration >= minimumAwayDuration else {
+            debugLog("📍", "[LocationVerification] User away for \(Int(awayDuration))s, waiting for \(Int(minimumAwayDuration))s minimum")
+            return
+        }
+        
+        // Confirmed: User has been away long enough
+        debugLog("📍", "[LocationVerification] Confirmed user away for \(Int(awayDuration))s, ending visit")
+        appData.endVisit()
+        debugLog("📍", "[LocationVerification] Manually ended office visit")
+        
+        // Trigger aggressive widget refresh for foreground corrections
+        await triggerWidgetRefresh(reason: "foreground verification - exit")
     }
     
     // MARK: - Widget Refresh
