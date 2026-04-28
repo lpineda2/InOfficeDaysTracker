@@ -1,6 +1,8 @@
-Bug Fixes and Improvements:
-• Fixed multi-location geofencing to properly track multiple office locations
-• Improved location verification for secondary office locations  
-• Calendar events now display the correct office address
-• Enhanced reliability when working from different office locations
-• Removed legacy UI for cleaner settings experience
+What's New in Version 1.14:
+
+• Instant status updates - Your office presence now refreshes immediately when you open the app, so you always see accurate information
+• Smarter location detection - Automatically corrects your status if there are any delays in background tracking
+• Faster widget updates - Home and lock screen widgets refresh more reliably when you arrive at or leave the office
+• Improved battery efficiency - Optimized location checking to minimize battery impact while maintaining accuracy
+
+We're constantly improving your experience. Thank you for using In Office Days Tracker!
