@@ -29,7 +29,7 @@ struct ExitGracePeriodTests {
         appData.settings.officeLocation = testCoordinate
         appData.settings.detectionRadius = 100.0
         appData.settings.trackingDays = [2, 3, 4, 5, 6] // Mon-Fri
-        appData.settings.officeHours = TimeRange(
+        appData.settings.officeHours = AppSettings.OfficeHours(
             startTime: Calendar.current.date(from: DateComponents(hour: 8))!,
             endTime: Calendar.current.date(from: DateComponents(hour: 17))!
         )
