@@ -62,6 +62,9 @@ class AppData: ObservableObject {
         // CRITICAL: Clean up any duplicate entries on startup
         cleanupDuplicateEntries()
         
+        // Repair historical sessions (one-time migration for v1.15.0)
+        performHistoricalSessionRepairIfNeeded()
+        
         // Validate current visit consistency
         validateCurrentVisitConsistency()
         
@@ -653,6 +656,118 @@ class AppData: ObservableObject {
         }
         
         return consolidatedVisit
+    }
+    
+    // MARK: - Historical Data Repair
+    
+    /// One-time migration to repair historical sessions with spurious splits
+    private func performHistoricalSessionRepairIfNeeded() {
+        let repairKey = "HistoricalSessionRepairV1_Completed"
+        
+        // Check if repair has already been run
+        if sharedUserDefaults.bool(forKey: repairKey) {
+            debugLog("ℹ️", "[AppData] Historical session repair already completed, skipping")
+            return
+        }
+        
+        debugLog("🔧", "[AppData] Running one-time historical session repair...")
+        
+        // Run the repair with 15-minute gap threshold
+        let repairedCount = repairHistoricalSessions(gapThreshold: 900)
+        
+        // Mark as completed
+        sharedUserDefaults.set(true, forKey: repairKey)
+        sharedUserDefaults.synchronize()
+        
+        if repairedCount > 0 {
+            debugLog("✅", "[AppData] Historical repair completed: fixed \(repairedCount) visits")
+        }
+    }
+    
+    /// Repair historical sessions by merging events with short gaps (likely GPS drift)
+    /// This fixes visits that were incorrectly split due to false geofence exits
+    /// - Parameter gapThreshold: Maximum gap in seconds to merge (default: 15 minutes)
+    /// - Returns: Number of visits repaired
+    @discardableResult
+    func repairHistoricalSessions(gapThreshold: TimeInterval = 900) -> Int {
+        var repairCount = 0
+        var repairedVisits: [OfficeVisit] = []
+        
+        debugLog("🔧", "[AppData] Starting historical session repair (gap threshold: \(Int(gapThreshold/60)) minutes)")
+        
+        for visit in visits {
+            // Only repair completed visits with multiple events
+            guard visit.events.count > 1,
+                  !visit.isActiveSession else {
+                repairedVisits.append(visit)
+                continue
+            }
+            
+            // Sort events by entry time
+            let sortedEvents = visit.events.sorted { $0.entryTime < $1.entryTime }
+            var mergedEvents: [OfficeEvent] = []
+            var currentMergedEvent: OfficeEvent? = nil
+            
+            for event in sortedEvents {
+                guard let exitTime = event.exitTime else {
+                    // Skip incomplete events
+                    if let merged = currentMergedEvent {
+                        mergedEvents.append(merged)
+                    }
+                    mergedEvents.append(event)
+                    currentMergedEvent = nil
+                    continue
+                }
+                
+                if let merged = currentMergedEvent, let mergedExit = merged.exitTime {
+                    // Check gap between previous exit and current entry
+                    let gap = event.entryTime.timeIntervalSince(mergedExit)
+                    
+                    if gap <= gapThreshold && gap >= 0 {
+                        // Gap is small enough to merge
+                        currentMergedEvent = OfficeEvent(
+                            entryTime: merged.entryTime,
+                            exitTime: exitTime
+                        )
+                        debugLog("🔧", "[AppData] Merged events with \(Int(gap/60))m gap")
+                    } else {
+                        // Gap too large, keep as separate events
+                        mergedEvents.append(merged)
+                        currentMergedEvent = event
+                    }
+                } else {
+                    // First event or after incomplete event
+                    currentMergedEvent = event
+                }
+            }
+            
+            // Add the last merged event
+            if let merged = currentMergedEvent {
+                mergedEvents.append(merged)
+            }
+            
+            // Check if we actually merged anything
+            if mergedEvents.count < sortedEvents.count {
+                var repairedVisit = visit
+                repairedVisit.events = mergedEvents
+                repairedVisits.append(repairedVisit)
+                repairCount += 1
+                
+                debugLog("✅", "[AppData] Repaired visit on \(visit.formattedDate): \(sortedEvents.count) events → \(mergedEvents.count) events")
+            } else {
+                repairedVisits.append(visit)
+            }
+        }
+        
+        if repairCount > 0 {
+            visits = repairedVisits
+            saveVisits()
+            debugLog("✅", "[AppData] Historical repair complete: fixed \(repairCount) visits")
+        } else {
+            debugLog("ℹ️", "[AppData] No visits needed repair")
+        }
+        
+        return repairCount
     }
     
     /// Validate that currentVisit is consistent with visits array (session management aware)
