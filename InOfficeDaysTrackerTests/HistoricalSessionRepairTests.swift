@@ -14,6 +14,7 @@ import CoreLocation
 struct HistoricalSessionRepairTests {
     
     /// Helper to create test app data with isolated UserDefaults
+    @MainActor
     private func createTestAppData() -> AppData {
         let testSuiteName = "test.session.repair.\(UUID().uuidString)"
         let testDefaults = UserDefaults(suiteName: testSuiteName)!
@@ -25,6 +26,7 @@ struct HistoricalSessionRepairTests {
     // MARK: - Repair Tests
     
     @Test("Repair merges events with short gaps")
+    @MainActor
     func testRepairMergesShortGaps() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
@@ -65,6 +67,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair preserves events with large gaps")
+    @MainActor
     func testRepairPreservesLargeGaps() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
@@ -97,6 +100,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair merges multiple consecutive short gaps")
+    @MainActor
     func testRepairMergesMultipleShortGaps() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
@@ -137,6 +141,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair handles mixed gaps (some mergeable, some not)")
+    @MainActor
     func testRepairHandlesMixedGaps() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
@@ -188,6 +193,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair skips active sessions")
+    @MainActor
     func testRepairSkipsActiveSessions() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
@@ -220,6 +226,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair handles empty visits gracefully")
+    @MainActor
     func testRepairHandlesEmptyVisits() throws {
         let appData = createTestAppData()
         
@@ -235,6 +242,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair is idempotent")
+    @MainActor
     func testRepairIsIdempotent() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
@@ -272,6 +280,7 @@ struct HistoricalSessionRepairTests {
     }
     
     @Test("Repair correctly calculates duration after merge")
+    @MainActor
     func testRepairDurationCalculation() throws {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)

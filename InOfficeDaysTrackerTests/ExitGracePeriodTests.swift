@@ -16,6 +16,7 @@ struct ExitGracePeriodTests {
     // MARK: - Test Data
     
     /// Helper to create test app data with isolated UserDefaults
+    @MainActor
     private func createTestAppData() -> AppData {
         let testSuiteName = "test.exit.grace.period.\(UUID().uuidString)"
         let testDefaults = UserDefaults(suiteName: testSuiteName)!
@@ -39,6 +40,7 @@ struct ExitGracePeriodTests {
     // MARK: - Grace Period Tests
     
     @Test("Exit grace period - Quick re-entry prevents session split")
+    @MainActor
     func testQuickReEntryPreventsSplit() async throws {
         let appData = createTestAppData()
         
@@ -69,6 +71,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Exit grace period - Long absence confirms exit")
+    @MainActor
     func testLongAbsenceConfirmsExit() async throws {
         let appData = createTestAppData()
         
@@ -96,6 +99,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Minimum away duration - Brief absence doesn't trigger manual exit")
+    @MainActor
     func testMinimumAwayDuration() async throws {
         let appData = createTestAppData()
         
@@ -114,6 +118,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Continuous session - No spurious splits during continuous presence")
+    @MainActor
     func testContinuousSessionIntegrity() async throws {
         let appData = createTestAppData()
         
@@ -135,6 +140,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Grace period cancellation - Multiple quick exits/entries")
+    @MainActor
     func testMultipleQuickTransitions() async throws {
         let appData = createTestAppData()
         
@@ -164,6 +170,7 @@ struct ExitGracePeriodTests {
     // MARK: - Foreground Verification Tests
     
     @Test("Foreground verification - Respects active sessions")
+    @MainActor
     func testForegroundVerificationRespectsActiveSession() async throws {
         let appData = createTestAppData()
         
@@ -182,6 +189,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Foreground verification - Only ends session after minimum away time")
+    @MainActor
     func testForegroundVerificationMinimumAwayTime() async throws {
         let appData = createTestAppData()
         
@@ -202,6 +210,7 @@ struct ExitGracePeriodTests {
     // MARK: - Data Integrity Tests
     
     @Test("Session data integrity - No negative durations")
+    @MainActor
     func testNoNegativeDurations() async throws {
         let appData = createTestAppData()
         
@@ -227,6 +236,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Session data integrity - Event times are sequential")
+    @MainActor
     func testEventTimesSequential() async throws {
         let appData = createTestAppData()
         
@@ -253,6 +263,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("No spurious events - Single continuous office day")
+    @MainActor
     func testSingleContinuousDay() async throws {
         let appData = createTestAppData()
         
@@ -276,6 +287,7 @@ struct ExitGracePeriodTests {
     // MARK: - Edge Cases
     
     @Test("Edge case - Exit and re-entry at exact grace period boundary")
+    @MainActor
     func testGracePeriodBoundary() async throws {
         let appData = createTestAppData()
         
@@ -291,6 +303,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Edge case - Rapid app foreground/background cycles")
+    @MainActor
     func testRapidForegroundCycles() async throws {
         let appData = createTestAppData()
         
@@ -307,6 +320,7 @@ struct ExitGracePeriodTests {
     }
     
     @Test("Edge case - Multiple office locations with overlapping geofences")
+    @MainActor
     func testOverlappingGeofences() async throws {
         let appData = createTestAppData()
         
