@@ -119,14 +119,14 @@ class CalendarEventManager: ObservableObject {
         var notes = "Office Location: \(officeAddress)\n"
         if isOngoing {
             notes += "Status: Currently in office\n"
-            notes += "Entry Time: \(formatTime(visit.entryTime))\n"
+            notes += "First Entry: \(formatTime(visit.entryTime))\n"
         } else {
-            notes += "Entry Time: \(formatTime(visit.entryTime))\n"
+            notes += "First Entry: \(formatTime(visit.entryTime))\n"
             if let exitTime = visit.exitTime {
-                notes += "Exit Time: \(formatTime(exitTime))\n"
+                notes += "Last Exit: \(formatTime(exitTime))\n"
             }
             if let duration = visit.duration {
-                notes += "Duration: \(formatDuration(duration))\n"
+                notes += "Office Time (excluding breaks): \(formatDuration(duration))\n"
             }
         }
         

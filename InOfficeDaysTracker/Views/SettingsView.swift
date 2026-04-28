@@ -496,7 +496,7 @@ struct DataExportView: View {
         allVisits.sort { $0.date > $1.date }
         
         // Create CSV content
-        let header = "Date,Day,Entry Time,Exit Time,Duration (hours)\n"
+        let header = "Date,Day,First Entry,Last Exit,Office Time (excluding breaks) (hours)\n"
         var csvContent = header
         
         if allVisits.isEmpty {
