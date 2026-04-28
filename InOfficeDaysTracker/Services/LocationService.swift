@@ -342,6 +342,18 @@ class LocationService: NSObject, ObservableObject {
         }
     }
     
+    /// Trigger location verification when app enters foreground
+    /// Public API for view layer to request immediate verification
+    func verifyLocationOnForeground() async {
+        guard authorizationStatus == .authorizedAlways else {
+            debugLog("⚠️", "[LocationService] Foreground verification skipped - always permission required")
+            return
+        }
+        
+        debugLog("🔍", "[LocationService] Foreground verification requested")
+        await verificationService.verifyLocationNow()
+    }
+    
     func geocodeAddress(_ address: String) async throws -> CLLocationCoordinate2D {
         return try await withCheckedThrowingContinuation { continuation in
             geocoder.geocodeAddressString(address) { placemarks, error in

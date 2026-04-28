@@ -31,6 +31,29 @@ This document provides guidance and conventions for AI assistants (Copilot, Copi
   ./scripts/update_version.sh --increment-build
   ```
 
+## Deployment & Release (Fastlane)
+The project uses fastlane for App Store and TestFlight deployments. Three lanes are available:
+
+- **Deploy to TestFlight** (recommended workflow):
+  ```bash
+  fastlane ios deploy_testflight
+  ```
+  Runs tests → increments build → builds app → uploads to TestFlight
+
+- **Submit existing TestFlight build for App Store review**:
+  ```bash
+  fastlane ios submit_for_review
+  ```
+  Takes the current TestFlight build and submits it for App Store review (no new build)
+
+- **Full App Store release** (tests + build + submit):
+  ```bash
+  fastlane ios release_app_store
+  ```
+  Runs tests → increments build → builds app → uploads to App Store + submits for review
+
+**Authentication**: Uses App Store Connect API key (AuthKey_ZWWB48GR96.p8) stored in `fastlane/` directory.
+
 ## Examples / conventions
 - Prefer small refactors and keep public APIs stable.
 - If adding colors, put them in `InOfficeDaysTracker/Theme/DesignTokens.swift` and `OfficeTrackerWidget/WidgetDesignTokens.swift` and use the `Color(hex:)` helper when needed.

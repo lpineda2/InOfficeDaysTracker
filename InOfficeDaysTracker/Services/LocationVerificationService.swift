@@ -7,6 +7,9 @@
 
 import Foundation
 import CoreLocation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 @MainActor
 class LocationVerificationService: NSObject, ObservableObject {
@@ -21,6 +24,13 @@ class LocationVerificationService: NSObject, ObservableObject {
     private let verificationInterval: TimeInterval = 300 // 5 minutes
     private let locationAccuracyThreshold: CLLocationAccuracy = 100 // meters
     private let maxLocationAge: TimeInterval = 600 // 10 minutes
+    
+    // Debouncing state for foreground verification
+    private var lastVerificationTime: Date?
+    private let minimumVerificationInterval: TimeInterval = 30 // 30 seconds debounce
+    
+    // Race condition prevention
+    private var isVerifying = false
     
     override init() {
         super.init()
@@ -65,6 +75,31 @@ class LocationVerificationService: NSObject, ObservableObject {
         verificationTimer?.invalidate()
         verificationTimer = nil
         locationManager.stopUpdatingLocation()
+    }
+    
+    /// Trigger immediate location verification (typically called when app enters foreground)
+    /// Includes debouncing to prevent excessive checks from rapid app switches
+    func verifyLocationNow() async {
+        // Prevent concurrent verifications
+        guard !isVerifying else {
+            debugLog("📍", "[LocationVerification] Already verifying, skipping")
+            return
+        }
+        
+        // Debounce: Don't verify if we just did within the interval
+        if let lastTime = lastVerificationTime,
+           Date().timeIntervalSince(lastTime) < minimumVerificationInterval {
+            debugLog("📍", "[LocationVerification] Skipping - verified \(Int(Date().timeIntervalSince(lastTime)))s ago")
+            return
+        }
+        
+        isVerifying = true
+        defer { isVerifying = false }
+        
+        lastVerificationTime = Date()
+        debugLog("📍", "[LocationVerification] Starting foreground verification")
+        
+        await verifyCurrentLocation()
     }
     
     private func verifyCurrentLocation() async {
@@ -199,6 +234,9 @@ class LocationVerificationService: NSObject, ObservableObject {
         if !appData.isCurrentlyInOffice {
             appData.startVisit(at: location)
             debugLog("📍", "[LocationVerification] Manually started office visit at \(officeName)")
+            
+            // Trigger aggressive widget refresh for foreground corrections
+            await triggerWidgetRefresh(reason: "foreground verification - entry")
         }
     }
     
@@ -208,7 +246,38 @@ class LocationVerificationService: NSObject, ObservableObject {
         if appData.isCurrentlyInOffice {
             appData.endVisit()
             debugLog("📍", "[LocationVerification] Manually ended office visit")
+            
+            // Trigger aggressive widget refresh for foreground corrections
+            await triggerWidgetRefresh(reason: "foreground verification - exit")
         }
+    }
+    
+    // MARK: - Widget Refresh
+    
+    /// Trigger immediate widget refresh when verification corrects office status
+    /// Uses multi-strategy approach to ensure reliable widget updates
+    private func triggerWidgetRefresh(reason: String) async {
+        #if canImport(WidgetKit)
+        debugLog("🔄", "[LocationVerification] Triggering widget refresh: \(reason)")
+        
+        await MainActor.run {
+            // Force UserDefaults synchronization
+            appData?.sharedUserDefaults.synchronize()
+            
+            // Strategy 1: Immediate reload
+            WidgetCenter.shared.reloadAllTimelines()
+            
+            // Strategy 2: Specific widget reload
+            WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
+            
+            // Strategy 3: Delayed backup refresh
+            Task {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                WidgetCenter.shared.reloadAllTimelines()
+                debugLog("🔄", "[LocationVerification] Delayed widget refresh completed")
+            }
+        }
+        #endif
     }
 }
 
