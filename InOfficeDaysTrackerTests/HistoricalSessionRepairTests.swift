@@ -50,8 +50,8 @@ struct HistoricalSessionRepairTests {
         
         appData.visits = [visit]
         
-        // Run repair
-        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 900) // 15 min threshold
+        // Run repair with 90-minute threshold
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400) // 90 min threshold
         
         // Verify repair happened
         #expect(repairedCount == 1)
@@ -72,15 +72,15 @@ struct HistoricalSessionRepairTests {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
         
-        // Create a visit with legitimate lunch break (1-hour gap)
+        // Create a visit with legitimate long break (2-hour gap - exceeds 90 min threshold)
         let baseDate = Date()
         let event1 = OfficeEvent(
             entryTime: baseDate,
             exitTime: baseDate.addingTimeInterval(14400) // 4 hours (morning)
         )
         let event2 = OfficeEvent(
-            entryTime: baseDate.addingTimeInterval(18000), // 1 hour after event1 ends (lunch)
-            exitTime: baseDate.addingTimeInterval(32400) // 4 more hours (afternoon)
+            entryTime: baseDate.addingTimeInterval(21600), // 2 hours after event1 ends
+            exitTime: baseDate.addingTimeInterval(36000) // 4 more hours (afternoon)
         )
         
         let visit = OfficeVisit(
@@ -91,10 +91,10 @@ struct HistoricalSessionRepairTests {
         
         appData.visits = [visit]
         
-        // Run repair
-        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 900) // 15 min threshold
+        // Run repair with 90-minute threshold
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400) // 90 min threshold
         
-        // Verify NO repair (gap too large)
+        // Verify NO repair (gap too large - 2 hours > 90 min)
         #expect(repairedCount == 0)
         #expect(appData.visits[0].events.count == 2) // Still 2 separate events
     }
@@ -105,7 +105,7 @@ struct HistoricalSessionRepairTests {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
         
-        // Create a visit with 3 spurious splits (all < 15 min gaps)
+        // Create a visit with 3 spurious splits (all < 90 min gaps)
         let baseDate = Date()
         let event1 = OfficeEvent(
             entryTime: baseDate,
@@ -128,8 +128,8 @@ struct HistoricalSessionRepairTests {
         
         appData.visits = [visit]
         
-        // Run repair
-        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 900)
+        // Run repair with 90-minute threshold
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400)
         
         // Verify all merged into 1 event
         #expect(repairedCount == 1)
@@ -146,7 +146,7 @@ struct HistoricalSessionRepairTests {
         let appData = createTestAppData()
         let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
         
-        // Create visit with: short gap, long gap, short gap
+        // Create visit with: short gap, large gap (>90 min), short gap
         let baseDate = Date()
         let event1 = OfficeEvent(
             entryTime: baseDate,
@@ -157,12 +157,12 @@ struct HistoricalSessionRepairTests {
             exitTime: baseDate.addingTimeInterval(7200) // 1 hour
         )
         let event3 = OfficeEvent(
-            entryTime: baseDate.addingTimeInterval(10800), // 1 hour gap (don't merge)
-            exitTime: baseDate.addingTimeInterval(14400) // 1 hour
+            entryTime: baseDate.addingTimeInterval(14400), // 2 hour gap (don't merge - exceeds 90 min)
+            exitTime: baseDate.addingTimeInterval(18000) // 1 hour
         )
         let event4 = OfficeEvent(
-            entryTime: baseDate.addingTimeInterval(15000), // 10 min gap (merge)
-            exitTime: baseDate.addingTimeInterval(18000) // 50 min
+            entryTime: baseDate.addingTimeInterval(18600), // 10 min gap (merge)
+            exitTime: baseDate.addingTimeInterval(21600) // 50 min
         )
         
         let visit = OfficeVisit(
@@ -173,8 +173,8 @@ struct HistoricalSessionRepairTests {
         
         appData.visits = [visit]
         
-        // Run repair
-        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 900)
+        // Run repair with 90-minute threshold
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400)
         
         // Verify repair happened
         #expect(repairedCount == 1)
@@ -188,8 +188,50 @@ struct HistoricalSessionRepairTests {
         #expect(repairedVisit.events[0].exitTime == baseDate.addingTimeInterval(7200))
         
         // Verify second merged event
-        #expect(repairedVisit.events[1].entryTime == baseDate.addingTimeInterval(10800))
-        #expect(repairedVisit.events[1].exitTime == baseDate.addingTimeInterval(18000))
+        #expect(repairedVisit.events[1].entryTime == baseDate.addingTimeInterval(14400))
+        #expect(repairedVisit.events[1].exitTime == baseDate.addingTimeInterval(21600))
+    }
+    
+    @Test("Repair merges lunch-time GPS drift (68 minute gap)")
+    @MainActor
+    func testRepairMergesLunchTimeGPSDrift() throws {
+        let appData = createTestAppData()
+        let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        
+        // Simulate user's scenario: 7:40 AM to 4:08 PM with 68-minute GPS dropout during lunch
+        // User was in office the entire time but lost GPS signal
+        let baseDate = Date()
+        let event1 = OfficeEvent(
+            entryTime: baseDate, // 7:40 AM equivalent
+            exitTime: baseDate.addingTimeInterval(15480) // 4.3 hours later (12:04 PM)
+        )
+        let event2 = OfficeEvent(
+            entryTime: baseDate.addingTimeInterval(19560), // 68 minutes after event1 ends (1:12 PM)
+            exitTime: baseDate.addingTimeInterval(30480) // 3 more hours (4:08 PM)
+        )
+        
+        let visit = OfficeVisit(
+            date: baseDate,
+            events: [event1, event2],
+            coordinate: testLocation
+        )
+        
+        appData.visits = [visit]
+        
+        // Run repair with 90-minute threshold (should merge 68-minute gap)
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400)
+        
+        // Verify repair merged the GPS drift
+        #expect(repairedCount == 1)
+        #expect(appData.visits[0].events.count == 1)
+        
+        let mergedEvent = appData.visits[0].events[0]
+        #expect(mergedEvent.entryTime == baseDate)
+        #expect(mergedEvent.exitTime == baseDate.addingTimeInterval(30480))
+        
+        // Verify total duration is now correct (8.47 hours instead of 7.34 hours with gap)
+        let totalDuration = mergedEvent.duration ?? 0
+        #expect(totalDuration == 30480) // Full 8.47 hours
     }
     
     @Test("Repair skips active sessions")
@@ -218,7 +260,7 @@ struct HistoricalSessionRepairTests {
         appData.visits = [visit]
         
         // Run repair
-        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 900)
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400)
         
         // Verify NO repair (active session should not be modified)
         #expect(repairedCount == 0)
@@ -234,7 +276,7 @@ struct HistoricalSessionRepairTests {
         #expect(appData.visits.isEmpty)
         
         // Run repair
-        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 900)
+        let repairedCount = appData.repairHistoricalSessions(gapThreshold: 5400)
         
         // Should complete without error
         #expect(repairedCount == 0)
@@ -267,12 +309,12 @@ struct HistoricalSessionRepairTests {
         appData.visits = [visit]
         
         // Run repair first time
-        let firstRepairCount = appData.repairHistoricalSessions(gapThreshold: 900)
+        let firstRepairCount = appData.repairHistoricalSessions(gapThreshold: 5400)
         #expect(firstRepairCount == 1)
         #expect(appData.visits[0].events.count == 1)
         
         // Run repair again
-        let secondRepairCount = appData.repairHistoricalSessions(gapThreshold: 900)
+        let secondRepairCount = appData.repairHistoricalSessions(gapThreshold: 5400)
         
         // Should not modify anything (already repaired)
         #expect(secondRepairCount == 0)
@@ -308,7 +350,7 @@ struct HistoricalSessionRepairTests {
         let durationBefore = visit.duration! // 8 hours total work time
         
         // Run repair
-        appData.repairHistoricalSessions(gapThreshold: 900)
+        appData.repairHistoricalSessions(gapThreshold: 5400)
         
         // Duration after repair (includes gap since it's now one session)
         let repairedVisit = appData.visits[0]

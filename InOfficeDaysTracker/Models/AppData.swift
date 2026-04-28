@@ -660,36 +660,52 @@ class AppData: ObservableObject {
     
     // MARK: - Historical Data Repair
     
+    /// Trigger foreground repair when app becomes active
+    /// Called by the app when returning from background
+    func triggerForegroundRepair() {
+        performHistoricalSessionRepairIfNeeded()
+    }
+    
     /// One-time migration to repair historical sessions with spurious splits
     private func performHistoricalSessionRepairIfNeeded() {
-        let repairKey = "HistoricalSessionRepairV1_Completed"
+        let repairKey = "HistoricalSessionRepairLastRun"
+        let debounceInterval: TimeInterval = 3600 // 1 hour
         
-        // Check if repair has already been run
-        if sharedUserDefaults.bool(forKey: repairKey) {
-            debugLog("ℹ️", "[AppData] Historical session repair already completed, skipping")
-            return
+        // Check when repair was last run
+        if let lastRepairTime = sharedUserDefaults.object(forKey: repairKey) as? Date {
+            let timeSinceLastRepair = Date().timeIntervalSince(lastRepairTime)
+            if timeSinceLastRepair < debounceInterval {
+                debugLog("ℹ️", "[AppData] Historical session repair run recently (\(Int(timeSinceLastRepair/60))m ago), skipping")
+                return
+            }
         }
         
-        debugLog("🔧", "[AppData] Running one-time historical session repair...")
+        debugLog("🔧", "[AppData] Running historical session repair for recent data...")
         
-        // Run the repair with 15-minute gap threshold
-        let repairedCount = repairHistoricalSessions(gapThreshold: 900)
+        // Run the repair with 90-minute gap threshold (catches lunch-time GPS drift)
+        // Filter to last 30 days for performance
+        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let recentVisits = visits.filter { $0.date >= thirtyDaysAgo }
         
-        // Mark as completed
-        sharedUserDefaults.set(true, forKey: repairKey)
+        if !recentVisits.isEmpty {
+            let repairedCount = repairHistoricalSessions(gapThreshold: 5400) // 90 minutes
+            
+            if repairedCount > 0 {
+                debugLog("✅", "[AppData] Historical repair completed: fixed \(repairedCount) recent visits")
+            }
+        }
+        
+        // Update last repair timestamp
+        sharedUserDefaults.set(Date(), forKey: repairKey)
         sharedUserDefaults.synchronize()
-        
-        if repairedCount > 0 {
-            debugLog("✅", "[AppData] Historical repair completed: fixed \(repairedCount) visits")
-        }
     }
     
     /// Repair historical sessions by merging events with short gaps (likely GPS drift)
     /// This fixes visits that were incorrectly split due to false geofence exits
-    /// - Parameter gapThreshold: Maximum gap in seconds to merge (default: 15 minutes)
+    /// - Parameter gapThreshold: Maximum gap in seconds to merge (default: 90 minutes)
     /// - Returns: Number of visits repaired
     @discardableResult
-    func repairHistoricalSessions(gapThreshold: TimeInterval = 900) -> Int {
+    func repairHistoricalSessions(gapThreshold: TimeInterval = 5400) -> Int {
         var repairCount = 0
         var repairedVisits: [OfficeVisit] = []
         

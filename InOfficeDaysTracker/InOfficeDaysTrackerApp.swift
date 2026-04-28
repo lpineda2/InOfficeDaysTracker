@@ -13,6 +13,7 @@ struct InOfficeDaysTrackerApp: App {
     @StateObject private var appData = AppData()
     @StateObject private var locationService = LocationService()
     @StateObject private var notificationService = NotificationService.shared
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some Scene {
         WindowGroup {
@@ -35,6 +36,14 @@ struct InOfficeDaysTrackerApp: App {
                         whatsNewCollection: self
                     )
                 )
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                // Run repair when app comes to foreground
+                Task { @MainActor in
+                    appData.triggerForegroundRepair()
+                }
+            }
         }
     }
 }
