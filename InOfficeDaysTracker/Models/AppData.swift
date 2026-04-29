@@ -42,6 +42,11 @@ class AppData: ObservableObject {
     private let currentVisitKey = "CurrentVisit"
     private let widgetDataKey = "WidgetData"
     
+    // Historical repair constants
+    private static let repairGapThreshold: TimeInterval = 90 * 60 // 90 minutes
+    private static let repairDebounceInterval: TimeInterval = 60 * 60 // 1 hour
+    private static let repairDateRangeDays: Int = 30 // Last 30 days
+    
     init(sharedUserDefaults: UserDefaults? = nil) {
         // Allow tests to inject a custom UserDefaults (isolated suite) to avoid cross-test races
         self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
@@ -669,12 +674,11 @@ class AppData: ObservableObject {
     /// One-time migration to repair historical sessions with spurious splits
     private func performHistoricalSessionRepairIfNeeded() {
         let repairKey = "HistoricalSessionRepairLastRun"
-        let debounceInterval: TimeInterval = 3600 // 1 hour
         
         // Check when repair was last run
         if let lastRepairTime = sharedUserDefaults.object(forKey: repairKey) as? Date {
             let timeSinceLastRepair = Date().timeIntervalSince(lastRepairTime)
-            if timeSinceLastRepair < debounceInterval {
+            if timeSinceLastRepair < Self.repairDebounceInterval {
                 debugLog("ℹ️", "[AppData] Historical session repair run recently (\(Int(timeSinceLastRepair/60))m ago), skipping")
                 return
             }
@@ -684,15 +688,15 @@ class AppData: ObservableObject {
         
         // Run the repair with 90-minute gap threshold (catches lunch-time GPS drift)
         // Filter to last 30 days for performance
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-        let recentVisits = visits.filter { $0.date >= thirtyDaysAgo }
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -Self.repairDateRangeDays, to: Date()) ?? Date()
         
-        if !recentVisits.isEmpty {
-            let repairedCount = repairHistoricalSessions(gapThreshold: 5400) // 90 minutes
-            
-            if repairedCount > 0 {
-                debugLog("✅", "[AppData] Historical repair completed: fixed \(repairedCount) recent visits")
-            }
+        let repairedCount = repairHistoricalSessions(
+            gapThreshold: Self.repairGapThreshold,
+            dateFilter: cutoffDate
+        )
+        
+        if repairedCount > 0 {
+            debugLog("✅", "[AppData] Historical repair completed: fixed \(repairedCount) recent visits")
         }
         
         // Update last repair timestamp
@@ -703,15 +707,36 @@ class AppData: ObservableObject {
     /// Repair historical sessions by merging events with short gaps (likely GPS drift)
     /// This fixes visits that were incorrectly split due to false geofence exits
     /// - Parameter gapThreshold: Maximum gap in seconds to merge (default: 90 minutes)
+    /// - Parameter dateFilter: Only repair visits on or after this date (nil = all visits)
     /// - Returns: Number of visits repaired
     @discardableResult
-    func repairHistoricalSessions(gapThreshold: TimeInterval = 5400) -> Int {
+    func repairHistoricalSessions(gapThreshold: TimeInterval = 5400, dateFilter: Date? = nil) -> Int {
         var repairCount = 0
         var repairedVisits: [OfficeVisit] = []
         
         debugLog("🔧", "[AppData] Starting historical session repair (gap threshold: \(Int(gapThreshold/60)) minutes)")
         
+        // Filter visits if date range specified
+        let visitsToRepair = if let cutoffDate = dateFilter {
+            visits.filter { $0.date >= cutoffDate }
+        } else {
+            visits
+        }
+        
+        if visitsToRepair.isEmpty {
+            debugLog("ℹ️", "[AppData] No visits in range to repair")
+            return 0
+        }
+        
+        debugLog("ℹ️", "[AppData] Checking \(visitsToRepair.count) visits for repair")
+        
         for visit in visits {
+            // Skip visits outside date filter
+            if let cutoffDate = dateFilter, visit.date < cutoffDate {
+                repairedVisits.append(visit)
+                continue
+            }
+            
             // Only repair completed visits with multiple events
             guard visit.events.count > 1,
                   !visit.isActiveSession else {

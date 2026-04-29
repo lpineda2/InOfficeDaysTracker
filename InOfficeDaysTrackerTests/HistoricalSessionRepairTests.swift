@@ -364,4 +364,228 @@ struct HistoricalSessionRepairTests {
         #expect(durationAfter > durationBefore)
         #expect(abs(durationAfter - durationBefore - 600) < 1) // ~10 min difference
     }
+    
+    // MARK: - Date Filter Tests
+    
+    @Test("Repair respects date filter (only repairs recent visits)")
+    @MainActor
+    func testRepairRespectsDateFilter() throws {
+        let appData = createTestAppData()
+        let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        let calendar = Calendar.current
+        
+        // Create old visit (45 days ago) with GPS drift
+        let oldDate = calendar.date(byAdding: .day, value: -45, to: Date())!
+        let oldEvent1 = OfficeEvent(
+            entryTime: oldDate,
+            exitTime: oldDate.addingTimeInterval(3600)
+        )
+        let oldEvent2 = OfficeEvent(
+            entryTime: oldDate.addingTimeInterval(4200), // 10 min gap
+            exitTime: oldDate.addingTimeInterval(7200)
+        )
+        let oldVisit = OfficeVisit(
+            date: oldDate,
+            events: [oldEvent1, oldEvent2],
+            coordinate: testLocation
+        )
+        
+        // Create recent visit (15 days ago) with GPS drift
+        let recentDate = calendar.date(byAdding: .day, value: -15, to: Date())!
+        let recentEvent1 = OfficeEvent(
+            entryTime: recentDate,
+            exitTime: recentDate.addingTimeInterval(3600)
+        )
+        let recentEvent2 = OfficeEvent(
+            entryTime: recentDate.addingTimeInterval(4200), // 10 min gap
+            exitTime: recentDate.addingTimeInterval(7200)
+        )
+        let recentVisit = OfficeVisit(
+            date: recentDate,
+            events: [recentEvent1, recentEvent2],
+            coordinate: testLocation
+        )
+        
+        appData.visits = [oldVisit, recentVisit]
+        
+        // Run repair with 30-day filter
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: Date())!
+        let repairedCount = appData.repairHistoricalSessions(dateFilter: thirtyDaysAgo)
+        
+        // Should only repair the recent visit
+        #expect(repairedCount == 1)
+        
+        // Find visits in results
+        let oldVisitResult = appData.visits.first { calendar.isDate($0.date, inSameDayAs: oldDate) }
+        let recentVisitResult = appData.visits.first { calendar.isDate($0.date, inSameDayAs: recentDate) }
+        
+        // Old visit should be unchanged (2 events)
+        #expect(oldVisitResult?.events.count == 2)
+        
+        // Recent visit should be repaired (1 event)
+        #expect(recentVisitResult?.events.count == 1)
+    }
+    
+    @Test("Repair without date filter processes all visits")
+    @MainActor
+    func testRepairWithoutDateFilterProcessesAll() throws {
+        let appData = createTestAppData()
+        let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        let calendar = Calendar.current
+        
+        // Create old visit (60 days ago)
+        let oldDate = calendar.date(byAdding: .day, value: -60, to: Date())!
+        let oldEvent1 = OfficeEvent(
+            entryTime: oldDate,
+            exitTime: oldDate.addingTimeInterval(3600)
+        )
+        let oldEvent2 = OfficeEvent(
+            entryTime: oldDate.addingTimeInterval(4200),
+            exitTime: oldDate.addingTimeInterval(7200)
+        )
+        let oldVisit = OfficeVisit(
+            date: oldDate,
+            events: [oldEvent1, oldEvent2],
+            coordinate: testLocation
+        )
+        
+        // Create recent visit
+        let recentDate = Date()
+        let recentEvent1 = OfficeEvent(
+            entryTime: recentDate,
+            exitTime: recentDate.addingTimeInterval(3600)
+        )
+        let recentEvent2 = OfficeEvent(
+            entryTime: recentDate.addingTimeInterval(4200),
+            exitTime: recentDate.addingTimeInterval(7200)
+        )
+        let recentVisit = OfficeVisit(
+            date: recentDate,
+            events: [recentEvent1, recentEvent2],
+            coordinate: testLocation
+        )
+        
+        appData.visits = [oldVisit, recentVisit]
+        
+        // Run repair without date filter
+        let repairedCount = appData.repairHistoricalSessions(dateFilter: nil)
+        
+        // Should repair both visits
+        #expect(repairedCount == 2)
+        #expect(appData.visits.allSatisfy { $0.events.count == 1 })
+    }
+    
+    // MARK: - Debouncing Tests
+    
+    @Test("Debouncing prevents repeated repairs within 1 hour")
+    @MainActor
+    func testDebouncingPreventsRepeatedRepairs() throws {
+        let appData = createTestAppData()
+        let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        
+        // Create a visit needing repair
+        let baseDate = Date()
+        let event1 = OfficeEvent(
+            entryTime: baseDate,
+            exitTime: baseDate.addingTimeInterval(3600)
+        )
+        let event2 = OfficeEvent(
+            entryTime: baseDate.addingTimeInterval(4200),
+            exitTime: baseDate.addingTimeInterval(7200)
+        )
+        let visit = OfficeVisit(
+            date: baseDate,
+            events: [event1, event2],
+            coordinate: testLocation
+        )
+        
+        appData.visits = [visit]
+        
+        // First repair via foreground trigger
+        appData.triggerForegroundRepair()
+        
+        // Verify repair happened
+        #expect(appData.visits[0].events.count == 1)
+        
+        // Add another broken visit
+        let newDate = baseDate.addingTimeInterval(86400) // Next day
+        let newEvent1 = OfficeEvent(
+            entryTime: newDate,
+            exitTime: newDate.addingTimeInterval(3600)
+        )
+        let newEvent2 = OfficeEvent(
+            entryTime: newDate.addingTimeInterval(4200),
+            exitTime: newDate.addingTimeInterval(7200)
+        )
+        let newVisit = OfficeVisit(
+            date: newDate,
+            events: [newEvent1, newEvent2],
+            coordinate: testLocation
+        )
+        appData.visits.append(newVisit)
+        
+        // Second repair immediately after (should be debounced)
+        appData.triggerForegroundRepair()
+        
+        // New visit should NOT be repaired due to debouncing
+        let newVisitResult = appData.visits.first { $0.id == newVisit.id }
+        #expect(newVisitResult?.events.count == 2) // Still 2 events (not repaired)
+    }
+    
+    @Test("Repair runs after debounce interval expires")
+    @MainActor
+    func testRepairRunsAfterDebounceExpires() throws {
+        let appData = createTestAppData()
+        let testLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        
+        // Create initial visit
+        let baseDate = Date()
+        let event1 = OfficeEvent(
+            entryTime: baseDate,
+            exitTime: baseDate.addingTimeInterval(3600)
+        )
+        let event2 = OfficeEvent(
+            entryTime: baseDate.addingTimeInterval(4200),
+            exitTime: baseDate.addingTimeInterval(7200)
+        )
+        let visit = OfficeVisit(
+            date: baseDate,
+            events: [event1, event2],
+            coordinate: testLocation
+        )
+        
+        appData.visits = [visit]
+        
+        // First repair
+        appData.triggerForegroundRepair()
+        #expect(appData.visits[0].events.count == 1)
+        
+        // Manually set last repair time to more than 1 hour ago
+        let moreThanOneHourAgo = Date().addingTimeInterval(-3700) // 61 minutes ago
+        appData.sharedUserDefaults.set(moreThanOneHourAgo, forKey: "HistoricalSessionRepairLastRun")
+        
+        // Add new broken visit
+        let newDate = baseDate.addingTimeInterval(86400)
+        let newEvent1 = OfficeEvent(
+            entryTime: newDate,
+            exitTime: newDate.addingTimeInterval(3600)
+        )
+        let newEvent2 = OfficeEvent(
+            entryTime: newDate.addingTimeInterval(4200),
+            exitTime: newDate.addingTimeInterval(7200)
+        )
+        let newVisit = OfficeVisit(
+            date: newDate,
+            events: [newEvent1, newEvent2],
+            coordinate: testLocation
+        )
+        appData.visits.append(newVisit)
+        
+        // Repair should run since debounce expired
+        appData.triggerForegroundRepair()
+        
+        // New visit should be repaired
+        let newVisitResult = appData.visits.first { $0.id == newVisit.id }
+        #expect(newVisitResult?.events.count == 1) // Repaired
+    }
 }
