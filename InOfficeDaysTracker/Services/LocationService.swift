@@ -567,9 +567,14 @@ extension LocationService: CLLocationManagerDelegate {
                 
             case .outside:
                 // User is outside - end any active visit if one exists
+                // BUT: Don't interfere with active exit grace period
                 if appData.isCurrentlyInOffice {
-                    debugLog("🔍", "[LocationService] User outside office on app launch, ending stale visit")
-                    appData.endVisit()
+                    if exitGraceTimer != nil {
+                        debugLog("ℹ️", "[LocationService] User outside but grace period active, not ending visit")
+                    } else {
+                        debugLog("🔍", "[LocationService] User outside office on app launch, ending stale visit")
+                        appData.endVisit()
+                    }
                 } else {
                     debugLog("ℹ️", "[LocationService] User is outside office region")
                 }
