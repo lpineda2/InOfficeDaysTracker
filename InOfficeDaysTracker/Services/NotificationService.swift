@@ -72,6 +72,46 @@ class NotificationService: NSObject, ObservableObject {
         }
     }
     
+    /// Schedule exit notification with delay to work around iOS app suspension
+    /// Uses UNTimeIntervalNotificationTrigger so notification delivery is handled by iOS
+    /// This ensures the notification fires even if the app is suspended/terminated
+    func scheduleExitNotification(afterDelay delay: TimeInterval) {
+        guard authorizationStatus == .authorized else { return }
+        
+        // Cancel any existing pending exit notification
+        cancelPendingExitNotification()
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Office Visit Ended"
+        content.body = "You've left your office. Visit has been logged."
+        content.sound = .default
+        
+        // Use time interval trigger so iOS delivers notification even if app is suspended
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+        
+        let request = UNNotificationRequest(
+            identifier: "pending_exit_notification",
+            content: content,
+            trigger: trigger
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                debugLog("❌", "Error scheduling exit notification: \(error)")
+            } else {
+                debugLog("✅", "Exit notification scheduled for \(Int(delay))s from now")
+            }
+        }
+    }
+    
+    /// Cancel pending exit notification (e.g., when user re-enters during grace period)
+    func cancelPendingExitNotification() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: ["pending_exit_notification"]
+        )
+        debugLog("🔔", "Cancelled pending exit notification")
+    }
+    
     func sendGoalReminderNotification(current: Int, goal: Int) {
         guard authorizationStatus == .authorized else { return }
         

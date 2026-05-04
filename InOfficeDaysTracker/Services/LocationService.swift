@@ -590,6 +590,9 @@ extension LocationService: CLLocationManagerDelegate {
             exitGraceTimer = nil
             pendingExitRegion = nil
             
+            // Cancel scheduled exit notification
+            NotificationService.shared.cancelPendingExitNotification()
+            
             if let exitTime = exitTime {
                 let awayDuration = Date().timeIntervalSince(exitTime)
                 debugLog("✅", "[LocationService] Re-entry detected during grace period (away for \(Int(awayDuration))s), canceling exit")
@@ -739,10 +742,26 @@ extension LocationService: CLLocationManagerDelegate {
             pendingExitRegion = region
             exitTime = Date()
             
-            // Start grace period timer
+            // Schedule exit notification immediately using iOS notification system
+            // This ensures notification fires even if app is suspended
+            if appData.settings.notificationsEnabled {
+                NotificationService.shared.scheduleExitNotification(afterDelay: exitGracePeriod)
+            }
+            
+            // Start grace period timer for ending the visit
+            // Using background task to ensure completion even if app goes to background
+            let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
+                debugLog("⚠️", "[LocationService] Background task expired before exit could complete")
+            }
+            
             exitGraceTimer = Timer.scheduledTimer(withTimeInterval: exitGracePeriod, repeats: false) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self = self, let appData = self.appData else { return }
+                    guard let self = self, let appData = self.appData else {
+                        if backgroundTaskID != .invalid {
+                            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                        }
+                        return
+                    }
                     
                     // Grace period expired - confirm exit
                     debugLog("⏰", "[LocationService] Grace period expired, confirming exit from \(office.name)")
@@ -764,14 +783,14 @@ extension LocationService: CLLocationManagerDelegate {
                     // Trigger immediate widget refresh for office exit
                     self.triggerWidgetRefresh(reason: "office exit after grace period")
                     
-                    // Send notification
-                    if appData.settings.notificationsEnabled {
-                        NotificationService.shared.sendVisitNotification(type: .exit)
-                    }
-                    
                     // Clear pending exit
                     self.pendingExitRegion = nil
                     self.exitTime = nil
+                    
+                    // End background task
+                    if backgroundTaskID != .invalid {
+                        UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                    }
                 }
             }
         }
