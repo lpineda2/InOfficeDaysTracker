@@ -556,12 +556,34 @@ extension LocationService: CLLocationManagerDelegate {
             #if DEBUG
             debugLog("🎯", "[LocationService] didDetermineState: \(state.rawValue) for region: \(region.identifier)")
             #endif
-            // Handle the case where user is already inside the geofence when monitoring starts
-            if state == .inside && region.identifier == "office_location" {
+            
+            guard let appData = appData else { return }
+            
+            switch state {
+            case .inside:
+                // User is already inside when monitoring starts
                 debugLog("✅", "[LocationService] User is already inside office region")
                 handleRegionEntry(region)
-            } else {
-                debugLog("ℹ️", "[LocationService] User is outside office region or unknown state")
+                
+            case .outside:
+                // User is outside - end any active visit if one exists
+                // BUT: Don't interfere with active exit grace period
+                if appData.isCurrentlyInOffice {
+                    if exitGraceTimer != nil {
+                        debugLog("ℹ️", "[LocationService] User outside but grace period active, not ending visit")
+                    } else {
+                        debugLog("🔍", "[LocationService] User outside office on app launch, ending stale visit")
+                        appData.endVisit()
+                    }
+                } else {
+                    debugLog("ℹ️", "[LocationService] User is outside office region")
+                }
+                
+            case .unknown:
+                debugLog("ℹ️", "[LocationService] Region state unknown")
+                
+            @unknown default:
+                debugLog("⚠️", "[LocationService] Unexpected region state: \(state.rawValue)")
             }
         }
     }
@@ -749,19 +771,10 @@ extension LocationService: CLLocationManagerDelegate {
             }
             
             // Start grace period timer for ending the visit
-            // Using background task to ensure completion even if app goes to background
-            let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-                debugLog("⚠️", "[LocationService] Background task expired before exit could complete")
-            }
-            
+            // Timer runs in foreground; notification fires independently via iOS
             exitGraceTimer = Timer.scheduledTimer(withTimeInterval: exitGracePeriod, repeats: false) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self = self, let appData = self.appData else {
-                        if backgroundTaskID != .invalid {
-                            UIApplication.shared.endBackgroundTask(backgroundTaskID)
-                        }
-                        return
-                    }
+                    guard let self = self, let appData = self.appData else { return }
                     
                     // Grace period expired - confirm exit
                     debugLog("⏰", "[LocationService] Grace period expired, confirming exit from \(office.name)")
@@ -786,11 +799,6 @@ extension LocationService: CLLocationManagerDelegate {
                     // Clear pending exit
                     self.pendingExitRegion = nil
                     self.exitTime = nil
-                    
-                    // End background task
-                    if backgroundTaskID != .invalid {
-                        UIApplication.shared.endBackgroundTask(backgroundTaskID)
-                    }
                 }
             }
         }
