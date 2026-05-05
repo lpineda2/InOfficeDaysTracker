@@ -483,6 +483,37 @@ class AppData: ObservableObject {
         }
     }
     
+    /// Add multiple PTO/sick days efficiently (single save operation)
+    func addPTODays(_ dates: [Date]) {
+        guard !dates.isEmpty else { return }
+        
+        let calendar = Calendar.current
+        
+        // Group dates by month
+        var datesByMonth: [String: [Date]] = [:]
+        for date in dates {
+            let monthKey = monthKeyString(for: date)
+            datesByMonth[monthKey, default: []].append(date)
+        }
+        
+        // Add dates to each month, avoiding duplicates
+        for (monthKey, newDates) in datesByMonth {
+            var days = settings.ptoSickDays[monthKey] ?? []
+            
+            for date in newDates {
+                if !days.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
+                    days.append(date)
+                }
+            }
+            
+            days.sort()
+            settings.ptoSickDays[monthKey] = days
+        }
+        
+        // Single save after all additions
+        saveSettings()
+    }
+    
     /// Remove a PTO/sick day for a specific month
     func removePTODay(_ date: Date) {
         let monthKey = monthKeyString(for: date)

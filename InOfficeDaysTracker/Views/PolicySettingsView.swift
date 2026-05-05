@@ -604,8 +604,10 @@ struct PTOPickerSheet: View {
         
         let dates = mode == .single ? [selectedDate] : generateDateRange()
         
-        // Add all dates
-        for date in dates {
+        // Use batch method for multiple dates to avoid cascading saves
+        if dates.count > 1 {
+            appData.addPTODays(dates)
+        } else if let date = dates.first {
             appData.addPTODay(date)
         }
         

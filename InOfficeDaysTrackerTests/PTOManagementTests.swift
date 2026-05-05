@@ -394,5 +394,63 @@ struct PTOManagementTests {
         let expectedWorkingDays = breakdown.businessDays  // No additional PTO subtraction
         #expect(breakdown.workingDays == expectedWorkingDays, "Expected \(expectedWorkingDays) working days, got \(breakdown.workingDays)")
     }
+    
+    @Test("PTO batch add - single save operation for multiple days")
+    func testBatchAddPTODays() async throws {
+        let appData = createTestAppData()
+        
+        // Add multiple PTO days using batch method
+        let dates = [
+            createTestDate(day: 14),  // Monday
+            createTestDate(day: 15),  // Tuesday
+            createTestDate(day: 16),  // Wednesday
+            createTestDate(day: 21),  // Monday next week
+            createTestDate(day: 22),  // Tuesday next week
+            createTestDate(day: 23),  // Wednesday next week
+            createTestDate(day: 24),  // Thursday next week
+            createTestDate(day: 25),  // Friday next week
+            createTestDate(day: 28)   // Monday following week
+        ]
+        
+        appData.addPTODays(dates)
+        
+        let ptoDays = appData.getPTODays(for: createTestDate(day: 1))
+        
+        // Should have all 9 days
+        #expect(ptoDays.count == 9, "Expected 9 PTO days, got \(ptoDays.count)")
+        
+        // Verify each day is present
+        let calendar = Calendar.current
+        for expectedDate in dates {
+            let found = ptoDays.contains { pto in
+                calendar.isDate(pto, inSameDayAs: expectedDate)
+            }
+            #expect(found, "Expected to find PTO day for \(expectedDate)")
+        }
+    }
+    
+    @Test("PTO batch add - handles duplicates correctly")
+    func testBatchAddPTODaysDeduplicates() async throws {
+        let appData = createTestAppData()
+        
+        // Add some days individually first
+        appData.addPTODay(createTestDate(day: 14))
+        appData.addPTODay(createTestDate(day: 15))
+        
+        // Now batch add overlapping range
+        let dates = [
+            createTestDate(day: 14),  // Duplicate
+            createTestDate(day: 15),  // Duplicate
+            createTestDate(day: 16),  // New
+            createTestDate(day: 17),  // New
+        ]
+        
+        appData.addPTODays(dates)
+        
+        let ptoDays = appData.getPTODays(for: createTestDate(day: 1))
+        
+        // Should only have 4 unique days
+        #expect(ptoDays.count == 4, "Expected 4 unique PTO days, got \(ptoDays.count)")
+    }
 }
 
