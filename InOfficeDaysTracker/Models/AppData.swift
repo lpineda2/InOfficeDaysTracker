@@ -513,14 +513,23 @@ class AppData: ObservableObject {
         let holidays = getHolidaysInMonth(month)
         let businessDays = weekdays - holidays.count
         let ptoDays = getPTODays(for: month)
-        let workingDays = max(0, businessDays - ptoDays.count)
+        
+        // Deduplicate: Remove PTO days that are also holidays to prevent double-counting
+        let calendar = Calendar.current
+        let uniquePTODays = ptoDays.filter { ptoDate in
+            !holidays.contains { holiday in
+                calendar.isDate(ptoDate, inSameDayAs: holiday)
+            }
+        }
+        
+        let workingDays = max(0, businessDays - uniquePTODays.count)
         let requiredDays = settings.companyPolicy.calculateRequiredDays(workingDays: workingDays)
         
         return GoalCalculationBreakdown(
             weekdaysInMonth: weekdays,
             holidays: holidays,
             businessDays: businessDays,
-            ptoDays: ptoDays,
+            ptoDays: uniquePTODays,  // Return deduplicated list
             workingDays: workingDays,
             policyPercentage: settings.companyPolicy.requiredPercentage,
             requiredDays: requiredDays

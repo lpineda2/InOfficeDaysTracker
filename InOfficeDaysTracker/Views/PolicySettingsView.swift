@@ -359,52 +359,53 @@ struct PTOPickerSheet: View {
     let editingDate: Date?
     @Environment(\.dismiss) private var dismiss
     
+    enum SelectionMode {
+        case single
+        case range
+    }
+    
+    @State private var mode: SelectionMode = .single
     @State private var selectedDate = Date()
+    @State private var startDate = Date()
+    @State private var endDate = Date()
     
     init(appData: AppData, month: Date, editingDate: Date? = nil) {
         self.appData = appData
         self.month = month
         self.editingDate = editingDate
         _selectedDate = State(initialValue: editingDate ?? Date())
+        _startDate = State(initialValue: editingDate ?? Date())
+        _endDate = State(initialValue: editingDate ?? Date())
     }
     
     var body: some View {
         NavigationView {
             Form {
-                Section {
-                    DatePicker(
-                        "Select Date",
-                        selection: $selectedDate,
-                        in: monthDateRange,
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.graphical)
-                } header: {
-                    Text("Select PTO/Sick Day")
+                // Mode selection (only show for new entries, not edits)
+                if editingDate == nil {
+                    Section {
+                        Picker("Selection Mode", selection: $mode) {
+                            Text("Single Day").tag(SelectionMode.single)
+                            Text("Date Range").tag(SelectionMode.range)
+                        }
+                        .pickerStyle(.segmented)
+                    }
                 }
                 
-                Section {
-                    let holidays = appData.getHolidaysInMonth(month)
-                    if !holidays.isEmpty {
-                        ForEach(holidays, id: \.self) { date in
-                            HStack {
-                                Image(systemName: "calendar.badge.exclamationmark")
-                                    .foregroundColor(.orange)
-                                Text(formatDate(date))
-                                Text("(Holiday)")
-                                    .foregroundColor(.secondary)
-                            }
-                            .font(.subheadline)
-                        }
-                    } else {
-                        Text("No holidays this month")
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text("Holidays (Already Excluded)")
+                // Date selection based on mode
+                if mode == .single {
+                    singleDaySection
+                } else {
+                    dateRangeSection
                 }
+                
+                // Validation and summary
+                validationSection
+                
+                // Holidays reference
+                holidaysSection
             }
-            .navigationTitle(editingDate == nil ? "Add PTO Day" : "Edit PTO Day")
+            .navigationTitle(editingDate == nil ? "Add PTO Days" : "Edit PTO Day")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -414,15 +415,201 @@ struct PTOPickerSheet: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(editingDate == nil ? "Add" : "Update") {
-                        if let oldDate = editingDate {
-                            appData.removePTODay(oldDate)
-                        }
-                        appData.addPTODay(selectedDate)
-                        dismiss()
+                        saveDays()
                     }
+                    .disabled(mode == .range && startDate > endDate)
                 }
             }
         }
+    }
+    
+    private var singleDaySection: some View {
+        Section {
+            DatePicker(
+                "Select Date",
+                selection: $selectedDate,
+                in: monthDateRange,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+        } header: {
+            Text("Select PTO/Sick Day")
+        }
+    }
+    
+    private var dateRangeSection: some View {
+        Section {
+            DatePicker(
+                "Start Date",
+                selection: $startDate,
+                in: monthDateRange,
+                displayedComponents: .date
+            )
+            
+            DatePicker(
+                "End Date",
+                selection: $endDate,
+                in: startDate...monthEnd,
+                displayedComponents: .date
+            )
+        } header: {
+            Text("Select Date Range")
+        } footer: {
+            if startDate > endDate {
+                Text("End date must be after start date")
+                    .foregroundColor(.red)
+            } else {
+                Text("Weekends and holidays will be excluded automatically")
+                    .foregroundColor(DesignTokens.textSecondary)
+            }
+        }
+    }
+    
+    private var validationSection: some View {
+        Section {
+            if mode == .range {
+                let dates = generateDateRange()
+                let holidays = getHolidaysInRange(dates)
+                
+                // Show effective count
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Total Days:")
+                        Spacer()
+                        Text("\(dates.count)")
+                            .fontWeight(.semibold)
+                    }
+                    
+                    // Show warning if range includes holidays
+                    if !holidays.isEmpty {
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Holidays in Range")
+                                    .fontWeight(.semibold)
+                                    .font(.subheadline)
+                                
+                                Text("These dates are already excluded as holidays:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                ForEach(holidays, id: \.self) { date in
+                                    Text("• \(formatDate(date))")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        HStack {
+                            Text("PTO Days to Add:")
+                            Spacer()
+                            Text("\(dates.count)")
+                                .fontWeight(.semibold)
+                                .foregroundColor(DesignTokens.cyanAccent)
+                        }
+                        
+                        Text("(\(holidays.count) holiday\(holidays.count == 1 ? "" : "s") excluded)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        } header: {
+            if mode == .range {
+                Text("Summary")
+            }
+        }
+    }
+    
+    private var holidaysSection: some View {
+        Section {
+            let holidays = appData.getHolidaysInMonth(month)
+            if !holidays.isEmpty {
+                ForEach(holidays, id: \.self) { date in
+                    HStack {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .foregroundColor(.orange)
+                        Text(formatDate(date))
+                        Text("(Holiday)")
+                            .foregroundColor(.secondary)
+                    }
+                    .font(.subheadline)
+                }
+            } else {
+                Text("No holidays this month")
+                    .foregroundColor(.secondary)
+            }
+        } header: {
+            Text("Holidays (Already Excluded)")
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func generateDateRange() -> [Date] {
+        guard mode == .range else { return [selectedDate] }
+        
+        var dates: [Date] = []
+        var current = startDate
+        let calendar = Calendar.current
+        let holidays = appData.getHolidaysInMonth(month)
+        
+        while current <= endDate {
+            // Include if it's a tracking day AND not a holiday
+            let weekday = calendar.component(.weekday, from: current)
+            let isTrackingDay = appData.settings.trackingDays.contains(weekday)
+            let isHolidayDate = holidays.contains { holiday in
+                calendar.isDate(current, inSameDayAs: holiday)
+            }
+            
+            if isTrackingDay && !isHolidayDate {
+                dates.append(current)
+            }
+            
+            current = calendar.date(byAdding: .day, value: 1, to: current)!
+        }
+        
+        return dates
+    }
+    
+    private func getHolidaysInRange(_ dates: [Date]) -> [Date] {
+        let allHolidays = appData.getHolidaysInMonth(month)
+        let calendar = Calendar.current
+        
+        return dates.compactMap { date in
+            // Check if this date was supposed to be in the range (before filtering)
+            guard date >= startDate && date <= endDate else { return nil }
+            
+            // Return if it's a holiday
+            return allHolidays.contains { holiday in
+                calendar.isDate(date, inSameDayAs: holiday)
+            } ? date : nil
+        }
+    }
+    
+    private func saveDays() {
+        if let oldDate = editingDate {
+            appData.removePTODay(oldDate)
+        }
+        
+        let dates = mode == .single ? [selectedDate] : generateDateRange()
+        
+        // Add all dates
+        for date in dates {
+            appData.addPTODay(date)
+        }
+        
+        dismiss()
     }
     
     private var monthDateRange: ClosedRange<Date> {
@@ -431,6 +618,13 @@ struct PTOPickerSheet: View {
         let startOfMonth = calendar.date(from: components) ?? month
         let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) ?? month
         return startOfMonth...endOfMonth
+    }
+    
+    private var monthEnd: Date {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: month)
+        let startOfMonth = calendar.date(from: components) ?? month
+        return calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) ?? month
     }
     
     private func formatDate(_ date: Date) -> String {

@@ -27,6 +27,7 @@ struct PTOManagementTests {
         settings.monthlyGoal = 12
         settings.trackingDays = [2, 3, 4, 5, 6] // Mon-Fri
         settings.ptoSickDays = [:] // Clear any existing PTO
+        settings.holidayCalendar = HolidayCalendar(preset: .none) // Start with no holidays
         appData.updateSettings(settings)
         
         return appData
@@ -295,4 +296,103 @@ struct PTOManagementTests {
         #expect(appData.settings.ptoSickDays[monthKey] != nil)
         #expect(appData.settings.ptoSickDays[monthKey]?.count == 2)
     }
+    
+    // MARK: - Date Range & Holiday Deduplication Tests
+    
+    @Test("PTO date range - holiday deduplication prevents double counting")
+    func testPTORangeExcludesHolidays() async throws {
+        let appData = createTestAppData()
+        
+        // Set up holiday on April 15 (Tuesday)
+        var holidaySettings = appData.settings
+        holidaySettings.holidayCalendar.customAdditions.append(
+            HolidayDate(month: 4, day: 15, name: "Test Holiday")
+        )
+        appData.updateSettings(holidaySettings)
+        
+        // Add PTO range April 14-16 (Mon-Wed, includes holiday on 15th)
+        let range = [
+            createTestDate(day: 14),  // Monday - PTO
+            createTestDate(day: 15),  // Tuesday - Holiday (should not count as PTO)
+            createTestDate(day: 16)   // Wednesday - PTO
+        ]
+        
+        for date in range {
+            appData.addPTODay(date)
+        }
+        
+        let breakdown = appData.getGoalCalculationBreakdown(for: createTestDate(day: 1))
+        
+        // Should only count 2 PTO days (14th and 16th), not 3
+        // Because 15th is a holiday and should be deduplicated
+        #expect(breakdown.ptoCount == 2, "Expected 2 PTO days after deduplication, got \(breakdown.ptoCount). Holidays: \(breakdown.holidayCount), Business days: \(breakdown.businessDays), Working days: \(breakdown.workingDays)")
+        
+        // Holiday count should still be 1
+        #expect(breakdown.holidayCount == 1, "Expected 1 holiday, got \(breakdown.holidayCount)")
+        
+        // Working days calculation should be correct
+        // businessDays - uniquePTODays should not double-subtract the 15th
+        let expectedWorkingDays = breakdown.businessDays - 2
+        #expect(breakdown.workingDays == expectedWorkingDays, "Expected \(expectedWorkingDays) working days, got \(breakdown.workingDays)")
+    }
+    
+    @Test("PTO date range - multiple dates added correctly")
+    func testPTODateRangeMultipleDays() async throws {
+        let appData = createTestAppData()
+        
+        // Add PTO range April 21-25 (Mon-Fri)
+        let range = [
+            createTestDate(day: 21),  // Monday
+            createTestDate(day: 22),  // Tuesday
+            createTestDate(day: 23),  // Wednesday
+            createTestDate(day: 24),  // Thursday
+            createTestDate(day: 25)   // Friday
+        ]
+        
+        for date in range {
+            appData.addPTODay(date)
+        }
+        
+        let ptoDays = appData.getPTODays(for: createTestDate(day: 1))
+        
+        // Should have all 5 days
+        #expect(ptoDays.count == 5)
+        
+        // Verify each day is present
+        let calendar = Calendar.current
+        for expectedDate in range {
+            let found = ptoDays.contains { pto in
+                calendar.isDate(pto, inSameDayAs: expectedDate)
+            }
+            #expect(found)
+        }
+    }
+    
+    @Test("PTO date range - overlapping holiday not double subtracted")
+    func testHolidayPTOOverlapNotDoubleCounted() async throws {
+        let appData = createTestAppData()
+        
+        // Add holiday on April 22
+        var holidaySettings = appData.settings
+        holidaySettings.holidayCalendar.customAdditions.append(
+            HolidayDate(month: 4, day: 22, name: "Test Holiday")
+        )
+        appData.updateSettings(holidaySettings)
+        
+        // Add same date as PTO
+        appData.addPTODay(createTestDate(day: 22))
+        
+        let breakdown = appData.getGoalCalculationBreakdown(for: createTestDate(day: 1))
+        
+        // Holiday count should be 1
+        #expect(breakdown.holidayCount == 1, "Expected 1 holiday, got \(breakdown.holidayCount)")
+        
+        // PTO count should be 0 (deduplicated)
+        #expect(breakdown.ptoCount == 0, "Expected 0 PTO days after deduplication, got \(breakdown.ptoCount). Holidays: \(breakdown.holidayCount), Business days: \(breakdown.businessDays), Working days: \(breakdown.workingDays)")
+        
+        // Working days should only subtract the day once
+        let expectedWorkingDays = breakdown.businessDays  // No additional PTO subtraction
+        #expect(breakdown.workingDays == expectedWorkingDays, "Expected \(expectedWorkingDays) working days, got \(breakdown.workingDays)")
+    }
 }
+
