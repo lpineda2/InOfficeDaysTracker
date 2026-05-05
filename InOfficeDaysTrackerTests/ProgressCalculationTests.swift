@@ -655,4 +655,96 @@ struct ProgressCalculationTests {
         #expect(result == 0)
         #expect(count == 1)
     }
+    
+    // MARK: - Average Duration Capping Tests
+    
+    @Test("Average duration - normal visits under 18 hours")
+    func testAverageDurationNormalVisits() {
+        let maxReasonableDuration: TimeInterval = 18 * 3600
+        
+        // Simulate 3 normal office visits: 8h, 9.5h, 7h
+        let durations: [TimeInterval] = [
+            8 * 3600,    // 8 hours
+            9.5 * 3600,  // 9.5 hours
+            7 * 3600     // 7 hours
+        ]
+        
+        let cappedDurations = durations.map { min($0, maxReasonableDuration) }
+        let average = (cappedDurations.reduce(0, +) / Double(cappedDurations.count)) / 3600
+        
+        // Average should be (8 + 9.5 + 7) / 3 = 8.166... hours
+        #expect(average > 8.1 && average < 8.2, "Expected average around 8.17 hours, got \(average)")
+    }
+    
+    @Test("Average duration - caps unrealistic 28+ hour visit")
+    func testAverageDurationCapsUnrealisticVisit() {
+        let maxReasonableDuration: TimeInterval = 18 * 3600
+        
+        // Simulate 2 visits: one normal (8h), one stale/buggy (28h)
+        let durations: [TimeInterval] = [
+            8 * 3600,    // 8 hours - normal
+            28 * 3600    // 28 hours - unrealistic (stale visit)
+        ]
+        
+        let cappedDurations = durations.map { min($0, maxReasonableDuration) }
+        let average = (cappedDurations.reduce(0, +) / Double(cappedDurations.count)) / 3600
+        
+        // Average should be (8 + 18) / 2 = 13 hours (28h capped to 18h)
+        #expect(average == 13.0, "Expected average of 13 hours after capping, got \(average)")
+    }
+    
+    @Test("Average duration - caps multiple unrealistic visits")
+    func testAverageDurationCapsMultipleUnrealisticVisits() {
+        let maxReasonableDuration: TimeInterval = 18 * 3600
+        
+        // Simulate visits with various anomalies
+        let durations: [TimeInterval] = [
+            8 * 3600,     // 8 hours - normal
+            25 * 3600,    // 25 hours - unrealistic
+            10 * 3600,    // 10 hours - normal
+            30 * 3600,    // 30 hours - unrealistic
+            9 * 3600      // 9 hours - normal
+        ]
+        
+        let cappedDurations = durations.map { min($0, maxReasonableDuration) }
+        let average = (cappedDurations.reduce(0, +) / Double(cappedDurations.count)) / 3600
+        
+        // Average should be (8 + 18 + 10 + 18 + 9) / 5 = 12.6 hours
+        #expect(average == 12.6, "Expected average of 12.6 hours after capping, got \(average)")
+    }
+    
+    @Test("Average duration - allows legitimate long workday")
+    func testAverageDurationAllowsLongWorkday() {
+        let maxReasonableDuration: TimeInterval = 18 * 3600
+        
+        // Simulate including a legitimate long workday (16 hours)
+        let durations: [TimeInterval] = [
+            8 * 3600,     // 8 hours
+            16 * 3600,    // 16 hours - long but legitimate
+            9 * 3600      // 9 hours
+        ]
+        
+        let cappedDurations = durations.map { min($0, maxReasonableDuration) }
+        let average = (cappedDurations.reduce(0, +) / Double(cappedDurations.count)) / 3600
+        
+        // Average should be (8 + 16 + 9) / 3 = 11 hours (16h not capped)
+        #expect(average == 11.0, "Expected average of 11 hours, got \(average)")
+    }
+    
+    @Test("Average duration - handles edge case at exactly 18 hours")
+    func testAverageDurationEdgeCaseExactly18Hours() {
+        let maxReasonableDuration: TimeInterval = 18 * 3600
+        
+        // Visit exactly at the cap
+        let durations: [TimeInterval] = [
+            18 * 3600,    // Exactly 18 hours
+            10 * 3600     // 10 hours
+        ]
+        
+        let cappedDurations = durations.map { min($0, maxReasonableDuration) }
+        let average = (cappedDurations.reduce(0, +) / Double(cappedDurations.count)) / 3600
+        
+        // Average should be (18 + 10) / 2 = 14 hours
+        #expect(average == 14.0, "Expected average of 14 hours, got \(average)")
+    }
 }

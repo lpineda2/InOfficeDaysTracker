@@ -200,11 +200,18 @@ struct MainProgressView: View {
         let validVisits = appData.getValidVisits(for: Date())
         guard !validVisits.isEmpty else { return 0.0 }
         
-        let totalDuration = validVisits.compactMap { $0.duration }.reduce(0, +)
-        let count = Double(validVisits.count)
-        guard count > 0 else { return 0.0 }
+        // Cap individual visit durations at 18 hours (64,800 seconds) to filter out
+        // stale/test visits that were never properly ended or have timestamp anomalies
+        let maxReasonableDuration: TimeInterval = 18 * 3600
+        let cappedDurations = validVisits.compactMap { visit -> TimeInterval? in
+            guard let duration = visit.duration else { return nil }
+            return min(duration, maxReasonableDuration)
+        }
         
-        let average = (totalDuration / count) / 3600 // Convert to hours
+        guard !cappedDurations.isEmpty else { return 0.0 }
+        
+        let totalDuration = cappedDurations.reduce(0, +)
+        let average = (totalDuration / Double(cappedDurations.count)) / 3600 // Convert to hours
         guard !average.isNaN && !average.isInfinite else { return 0.0 }
         return average
     }
