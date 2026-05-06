@@ -270,7 +270,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         // Confirmed: User has been away long enough
         debugLog("📍", "[LocationVerification] Confirmed user away for \(Int(awayDuration))s, ending visit")
-        appData.endVisit()
+        appData.endVisit(at: exitTime)
         debugLog("📍", "[LocationVerification] Manually ended office visit")
         
         // Trigger aggressive widget refresh for foreground corrections

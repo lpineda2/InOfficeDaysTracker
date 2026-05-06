@@ -780,8 +780,8 @@ extension LocationService: CLLocationManagerDelegate {
                     debugLog("⏰", "[LocationService] Grace period expired, confirming exit from \(office.name)")
                     debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
                     
-                    // End tracking visit
-                    appData.endVisit()
+                    // End tracking visit with stored exit time for accuracy
+                    appData.endVisit(at: self.exitTime)
                     
                     debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
                     debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
