@@ -331,7 +331,7 @@ class AppData: ObservableObject {
         debugLog("[AppData] Started new office session for today")
     }
     
-    func endVisit() {
+    func endVisit(at exitTime: Date? = nil) {
         guard var visit = currentVisit else { 
             debugLog("[AppData] No current visit to end")
             return 
@@ -339,7 +339,7 @@ class AppData: ObservableObject {
         
         debugLog("[AppData] Ending current session")
         
-        let exitTime = Date()
+        let exitTime = exitTime ?? Date()
         
         // End the current session in the visit
         visit.endCurrentSession(at: exitTime)
