@@ -45,6 +45,13 @@ class LocationService: NSObject, ObservableObject {
     // Minimum away duration to confirm user actually left (3 minutes)
     private let minimumAwayDuration: TimeInterval = 180 // 3 minutes
     
+    // UserDefaults keys for persisting exit grace period state
+    private let pendingExitTimeKey = "PendingExitTime"
+    private let pendingExitRegionIdKey = "PendingExitRegionId"
+    
+    // iOS region monitoring limit
+    private let maxMonitoredRegions = 20
+    
     override init() {
         super.init()
         setupLocationManager()
@@ -76,6 +83,9 @@ class LocationService: NSObject, ObservableObject {
         self.appData = appData
         // Connect verification service to handle intermittent status issues
         verificationService.setServices(appData: appData, locationService: self)
+        
+        // Restore any pending exit grace period that was interrupted by app termination
+        restoreExitGracePeriodIfNeeded()
     }
     
     func checkAuthorizationStatus() {
@@ -200,6 +210,16 @@ class LocationService: NSObject, ObservableObject {
             return false
         }
         
+        // iOS 14+: Check for precise location authorization
+        // Reduced accuracy breaks geofencing completely
+        if #available(iOS 14.0, *) {
+            if locationManager.accuracyAuthorization == .reducedAccuracy {
+                locationError = "Precise Location is required for automatic office tracking. Please enable in Settings."
+                debugLog("⚠️", "[LocationService] Precise location is disabled - geofencing will not work")
+                return false
+            }
+        }
+        
         return true
     }
     
@@ -314,9 +334,22 @@ class LocationService: NSObject, ObservableObject {
             return
         }
         
+        // iOS enforces a limit of 20 monitored regions per app
+        // Prioritize primary locations and truncate if necessary
+        let locationsToMonitor: [OfficeLocation]
+        if locations.count > maxMonitoredRegions {
+            debugLog("⚠️", "[LocationService] \(locations.count) locations exceed iOS limit of \(maxMonitoredRegions)")
+            // Sort by isPrimary (primary first) then take first 20
+            locationsToMonitor = Array(locations.sorted { $0.isPrimary && !$1.isPrimary }.prefix(maxMonitoredRegions))
+            locationError = "Monitoring \(maxMonitoredRegions) of \(locations.count) office locations (iOS limit)"
+            debugLog("⚠️", "[LocationService] Monitoring only first \(maxMonitoredRegions) locations")
+        } else {
+            locationsToMonitor = locations
+        }
+        
         // Create geofence for each office location
         var monitoredCount = 0
-        for office in locations {
+        for office in locationsToMonitor {
             guard let coordinate = office.coordinate else {
                 debugLog("⚠️", "[LocationService] Skipping \(office.name) - no coordinate")
                 continue
@@ -622,6 +655,9 @@ extension LocationService: CLLocationManagerDelegate {
             
             exitTime = nil
             
+            // Clear persisted grace period state
+            clearPersistedExitGracePeriod()
+            
             // User re-entered quickly - don't end/restart session
             return
         }
@@ -824,6 +860,9 @@ extension LocationService: CLLocationManagerDelegate {
         pendingExitRegion = region
         exitTime = Date()
         
+        // Persist grace period state to survive app termination
+        persistExitGracePeriod()
+        
         // Schedule exit notification immediately using iOS notification system
         // This ensures notification fires even if app is suspended
         if appData.settings.notificationsEnabled {
@@ -859,8 +898,88 @@ extension LocationService: CLLocationManagerDelegate {
                 // Clear pending exit
                 self.pendingExitRegion = nil
                 self.exitTime = nil
+                self.clearPersistedExitGracePeriod()
             }
         }
+    }
+    
+    // MARK: - Exit Grace Period Persistence
+    
+    /// Persist exit grace period state to survive app termination
+    /// Critical fix: Prevents sessions from remaining open indefinitely if app is killed during grace period
+    private func persistExitGracePeriod() {
+        guard let appData = appData,
+              let exitTime = exitTime,
+              let region = pendingExitRegion else { return }
+        
+        appData.sharedUserDefaults.set(exitTime, forKey: pendingExitTimeKey)
+        appData.sharedUserDefaults.set(region.identifier, forKey: pendingExitRegionIdKey)
+        appData.sharedUserDefaults.synchronize()
+        
+        debugLog("💾", "[LocationService] Persisted exit grace period for region: \(region.identifier)")
+    }
+    
+    /// Restore exit grace period that was interrupted by app termination
+    /// Called when app launches and AppData is connected
+    private func restoreExitGracePeriodIfNeeded() {
+        guard let appData = appData else { return }
+        
+        guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
+              let regionId = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
+            return // No pending exit to restore
+        }
+        
+        let elapsed = Date().timeIntervalSince(persistedExitTime)
+        
+        debugLog("🔄", "[LocationService] Found persisted exit grace period, elapsed: \(Int(elapsed))s")
+        
+        if elapsed >= exitGracePeriod {
+            // Grace period expired while app was terminated - complete the exit
+            debugLog("⏰", "[LocationService] Grace period expired during app termination, ending visit")
+            appData.endVisit(at: persistedExitTime)
+            clearPersistedExitGracePeriod()
+        } else {
+            // Grace period still active - resume the timer with remaining time
+            let remainingTime = exitGracePeriod - elapsed
+            debugLog("⏰", "[LocationService] Resuming grace period with \(Int(remainingTime))s remaining")
+            
+            // Find the region by identifier to restore full state
+            if let region = locationManager.monitoredRegions.first(where: { $0.identifier == regionId }) {
+                pendingExitRegion = region
+                exitTime = persistedExitTime
+                
+                // Resume grace timer with remaining time
+                exitGraceTimer = Timer.scheduledTimer(withTimeInterval: remainingTime, repeats: false) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        guard let self = self, let appData = self.appData else { return }
+                        
+                        debugLog("⏰", "[LocationService] Restored grace period expired, ending visit")
+                        appData.endVisit(at: self.exitTime)
+                        
+                        // Clear state
+                        self.pendingExitRegion = nil
+                        self.exitTime = nil
+                        self.clearPersistedExitGracePeriod()
+                    }
+                }
+            } else {
+                // Region no longer exists, complete the exit
+                debugLog("⚠️", "[LocationService] Region no longer monitored, ending visit")
+                appData.endVisit(at: persistedExitTime)
+                clearPersistedExitGracePeriod()
+            }
+        }
+    }
+    
+    /// Clear persisted exit grace period state
+    private func clearPersistedExitGracePeriod() {
+        guard let appData = appData else { return }
+        
+        appData.sharedUserDefaults.removeObject(forKey: pendingExitTimeKey)
+        appData.sharedUserDefaults.removeObject(forKey: pendingExitRegionIdKey)
+        appData.sharedUserDefaults.synchronize()
+        
+        debugLog("🗑️", "[LocationService] Cleared persisted exit grace period")
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
