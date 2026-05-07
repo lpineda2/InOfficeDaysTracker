@@ -749,57 +749,99 @@ extension LocationService: CLLocationManagerDelegate {
                 exitedOffice = appData.settings.officeLocations.first { $0.id.uuidString == region.identifier }
             }
             
-            guard let office = exitedOffice else {
+            guard let office = exitedOffice, let officeCoordinate = office.coordinate else {
                 debugLog("❌", "[LocationService] Could not identify exited office")
                 return
             }
             
-            debugLog("🚪", "[LocationService] Detected exit from: \(office.name) at \(Date())")
-            debugLog("🔍", "[LocationService] Starting exit grace period (\(exitGracePeriod)s)")
+            debugLog("🚪", "[LocationService] Detected exit event from: \(office.name) at \(Date())")
             
-            // Cancel any existing grace timer
-            exitGraceTimer?.invalidate()
+            // CRITICAL FIX: Verify the user is actually outside the detection radius
+            // iOS region monitoring can be inaccurate and trigger false exit events
+            debugLog("🔍", "[LocationService] Verifying actual location before processing exit...")
             
-            // Store the region and exit time
-            pendingExitRegion = region
-            exitTime = Date()
+            // Request current location for verification
+            locationManager.requestLocation()
             
-            // Schedule exit notification immediately using iOS notification system
-            // This ensures notification fires even if app is suspended
-            if appData.settings.notificationsEnabled {
-                NotificationService.shared.scheduleExitNotification(afterDelay: exitGracePeriod)
+            // Wait briefly for location update
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            
+            guard let currentLocation = locationManager.location else {
+                debugLog("⚠️", "[LocationService] Could not get current location for exit verification, proceeding with exit")
+                // If we can't verify, proceed with exit to avoid getting stuck in office state
+                await processConfirmedExit(office: office, region: region, appData: appData)
+                return
             }
             
-            // Start grace period timer for ending the visit
-            // Timer runs in foreground; notification fires independently via iOS
-            exitGraceTimer = Timer.scheduledTimer(withTimeInterval: exitGracePeriod, repeats: false) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    guard let self = self, let appData = self.appData else { return }
-                    
-                    // Grace period expired - confirm exit
-                    debugLog("⏰", "[LocationService] Grace period expired, confirming exit from \(office.name)")
-                    debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
-                    
-                    // End tracking visit with stored exit time for accuracy
-                    appData.endVisit(at: self.exitTime)
-                    
-                    debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
-                    debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
-                    
-                    // Force immediate data synchronization
-                    appData.sharedUserDefaults.synchronize()
-                    
-                    // Verify UserDefaults was updated
-                    let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
-                    debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
-                    
-                    // Trigger immediate widget refresh for office exit
-                    self.triggerWidgetRefresh(reason: "office exit after grace period")
-                    
-                    // Clear pending exit
-                    self.pendingExitRegion = nil
-                    self.exitTime = nil
-                }
+            // Calculate actual distance from office
+            let officeCLLocation = CLLocation(latitude: officeCoordinate.latitude, longitude: officeCoordinate.longitude)
+            let distanceFromOffice = currentLocation.distance(from: officeCLLocation)
+            
+            debugLog("📍", "[LocationService] Current location: (\(currentLocation.coordinate.latitude), \(currentLocation.coordinate.longitude))")
+            debugLog("📍", "[LocationService] Distance from \(office.name): \(Int(distanceFromOffice))m (radius: \(Int(office.detectionRadius))m)")
+            
+            // Only process exit if user is actually outside the detection radius
+            // Add a small buffer (10m) to account for GPS accuracy
+            let bufferMargin = 10.0
+            if distanceFromOffice > (office.detectionRadius + bufferMargin) {
+                debugLog("✅", "[LocationService] Exit confirmed - user is outside detection radius")
+                await processConfirmedExit(office: office, region: region, appData: appData)
+            } else {
+                debugLog("🚫", "[LocationService] Exit rejected - user is still within \(Int(distanceFromOffice))m of office (radius: \(Int(office.detectionRadius))m)")
+                debugLog("ℹ️", "[LocationService] This was likely a false exit event from GPS drift or iOS region monitoring inaccuracy")
+                
+                // Cancel any pending exit notification since this was a false alarm
+                NotificationService.shared.cancelPendingExitNotification()
+            }
+        }
+    }
+    
+    /// Process a confirmed exit after location verification
+    private func processConfirmedExit(office: OfficeLocation, region: CLRegion, appData: AppData) async {
+        debugLog("🔍", "[LocationService] Starting exit grace period (\(exitGracePeriod)s)")
+        
+        // Cancel any existing grace timer
+        exitGraceTimer?.invalidate()
+        
+        // Store the region and exit time
+        pendingExitRegion = region
+        exitTime = Date()
+        
+        // Schedule exit notification immediately using iOS notification system
+        // This ensures notification fires even if app is suspended
+        if appData.settings.notificationsEnabled {
+            NotificationService.shared.scheduleExitNotification(afterDelay: exitGracePeriod)
+        }
+        
+        // Start grace period timer for ending the visit
+        // Timer runs in foreground; notification fires independently via iOS
+        exitGraceTimer = Timer.scheduledTimer(withTimeInterval: exitGracePeriod, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, let appData = self.appData else { return }
+                
+                // Grace period expired - confirm exit
+                debugLog("⏰", "[LocationService] Grace period expired, confirming exit from \(office.name)")
+                debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
+                
+                // End tracking visit with stored exit time for accuracy
+                appData.endVisit(at: self.exitTime)
+                
+                debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
+                debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
+                
+                // Force immediate data synchronization
+                appData.sharedUserDefaults.synchronize()
+                
+                // Verify UserDefaults was updated
+                let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+                debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
+                
+                // Trigger immediate widget refresh for office exit
+                self.triggerWidgetRefresh(reason: "office exit after grace period")
+                
+                // Clear pending exit
+                self.pendingExitRegion = nil
+                self.exitTime = nil
             }
         }
     }
