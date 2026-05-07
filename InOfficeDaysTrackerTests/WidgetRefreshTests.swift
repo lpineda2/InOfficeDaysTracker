@@ -76,7 +76,7 @@ struct WidgetRefreshTests {
         #expect(appData.isCurrentlyInOffice == true)
         
         // End office visit  
-        appData.endVisit()
+        await appData.endVisit()
         
         // Force synchronization (simulating what LocationService does)
         appData.sharedUserDefaults.synchronize()
@@ -97,7 +97,7 @@ struct WidgetRefreshTests {
                 appData.startVisit(at: testCoord)
                 #expect(appData.isCurrentlyInOffice == true)
             } else {
-                appData.endVisit()
+                await appData.endVisit()
                 #expect(appData.isCurrentlyInOffice == false)
             }
             
@@ -115,7 +115,7 @@ struct WidgetRefreshTests {
         
         // Ensure clean state by explicitly ending any existing visit
         if appData.isCurrentlyInOffice {
-            appData.endVisit()
+            await appData.endVisit()
         }
         appData.sharedUserDefaults.synchronize()
         
@@ -142,7 +142,7 @@ struct WidgetRefreshTests {
         }
         
         // End visit
-        appData.endVisit()
+        await appData.endVisit()
         appData.sharedUserDefaults.synchronize()
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         
@@ -172,7 +172,7 @@ struct WidgetRefreshTests {
         #expect(isInOfficeStatus == true)
         
         // End office visit
-        appData.endVisit()
+        await appData.endVisit()
         appData.sharedUserDefaults.synchronize()
         
         // Test when away again - check through UserDefaults directly
@@ -192,7 +192,7 @@ struct WidgetRefreshTests {
         #expect(isInOfficeAfterStart == true)
         
         // End visit and verify
-        appData.endVisit()
+        await appData.endVisit()
         
         // UserDefaults should reflect the status change
         let isInOfficeAfterEnd = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
@@ -215,7 +215,7 @@ struct WidgetRefreshTests {
         #expect(appData.isCurrentlyInOffice == true)
         
         // Simulate location service ending the visit (like didExitRegion would do)
-        appData.endVisit()
+        await appData.endVisit()
         appData.sharedUserDefaults.synchronize()
         
         // Verify all states are consistent
@@ -246,7 +246,7 @@ struct WidgetRefreshTests {
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             
             // Exit office  
-            appData.endVisit()
+            await appData.endVisit()
             appData.sharedUserDefaults.synchronize()
             
             #expect(appData.isCurrentlyInOffice == false)

@@ -83,7 +83,7 @@ struct ExitGracePeriodTests {
         
         // Simulate user actually leaving (grace period expires)
         // After 5 minutes, LocationService should call endVisit
-        appData.endVisit()
+        await appData.endVisit()
         
         // Verify session ended
         #expect(!appData.isCurrentlyInOffice)
@@ -221,7 +221,7 @@ struct ExitGracePeriodTests {
         // Wait a moment
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         
-        appData.endVisit()
+        await appData.endVisit()
         
         // Verify duration is positive
         let visits = appData.visits
@@ -246,7 +246,7 @@ struct ExitGracePeriodTests {
         // First session
         appData.startVisit(at: testLocation)
         try await Task.sleep(nanoseconds: 100_000_000)
-        appData.endVisit()
+        await appData.endVisit()
         
         // Get the visit
         let visits = appData.visits
@@ -274,7 +274,7 @@ struct ExitGracePeriodTests {
         // Simulate 8 hours passing
         // (In reality, multiple GPS fluctuations might occur)
         
-        appData.endVisit()
+        await appData.endVisit()
         
         // Verify only ONE event was recorded for the day
         let visits = appData.visits

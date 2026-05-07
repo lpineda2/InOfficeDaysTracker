@@ -56,7 +56,7 @@ struct AppDataTests {
         #expect(appData.isCurrentlyInOffice == true)
         
         // End visit
-        appData.endVisit()
+        await appData.endVisit()
         
         #expect(appData.isCurrentlyInOffice == false)
         #expect(appData.currentVisit == nil)
@@ -71,11 +71,11 @@ struct AppDataTests {
         
         // First visit
         appData.startVisit(at: testCoord)
-        appData.endVisit()
+        await appData.endVisit()
         
         // Second visit (same day)
         appData.startVisit(at: testCoord)
-        appData.endVisit()
+        await appData.endVisit()
         
         #expect(appData.visits.count == 1) // Should merge into single visit
         #expect(appData.visits.first?.events.count == 2) // With two events
@@ -102,7 +102,7 @@ struct AppDataTests {
         let appData = createTestAppData()
         
         // Try to end visit without starting
-        appData.endVisit()
+        await appData.endVisit()
         
         #expect(appData.isCurrentlyInOffice == false)
         #expect(appData.currentVisit == nil)

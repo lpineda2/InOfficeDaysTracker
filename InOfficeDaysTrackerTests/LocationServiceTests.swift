@@ -291,7 +291,7 @@ struct LocationServiceTests {
         #expect(visit1 != nil, "Visit 1 should exist")
         #expect(visit1?.coordinate != nil, "Visit 1 should have coordinate")
         let visit1Coord = visit1?.coordinate
-        appData.endVisit()
+        await appData.endVisit()
         
         // Verify FL coordinate is stored correctly
         #expect(visit1Coord?.latitude == flOffice.latitude)
@@ -310,7 +310,7 @@ struct LocationServiceTests {
         #expect(visit2Coord?.latitude == flOffice.latitude, "Coordinate should match first office visited today")
         #expect(visit2Coord?.longitude == flOffice.longitude, "Coordinate should match first office visited today")
         
-        appData.endVisit()
+        await appData.endVisit()
     }
     
     // MARK: - Region Monitoring State Tests

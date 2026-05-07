@@ -331,7 +331,7 @@ class AppData: ObservableObject {
         debugLog("[AppData] Started new office session for today")
     }
     
-    func endVisit(at exitTime: Date? = nil) {
+    func endVisit(at exitTime: Date? = nil) async {
         guard var visit = currentVisit else { 
             debugLog("[AppData] No current visit to end")
             return 
@@ -352,10 +352,11 @@ class AppData: ObservableObject {
         
         saveVisits()
         
-        // Handle calendar event end
-        Task {
-            await calendarEventManager.handleVisitEnd(visit, settings: settings)
-        }
+        // Clear current visit state BEFORE calendar update to prevent UI confusion
+        // But keep reference to visit for calendar update
+        currentVisit = nil
+        isCurrentlyInOffice = false
+        clearCurrentVisit()
         
         if visit.isValidVisit {
             debugLog("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
@@ -363,10 +364,10 @@ class AppData: ObservableObject {
             debugLog("[AppData] Completed session (\(visit.formattedDuration)), saved for record")
         }
         
-        // Clear current visit state (session is paused, can be resumed later)
-        currentVisit = nil
-        isCurrentlyInOffice = false
-        clearCurrentVisit()
+        // CRITICAL FIX: Await calendar update to ensure it completes before app suspension
+        // This prevents calendar events from showing "Currently in office" after you've left
+        await calendarEventManager.handleVisitEnd(visit, settings: settings)
+        debugLog("[AppData] Calendar event update completed for exit")
         
         debugLog("[AppData] Session ended successfully")
     }

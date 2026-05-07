@@ -606,7 +606,7 @@ extension LocationService: CLLocationManagerDelegate {
                         debugLog("ℹ️", "[LocationService] User outside but grace period active, not ending visit")
                     } else {
                         debugLog("🔍", "[LocationService] User outside office on app launch, ending stale visit")
-                        appData.endVisit()
+                        Task { await appData.endVisit() }
                     }
                 } else {
                     debugLog("ℹ️", "[LocationService] User is outside office region")
@@ -880,7 +880,7 @@ extension LocationService: CLLocationManagerDelegate {
                 debugLog("🔍", "[LocationService] Office status before exit: \(appData.isCurrentlyInOffice)")
                 
                 // End tracking visit with stored exit time for accuracy
-                appData.endVisit(at: self.exitTime)
+                await appData.endVisit(at: self.exitTime)
                 
                 debugLog("🔍", "[LocationService] Office status after endVisit(): \(appData.isCurrentlyInOffice)")
                 debugLog("🔍", "[LocationService] Current visit after exit: \(appData.currentVisit?.id.uuidString ?? "none")")
@@ -936,7 +936,7 @@ extension LocationService: CLLocationManagerDelegate {
         if elapsed >= exitGracePeriod {
             // Grace period expired while app was terminated - complete the exit
             debugLog("⏰", "[LocationService] Grace period expired during app termination, ending visit")
-            appData.endVisit(at: persistedExitTime)
+            Task { await appData.endVisit(at: persistedExitTime) }
             clearPersistedExitGracePeriod()
         } else {
             // Grace period still active - resume the timer with remaining time
@@ -954,7 +954,7 @@ extension LocationService: CLLocationManagerDelegate {
                         guard let self = self, let appData = self.appData else { return }
                         
                         debugLog("⏰", "[LocationService] Restored grace period expired, ending visit")
-                        appData.endVisit(at: self.exitTime)
+                        await appData.endVisit(at: self.exitTime)
                         
                         // Clear state
                         self.pendingExitRegion = nil
@@ -965,7 +965,7 @@ extension LocationService: CLLocationManagerDelegate {
             } else {
                 // Region no longer exists, complete the exit
                 debugLog("⚠️", "[LocationService] Region no longer monitored, ending visit")
-                appData.endVisit(at: persistedExitTime)
+                Task { await appData.endVisit(at: persistedExitTime) }
                 clearPersistedExitGracePeriod()
             }
         }
