@@ -779,11 +779,28 @@ extension LocationService: CLLocationManagerDelegate {
             
             debugLog("📍", "[LocationService] Current location: (\(currentLocation.coordinate.latitude), \(currentLocation.coordinate.longitude))")
             debugLog("📍", "[LocationService] Distance from \(office.name): \(Int(distanceFromOffice))m (radius: \(Int(office.detectionRadius))m)")
+            debugLog("📍", "[LocationService] Currently marked as in office: \(appData.isCurrentlyInOffice)")
+            
+            // CRITICAL: Only process exits if user was actually marked as being in the office
+            // This prevents processing stale exit events when user was never in the geofence
+            guard appData.isCurrentlyInOffice else {
+                debugLog("🚫", "[LocationService] Exit rejected - user was not marked as in office")
+                debugLog("ℹ️", "[LocationService] This was likely a stale or duplicate exit event")
+                NotificationService.shared.cancelPendingExitNotification()
+                return
+            }
             
             // Only process exit if user is actually outside the detection radius
             // Add a small buffer (10m) to account for GPS accuracy
             let bufferMargin = 10.0
             if distanceFromOffice > (office.detectionRadius + bufferMargin) {
+                // Additional check: If user is very far from office (>2x radius), the exit detection
+                // may be significantly delayed. Warn but still process to avoid stuck state.
+                if distanceFromOffice > (office.detectionRadius * 2) {
+                    debugLog("⚠️", "[LocationService] User is \(Int(distanceFromOffice))m away (>2x radius: \(Int(office.detectionRadius * 2))m)")
+                    debugLog("⚠️", "[LocationService] Exit detection may be delayed - actual exit time may be earlier")
+                }
+                
                 debugLog("✅", "[LocationService] Exit confirmed - user is outside detection radius")
                 await processConfirmedExit(office: office, region: region, appData: appData)
             } else {
