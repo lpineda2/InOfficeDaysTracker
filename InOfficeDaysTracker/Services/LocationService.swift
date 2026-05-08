@@ -796,13 +796,34 @@ extension LocationService: CLLocationManagerDelegate {
             // iOS region monitoring can be inaccurate and trigger false exit events
             debugLog("🔍", "[LocationService] Verifying actual location before processing exit...")
             
-            // Request current location for verification
-            locationManager.requestLocation()
+            // CRASH FIX: Check authorization before calling requestLocation()
+            // requestLocation() will crash if called without proper authorization or setup
+            var currentLocation = locationManager.location
             
-            // Wait briefly for location update
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            // Only request a fresh location if we have authorization and don't have a recent location
+            let authStatus = locationManager.authorizationStatus
+            if (authStatus == .authorizedAlways || authStatus == .authorizedWhenInUse) {
+                // Check if we have a recent location (within last 5 minutes)
+                let locationAge = currentLocation?.timestamp.timeIntervalSinceNow ?? -.infinity
+                let needsFreshLocation = abs(locationAge) > 300 // Older than 5 minutes
+                
+                if needsFreshLocation {
+                    debugLog("🔍", "[LocationService] Requesting fresh location for exit verification...")
+                    locationManager.requestLocation()
+                    
+                    // Wait briefly for location update
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                    
+                    // Update with fresh location if we got one
+                    currentLocation = locationManager.location
+                } else {
+                    debugLog("📍", "[LocationService] Using cached location (age: \(Int(abs(locationAge)))s)")
+                }
+            } else {
+                debugLog("⚠️", "[LocationService] Location authorization not granted (status: \(authStatus.rawValue)), using cached location")
+            }
             
-            guard let currentLocation = locationManager.location else {
+            guard let currentLocation = currentLocation else {
                 debugLog("⚠️", "[LocationService] Could not get current location for exit verification, proceeding with exit")
                 // If we can't verify, proceed with exit to avoid getting stuck in office state
                 await processConfirmedExit(office: office, region: region, appData: appData)
