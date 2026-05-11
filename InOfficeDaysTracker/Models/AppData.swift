@@ -226,6 +226,13 @@ class AppData: ObservableObject {
                 visits[index] = visit
                 saveVisits()
                 debugLog("[AppData] Auto-closed stale visit with exit time: \(endOfDay)")
+                
+                // CRITICAL: Update calendar event with exit time
+                // This ensures the calendar event reflects the auto-closed state
+                Task {
+                    await calendarEventManager.handleVisitEnd(visit, settings: settings)
+                    debugLog("[AppData] Updated calendar event for auto-closed stale visit")
+                }
             }
         }
     }

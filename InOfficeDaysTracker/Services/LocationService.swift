@@ -524,9 +524,10 @@ class LocationService: NSObject, ObservableObject {
         
         debugLog("⏰", "[LocationService] Starting fallback widget refresh timer for: \(reason)")
         
-        // Create timer that fires every 15 seconds for the next 2 minutes
+        // Create timer that fires every 15 seconds
+        // Reduced from 8 to 3 attempts to minimize battery usage and CPU overhead
         var attempts = 0
-        let maxAttempts = 8 // 8 attempts × 15 seconds = 2 minutes
+        let maxAttempts = 3 // 3 attempts × 15 seconds = 45 seconds
         
         widgetRefreshTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] timer in
             attempts += 1
