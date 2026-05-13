@@ -38,12 +38,28 @@ struct Provider: TimelineProvider {
             let timeUntilExpiry = expiryDate.timeIntervalSince(currentDate)
             debugLog("🔄", "[Widget] Grace period active, expires in \(Int(timeUntilExpiry))s")
             
-            // Create current entry
+            // Create current entry (still shows "in office" during grace period)
             let entry = SimpleEntry(date: currentDate, widgetData: widgetData)
             entries.append(entry)
             
-            // Create entry for grace period expiration (widget will refresh and show new status)
-            let expiryEntry = SimpleEntry(date: expiryDate, widgetData: widgetData)
+            // Create "away" entry at expiry time so widget visually updates immediately
+            let awayData = WidgetData(
+                current: widgetData.current,
+                goal: widgetData.goal,
+                percentage: widgetData.percentage,
+                monthName: widgetData.monthName,
+                isCurrentlyInOffice: false,
+                currentVisitDuration: nil,
+                visitStartTime: nil,
+                weeklyProgress: widgetData.weeklyProgress,
+                averageDuration: widgetData.averageDuration,
+                daysRemaining: widgetData.daysRemaining,
+                paceNeeded: widgetData.paceNeeded,
+                lastUpdated: expiryDate,
+                statusMessage: widgetData.statusMessage,
+                daysLeftInMonth: widgetData.daysLeftInMonth
+            )
+            let expiryEntry = SimpleEntry(date: expiryDate, widgetData: awayData)
             entries.append(expiryEntry)
             
             // Schedule timeline to update when grace period expires (with small buffer)

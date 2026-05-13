@@ -530,37 +530,11 @@ class LocationService: NSObject, ObservableObject {
         #endif
         
         #if canImport(WidgetKit)
-        Task {
-            await MainActor.run {
-                // Force UserDefaults synchronization to ensure data is immediately available
-                if let appData = appData {
-                    appData.sharedUserDefaults.synchronize()
-                    debugLog("🔄", "[LocationService] UserDefaults synchronized before widget refresh")
-                }
-                
-                // Strategy 1: Immediate reload of all widget timelines
-                WidgetCenter.shared.reloadAllTimelines()
-                
-                // Strategy 2: Specifically reload our office tracker widget
-                WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
-                
-                debugLog("🔄", "[LocationService] Widget refresh triggered for \(reason)")
-                
-                // Strategy 3: Multiple delayed refreshes for reliability
-                Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
-                    WidgetCenter.shared.reloadAllTimelines()
-                    debugLog("🔄", "[LocationService] First delayed widget refresh completed for \(reason)")
-                    
-                    // Extra delayed refresh for stubborn cases
-                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second delay
-                    WidgetCenter.shared.reloadAllTimelines()
-                    debugLog("🔄", "[LocationService] Second delayed widget refresh completed for \(reason)")
-                }
-                
-                // Start fallback timer for persistent refresh attempts
-                startFallbackWidgetRefreshTimer(reason: reason)
-            }
+        Task { @MainActor in
+            // Single reload call - WidgetKit has a daily budget (~40-70 reloads).
+            // Previous code fired 8+ reloads per event, exhausting the budget quickly.
+            WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
+            debugLog("🔄", "[LocationService] Widget refresh triggered for \(reason)")
         }
         #else
         debugLog("⚠️", "[LocationService] WidgetKit not available for refresh")
@@ -570,32 +544,10 @@ class LocationService: NSObject, ObservableObject {
     /// Start a fallback timer that periodically refreshes widgets to ensure they eventually update
     /// This handles cases where initial refresh attempts fail due to timing or system issues
     private func startFallbackWidgetRefreshTimer(reason: String) {
-        // Cancel any existing timer
+        // No-op: Removed excessive fallback reloads to preserve WidgetKit daily budget.
+        // The widget timeline now independently detects expired grace periods.
         widgetRefreshTimer?.invalidate()
-        
-        debugLog("⏰", "[LocationService] Starting fallback widget refresh timer for: \(reason)")
-        
-        // Create timer that fires every 15 seconds
-        // Reduced from 8 to 3 attempts to minimize battery usage and CPU overhead
-        var attempts = 0
-        let maxAttempts = 3 // 3 attempts × 15 seconds = 45 seconds
-        
-        widgetRefreshTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] timer in
-            attempts += 1
-            debugLog("⏰", "[LocationService] Fallback widget refresh attempt \(attempts)/\(maxAttempts)")
-            
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadAllTimelines()
-            #endif
-            
-            if attempts >= maxAttempts {
-                debugLog("⏰", "[LocationService] Completed fallback widget refresh attempts")
-                timer.invalidate()
-                Task { @MainActor in
-                    self?.widgetRefreshTimer = nil
-                }
-            }
-        }
+        widgetRefreshTimer = nil
     }
 }
 

@@ -603,29 +603,11 @@ class AppData: ObservableObject {
         let verifyStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") 
         debugLog("🔍", "[AppData] Verified persisted office status: \(verifyStatus)")
         
-        // Request widget timeline reload with multiple strategies for reliability
+        // Request widget timeline reload - single call to preserve WidgetKit daily budget
         #if canImport(WidgetKit)
-        Task {
-            await MainActor.run {
-                // Strategy 1: Reload all timelines
-                WidgetCenter.shared.reloadAllTimelines()
-                
-                // Strategy 2: Also reload specific widget configuration
-                WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
-                
-                debugLog("🔄", "[AppData] Widget reload requests sent (all + specific)")
-                
-                // Strategy 3: Multiple delayed reloads to handle iOS widget caching issues
-                Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                    WidgetCenter.shared.reloadAllTimelines()
-                    debugLog("🔄", "[AppData] First delayed widget reload request sent")
-                    
-                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-                    WidgetCenter.shared.reloadAllTimelines()
-                    debugLog("🔄", "[AppData] Second delayed widget reload request sent")
-                }
-            }
+        Task { @MainActor in
+            WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
+            debugLog("🔄", "[AppData] Widget reload request sent")
         }
         #else
         debugLog("⚠️", "[AppData] WidgetKit not available")

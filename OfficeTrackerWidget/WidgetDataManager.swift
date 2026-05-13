@@ -14,11 +14,20 @@ class WidgetDataManager {
     private let appGroupIdentifier = "group.com.lpineda.InOfficeDaysTracker"
     private let widgetDataKey = "WidgetData"
     
+    private let _testDefaults: UserDefaults?
+    
     private var sharedDefaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupIdentifier)
+        _testDefaults ?? UserDefaults(suiteName: appGroupIdentifier)
     }
     
-    private init() {}
+    private init() {
+        _testDefaults = nil
+    }
+    
+    /// Testable initializer for unit tests
+    init(testDefaults: UserDefaults) {
+        _testDefaults = testDefaults
+    }
     
     // MARK: - Data Management
     
@@ -95,14 +104,26 @@ class WidgetDataManager {
         )
         
         // Get current office status
-        let isCurrentlyInOffice = userDefaults.bool(forKey: "IsCurrentlyInOffice")
+        var isCurrentlyInOffice = userDefaults.bool(forKey: "IsCurrentlyInOffice")
         debugLog("🔍", "[WidgetDataManager] Office status from UserDefaults: \(isCurrentlyInOffice)")
+        
+        // CRITICAL FIX: If the exit grace period has expired but the app process hasn't
+        // updated UserDefaults yet (because iOS suspended the app's Timer in background),
+        // the widget must independently detect the user has left.
+        if isCurrentlyInOffice,
+           let gracePeriodExpires = userDefaults.object(forKey: "GracePeriodExpires") as? Date,
+           gracePeriodExpires <= Date() {
+            debugLog("🔍", "[WidgetDataManager] Grace period expired at \(gracePeriodExpires) - overriding to away")
+            isCurrentlyInOffice = false
+        }
+        
         debugLog("🔍", "[WidgetDataManager] Month progress: current=\(progressData.current), goal=\(progressData.goal)")
         
         // Calculate current visit duration if in office
         var currentVisitDuration: TimeInterval? = nil
         var visitStartTime: Date? = nil
-        if let currentVisitData = userDefaults.data(forKey: "CurrentVisit"),
+        if isCurrentlyInOffice,
+           let currentVisitData = userDefaults.data(forKey: "CurrentVisit"),
            let currentVisit = try? JSONDecoder().decode(OfficeVisit.self, from: currentVisitData) {
             currentVisitDuration = Date().timeIntervalSince(currentVisit.entryTime)
             visitStartTime = currentVisit.entryTime
