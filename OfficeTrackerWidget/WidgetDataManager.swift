@@ -101,9 +101,11 @@ class WidgetDataManager {
         
         // Calculate current visit duration if in office
         var currentVisitDuration: TimeInterval? = nil
+        var visitStartTime: Date? = nil
         if let currentVisitData = userDefaults.data(forKey: "CurrentVisit"),
            let currentVisit = try? JSONDecoder().decode(OfficeVisit.self, from: currentVisitData) {
             currentVisitDuration = Date().timeIntervalSince(currentVisit.entryTime)
+            visitStartTime = currentVisit.entryTime
         }
         
         // Calculate status message
@@ -123,6 +125,7 @@ class WidgetDataManager {
             monthName: monthName,
             isCurrentlyInOffice: isCurrentlyInOffice,
             currentVisitDuration: currentVisitDuration,
+            visitStartTime: visitStartTime,
             weeklyProgress: weeklyProgress,
             averageDuration: averageDuration,
             daysRemaining: daysRemaining,
@@ -285,6 +288,7 @@ class WidgetDataManager {
             monthName: staleData.monthName,
             isCurrentlyInOffice: false, // Assume not in office if data is stale
             currentVisitDuration: nil,
+            visitStartTime: nil,
             weeklyProgress: staleData.weeklyProgress,
             averageDuration: staleData.averageDuration,
             daysRemaining: staleData.daysRemaining,

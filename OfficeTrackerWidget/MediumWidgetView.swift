@@ -11,6 +11,7 @@ import WidgetKit
 
 struct MediumWidgetView: View {
     let data: WidgetData
+    var entryDate: Date = Date()
     
     var body: some View {
         HStack(spacing: 16) {
@@ -55,7 +56,7 @@ struct MediumWidgetView: View {
                 }
                 
                 // Current visit duration (if in office)
-                if data.isCurrentlyInOffice, let duration = data.currentVisitDuration {
+                if data.isCurrentlyInOffice, let duration = data.visitDuration(at: entryDate) {
                     HStack(spacing: 6) {
                         Image(systemName: "clock.fill")
                             .foregroundColor(WidgetDesignTokens.cyanAccent)

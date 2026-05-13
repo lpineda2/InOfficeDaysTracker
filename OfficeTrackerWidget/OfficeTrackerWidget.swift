@@ -51,8 +51,24 @@ struct Provider: TimelineProvider {
             let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
             debugLog("🔄", "[Widget] Scheduled next update for grace period expiry: \(nextUpdate)")
             completion(timeline)
+        } else if widgetData.isCurrentlyInOffice {
+            // CRITICAL: When user is in office, create entries every 15 minutes
+            // so the visit duration display stays accurate
+            debugLog("🔄", "[Widget] User is in office - using 15-minute update intervals")
+            
+            for intervalOffset in 0..<8 { // 8 entries × 15 min = 2 hours
+                let entryDate = Calendar.current.date(byAdding: .minute, value: intervalOffset * 15, to: currentDate)!
+                let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
+                entries.append(entry)
+            }
+
+            // Refresh timeline every 15 minutes for live duration updates
+            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: currentDate)!
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+            debugLog("🔄", "[Widget] Scheduled next update in 15 min for in-office duration tracking")
+            completion(timeline)
         } else {
-            // No active grace period - use hourly updates
+            // Not in office, no grace period - use hourly updates
             // Create entries for the next 6 hours, updating hourly
             for hourOffset in 0..<6 {
                 let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
@@ -95,9 +111,9 @@ struct OfficeTrackerWidgetEntryView: View {
         case .systemSmall:
             SmallWidgetView(data: entry.widgetData)
         case .systemMedium:
-            MediumWidgetView(data: entry.widgetData)
+            MediumWidgetView(data: entry.widgetData, entryDate: entry.date)
         case .systemLarge:
-            LargeWidgetView(data: entry.widgetData)
+            LargeWidgetView(data: entry.widgetData, entryDate: entry.date)
         // Lock Screen widgets
         case .accessoryCircular:
             AccessoryCircularView(data: entry.widgetData)
@@ -106,7 +122,7 @@ struct OfficeTrackerWidgetEntryView: View {
         case .accessoryInline:
             AccessoryInlineView(data: entry.widgetData)
         default:
-            MediumWidgetView(data: entry.widgetData)
+            MediumWidgetView(data: entry.widgetData, entryDate: entry.date)
         }
     }
 }

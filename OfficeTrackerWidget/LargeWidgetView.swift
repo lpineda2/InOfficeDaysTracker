@@ -11,6 +11,7 @@ import WidgetKit
 
 struct LargeWidgetView: View {
     let data: WidgetData
+    var entryDate: Date = Date()
     
     var body: some View {
         VStack(spacing: 16) {
@@ -92,7 +93,7 @@ struct LargeWidgetView: View {
             
             // Additional context if currently in office (visit duration only)
             VStack(alignment: .leading, spacing: 8) {
-                if data.isCurrentlyInOffice, let duration = data.currentVisitDuration {
+                if data.isCurrentlyInOffice, let duration = data.visitDuration(at: entryDate) {
                     let hours = Int(duration / 3600)
                     let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
                     Text("Visit duration: \(hours)h \(minutes)m")
