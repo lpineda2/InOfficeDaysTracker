@@ -48,6 +48,7 @@ class LocationService: NSObject, ObservableObject {
     // UserDefaults keys for persisting exit grace period state
     private let pendingExitTimeKey = "PendingExitTime"
     private let pendingExitRegionIdKey = "PendingExitRegionId"
+    private let gracePeriodExpiresKey = "GracePeriodExpires"
     
     // iOS region monitoring limit
     private let maxMonitoredRegions = 20
@@ -397,7 +398,57 @@ class LocationService: NSObject, ObservableObject {
         }
         
         debugLog("🔍", "[LocationService] Foreground verification requested")
+        
+        // CRITICAL FIX: Check for expired exit grace periods when returning from background
+        // The timer gets suspended in background, so we need to manually check on foreground
+        checkExpiredGracePeriod()
+        
         await verificationService.verifyLocationNow()
+    }
+    
+    /// Check if exit grace period has expired while app was in background
+    /// Call this when app returns to foreground to handle suspended timers
+    func checkExpiredGracePeriod() {
+        guard let appData = appData else { return }
+        
+        // Check if there's a persisted exit grace period
+        guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
+              let regionId = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
+            return // No pending exit to check
+        }
+        
+        let elapsed = Date().timeIntervalSince(persistedExitTime)
+        
+        debugLog("🔄", "[LocationService] Checking persisted exit grace period, elapsed: \(Int(elapsed))s")
+        
+        if elapsed >= exitGracePeriod {
+            // Grace period expired while app was in background - complete the exit
+            debugLog("⏰", "[LocationService] Grace period expired in background, ending visit now")
+            
+            // Cancel any active timer (may be out of sync)
+            exitGraceTimer?.invalidate()
+            exitGraceTimer = nil
+            
+            Task { @MainActor in
+                // End visit with the original exit time
+                await appData.endVisit(at: persistedExitTime)
+                
+                debugLog("🔍", "[LocationService] Office status after background exit: \(appData.isCurrentlyInOffice)")
+                
+                // Force immediate data synchronization
+                appData.sharedUserDefaults.synchronize()
+                
+                // CRITICAL: Trigger widget refresh for delayed exit
+                self.triggerWidgetRefresh(reason: "delayed exit after background")
+                
+                // Clear state
+                self.pendingExitRegion = nil
+                self.exitTime = nil
+                self.clearPersistedExitGracePeriod()
+            }
+        } else {
+            debugLog("ℹ️", "[LocationService] Grace period still active (\(Int(exitGracePeriod - elapsed))s remaining)")
+        }
     }
     
     func geocodeAddress(_ address: String) async throws -> CLLocationCoordinate2D {
@@ -659,6 +710,11 @@ extension LocationService: CLLocationManagerDelegate {
             // Clear persisted grace period state
             clearPersistedExitGracePeriod()
             
+            // CRITICAL FIX: Trigger widget refresh to show user is back in office
+            // Widget may be showing "away" status from when exit was initiated
+            debugLog("🔄", "[LocationService] Triggering widget refresh for cancelled exit")
+            triggerWidgetRefresh(reason: "exit cancelled - user returned")
+            
             // User re-entered quickly - don't end/restart session
             return
         }
@@ -885,6 +941,12 @@ extension LocationService: CLLocationManagerDelegate {
         // Persist grace period state to survive app termination
         persistExitGracePeriod()
         
+        // CRITICAL: Trigger immediate widget refresh when exit is detected
+        // iOS briefly wakes the app in background for geofence events
+        // This ensures widget gets a chance to update its timeline before app suspends
+        debugLog("🔄", "[LocationService] Triggering immediate widget refresh for exit detection")
+        triggerWidgetRefresh(reason: "exit detected - grace period starting")
+        
         // Schedule exit notification immediately using iOS notification system
         // This ensures notification fires even if app is suspended
         if appData.settings.notificationsEnabled {
@@ -934,11 +996,14 @@ extension LocationService: CLLocationManagerDelegate {
               let exitTime = exitTime,
               let region = pendingExitRegion else { return }
         
+        let graceExpires = exitTime.addingTimeInterval(exitGracePeriod)
+        
         appData.sharedUserDefaults.set(exitTime, forKey: pendingExitTimeKey)
         appData.sharedUserDefaults.set(region.identifier, forKey: pendingExitRegionIdKey)
+        appData.sharedUserDefaults.set(graceExpires, forKey: gracePeriodExpiresKey)
         appData.sharedUserDefaults.synchronize()
         
-        debugLog("💾", "[LocationService] Persisted exit grace period for region: \(region.identifier)")
+        debugLog("💾", "[LocationService] Persisted exit grace period for region: \(region.identifier), expires: \(graceExpires)")
     }
     
     /// Restore exit grace period that was interrupted by app termination
@@ -999,6 +1064,7 @@ extension LocationService: CLLocationManagerDelegate {
         
         appData.sharedUserDefaults.removeObject(forKey: pendingExitTimeKey)
         appData.sharedUserDefaults.removeObject(forKey: pendingExitRegionIdKey)
+        appData.sharedUserDefaults.removeObject(forKey: gracePeriodExpiresKey)
         appData.sharedUserDefaults.synchronize()
         
         debugLog("🗑️", "[LocationService] Cleared persisted exit grace period")

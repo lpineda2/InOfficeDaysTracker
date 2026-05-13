@@ -30,18 +30,53 @@ struct Provider: TimelineProvider {
         
         debugLog("🔄", "[Widget] Timeline data - isInOffice: \(widgetData.isCurrentlyInOffice), visits: \(widgetData.current)")
         
-        // Create entries for the next 6 hours, updating hourly
-        for hourOffset in 0..<6 {
-            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            // Use the same data for all timeline entries since they represent the current state
-            let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
+        // Check if there's an active exit grace period
+        let gracePeriodExpires = checkForActiveGracePeriod()
+        
+        if let expiryDate = gracePeriodExpires, expiryDate > currentDate {
+            // Grace period is active - schedule next update for when it expires
+            let timeUntilExpiry = expiryDate.timeIntervalSince(currentDate)
+            debugLog("🔄", "[Widget] Grace period active, expires in \(Int(timeUntilExpiry))s")
+            
+            // Create current entry
+            let entry = SimpleEntry(date: currentDate, widgetData: widgetData)
             entries.append(entry)
-        }
+            
+            // Create entry for grace period expiration (widget will refresh and show new status)
+            let expiryEntry = SimpleEntry(date: expiryDate, widgetData: widgetData)
+            entries.append(expiryEntry)
+            
+            // Schedule timeline to update when grace period expires (with small buffer)
+            let nextUpdate = expiryDate.addingTimeInterval(10) // 10 second buffer
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+            debugLog("🔄", "[Widget] Scheduled next update for grace period expiry: \(nextUpdate)")
+            completion(timeline)
+        } else {
+            // No active grace period - use hourly updates
+            // Create entries for the next 6 hours, updating hourly
+            for hourOffset in 0..<6 {
+                let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
+                // Use the same data for all timeline entries since they represent the current state
+                let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
+                entries.append(entry)
+            }
 
-        // Update hourly
-        let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
-        let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
-        completion(timeline)
+            // Update hourly
+            let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+            completion(timeline)
+        }
+    }
+    
+    /// Check UserDefaults for active grace period and return expiry date
+    private func checkForActiveGracePeriod() -> Date? {
+        guard let sharedDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker"),
+              let expiryDate = sharedDefaults.object(forKey: "GracePeriodExpires") as? Date else {
+            return nil
+        }
+        
+        // Only return if grace period hasn't expired yet
+        return expiryDate > Date() ? expiryDate : nil
     }
 }
 
