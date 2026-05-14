@@ -53,6 +53,9 @@ class LocationService: NSObject, ObservableObject {
     // iOS region monitoring limit
     private let maxMonitoredRegions = 20
     
+    // Continuation for one-shot location requests (used by verification service)
+    private var locationRequestContinuation: ((CLLocation?) -> Void)?
+    
     override init() {
         super.init()
         setupLocationManager()
@@ -489,6 +492,46 @@ class LocationService: NSObject, ObservableObject {
                     continuation.resume(throwing: NSError(domain: "LocationService", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unable to get current location"]))
                 }
             }
+        }
+    }
+    
+    /// Request a single location update with proper delegate callback handling.
+    /// Used by LocationVerificationService to avoid needing its own CLLocationManager.
+    /// Returns CLLocation or nil if the request times out.
+    func requestSingleLocation(timeout: TimeInterval = 30.0) async -> CLLocation? {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            debugLog("📍", "[LocationService] requestSingleLocation: no authorization")
+            return nil
+        }
+        
+        // Temporarily increase accuracy for verification
+        let previousAccuracy = locationManager.desiredAccuracy
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        defer { locationManager.desiredAccuracy = previousAccuracy }
+        
+        return await withCheckedContinuation { continuation in
+            var hasReturned = false
+            
+            // Set up timeout
+            let timeoutTimer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self = self, !hasReturned else { return }
+                    hasReturned = true
+                    self.locationRequestContinuation = nil
+                    continuation.resume(returning: self.locationManager.location)
+                }
+            }
+            
+            // Set up callback for location update
+            self.locationRequestContinuation = { location in
+                timeoutTimer.invalidate()
+                guard !hasReturned else { return }
+                hasReturned = true
+                continuation.resume(returning: location)
+            }
+            
+            // Request the location
+            locationManager.requestLocation()
         }
     }
     
@@ -1024,6 +1067,12 @@ extension LocationService: CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor in
+            // Resolve any pending location request continuation
+            if let continuation = self.locationRequestContinuation {
+                self.locationRequestContinuation = nil
+                continuation(nil)
+            }
+            
             var errorMessage = "Location service error: \(error.localizedDescription)"
             
             // Provide more specific error messages for common issues
@@ -1087,6 +1136,16 @@ extension LocationService: CLLocationManagerDelegate {
             debugLog("✅", "[LocationService] Started monitoring region: \(region.identifier)")
             // Clear any previous errors when monitoring starts successfully
             locationError = nil
+        }
+    }
+    
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        Task { @MainActor in
+            if let continuation = self.locationRequestContinuation {
+                self.locationRequestContinuation = nil
+                continuation(location)
+            }
         }
     }
 }

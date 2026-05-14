@@ -380,4 +380,82 @@ struct LocationVerificationForegroundTests {
         
         #expect(true)
     }
+    
+    // MARK: - Single CLLocationManager Architecture Tests
+    
+    @Test("LocationVerificationService does not own a CLLocationManager")
+    func testVerificationServiceNoOwnLocationManager() async throws {
+        let verificationService = LocationVerificationService()
+        
+        // Verify that LocationVerificationService is no longer a CLLocationManagerDelegate
+        // (it delegates location requests to LocationService)
+        let mirror = Mirror(reflecting: verificationService)
+        
+        // Check that none of its stored properties are a CLLocationManager
+        for child in mirror.children {
+            let childType = type(of: child.value)
+            let typeName = String(describing: childType)
+            #expect(!typeName.contains("CLLocationManager"),
+                   "LocationVerificationService should not own a CLLocationManager, found: \(child.label ?? "unknown") of type \(typeName)")
+        }
+    }
+    
+    @Test("LocationService owns the only CLLocationManager")
+    func testLocationServiceOwnsManager() async throws {
+        let locationService = LocationService()
+        
+        // Verify LocationService has a CLLocationManager
+        let mirror = Mirror(reflecting: locationService)
+        var hasLocationManager = false
+        
+        for child in mirror.children {
+            let childType = type(of: child.value)
+            let typeName = String(describing: childType)
+            if typeName.contains("CLLocationManager") {
+                hasLocationManager = true
+                break
+            }
+        }
+        
+        #expect(hasLocationManager, "LocationService should own a CLLocationManager")
+    }
+    
+    @Test("Verification routes location requests through LocationService")
+    func testVerificationUsesLocationService() async throws {
+        let appData = createTestAppData()
+        let verificationService = LocationVerificationService()
+        let locationService = LocationService()
+        
+        let office = createTestOfficeLocation(
+            name: "Test Office",
+            latitude: 27.9089,
+            longitude: -82.4543
+        )
+        appData.settings.officeLocations = [office]
+        appData.settings.isSetupComplete = true
+        
+        verificationService.setServices(appData: appData, locationService: locationService)
+        locationService.setAppData(appData)
+        
+        // Verify that the verification service has no locationManager property
+        let mirror = Mirror(reflecting: verificationService)
+        for child in mirror.children {
+            if child.label == "locationManager" {
+                #expect(Bool(false), "LocationVerificationService should not have a 'locationManager' property")
+            }
+        }
+        
+        // The call should work without crashing (even if location isn't available in simulator)
+        await verificationService.verifyLocationNow()
+        #expect(true)
+    }
+    
+    @Test("LocationService requestSingleLocation returns nil without authorization")
+    func testRequestSingleLocationNoAuth() async throws {
+        let locationService = LocationService()
+        
+        // Without authorization, should return nil immediately
+        let location = await locationService.requestSingleLocation(timeout: 2.0)
+        #expect(location == nil, "requestSingleLocation should return nil without authorization")
+    }
 }

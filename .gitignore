@@ -100,3 +100,4 @@ iOSInjectionProject/
 
 # Project backups
 *.backup
+test_output.log
