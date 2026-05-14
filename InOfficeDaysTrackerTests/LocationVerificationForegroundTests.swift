@@ -99,17 +99,15 @@ struct LocationVerificationForegroundTests {
     
     // MARK: - Permission Tests
     
-    @Test("Verification only occurs with proper authorization")
+    @Test("Verification does not crash regardless of authorization state")
     func testVerificationRequiresPermission() async throws {
         let locationService = LocationService()
         let appData = createTestAppData()
         
         locationService.setAppData(appData)
         
-        // Setup but no authorization
-        #expect(locationService.authorizationStatus != .authorizedAlways)
-        
-        // Should not crash when called without permission
+        // Should not crash when called regardless of current authorization state
+        // (On CI/simulator, authorization may already be granted from prior runs)
         await locationService.verifyLocationOnForeground()
         
         // Test passes if no crashes
