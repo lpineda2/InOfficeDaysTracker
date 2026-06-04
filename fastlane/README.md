@@ -39,6 +39,14 @@ Deploy to TestFlight for testing
 
 Submit existing TestFlight build for App Store review
 
+### ios upload_and_submit
+
+```sh
+[bundle exec] fastlane ios upload_and_submit
+```
+
+Upload binary to existing App Store version and submit for review
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
