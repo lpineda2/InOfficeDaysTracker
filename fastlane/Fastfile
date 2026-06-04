@@ -108,4 +108,28 @@ platform :ios do
       precheck_include_in_app_purchases: false
     )
   end
+
+  desc "Upload binary to existing App Store version and submit for review"
+  lane :upload_and_submit do
+    # Load API Key
+    api_key = app_store_connect_api_key(
+      key_id: "ZWWB48GR96",
+      issuer_id: "281d6b58-259e-4b20-aad6-06fb53291bc7",
+      key_filepath: "fastlane/AuthKey_ZWWB48GR96.p8",
+      duration: 1200,
+      in_house: false
+    )
+
+    # Upload binary and metadata to existing version (don't create new version)
+    upload_to_app_store(
+      api_key: api_key,
+      force: true,
+      submit_for_review: true,
+      automatic_release: false,
+      skip_screenshots: true,
+      skip_metadata: false,
+      skip_app_version_update: true,  # Use existing version, don't create new one
+      precheck_include_in_app_purchases: false
+    )
+  end
 end
