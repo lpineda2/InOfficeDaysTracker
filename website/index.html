@@ -2,138 +2,289 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>In Office Days iOS App – Effortless, Private Office Attendance</title>
+  <title>In Office Days – Automatic Office Attendance Tracking for Hybrid Workers</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Effortlessly track your in-office days with privacy. Automatic geofencing, no accounts, no cloud.">
+  <meta name="description" content="Track your in-office days automatically with geofencing. No accounts, no cloud — your attendance data stays private on your device. Free for iPhone.">
+  <meta name="keywords" content="office attendance tracker, hybrid work app, in-office days, geofencing attendance, return to office tracking, RTO compliance">
+  <link rel="canonical" href="https://inofficedaysapp.com/">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="In Office Days – Know exactly how often you're in the office">
+  <meta property="og:description" content="Automatic, private office attendance tracking. No accounts, no cloud. Just arrive at your office and the app handles the rest.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://inofficedaysapp.com/">
+  <meta property="og:image" content="https://inofficedaysapp.com/07.%20InOfficeDays%20Dashboard%20Screen.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="In Office Days – Automatic Office Attendance Tracking">
+  <meta name="twitter:description" content="Track your in-office days automatically. Private, no accounts, no cloud.">
+  <meta name="twitter:image" content="https://inofficedaysapp.com/07.%20InOfficeDays%20Dashboard%20Screen.png">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "In Office Days",
+    "operatingSystem": "iOS",
+    "applicationCategory": "BusinessApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Automatic, private office attendance tracking with geofencing for hybrid workers.",
+    "url": "https://apps.apple.com/app/id6748882914"
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: 'Inter', Arial, sans-serif;
       margin: 0;
       background: #f7f9fb;
       color: #222;
+      line-height: 1.6;
     }
     header {
-      background: linear-gradient(90deg, #4f8cff 0%, #6ee7b7 100%);
+      background: linear-gradient(135deg, #4f8cff 0%, #6ee7b7 100%);
       color: #fff;
-      padding: 48px 0 32px 0;
+      padding: 72px 24px 56px;
       text-align: center;
     }
     header h1 {
       font-size: 2.8rem;
-      margin: 0 0 12px 0;
+      margin: 0 0 16px 0;
       letter-spacing: -1px;
+      line-height: 1.15;
     }
-    header p {
+    header .subtitle {
       font-size: 1.25rem;
-      margin: 0 0 18px 0;
+      margin: 0 auto 32px;
       font-weight: 400;
-    }
-    .badges {
-      margin: 18px 0 0 0;
-    }
-    .badges img {
-      height: 28px;
-      margin: 0 8px;
-      vertical-align: middle;
+      max-width: 600px;
+      opacity: 0.95;
     }
     .cta {
-      margin: 32px 0 0 0;
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
     }
-    .cta a {
+    .cta-primary {
       background: #222;
       color: #fff;
-      padding: 14px 36px;
+      padding: 16px 40px;
       border-radius: 32px;
       font-size: 1.1rem;
       text-decoration: none;
       font-weight: 700;
-      box-shadow: 0 4px 16px rgba(79,140,255,0.12);
-      transition: background 0.2s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transition: background 0.2s, transform 0.2s;
+      display: inline-block;
     }
-    .cta a:hover {
-      background: #4f8cff;
+    .cta-primary:hover {
+      background: #333;
+      transform: translateY(-1px);
+    }
+    .cta-badge {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin-top: 8px;
     }
     section {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 48px 16px;
+      padding: 64px 24px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 2rem;
+      margin: 0 0 16px;
+      letter-spacing: -0.5px;
+    }
+    .section-subtitle {
+      text-align: center;
+      color: #444;
+      font-size: 1.1rem;
+      margin: 0 auto 48px;
+      max-width: 600px;
+    }
+    .steps {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .step {
+      flex: 1 1 280px;
+      max-width: 320px;
+      text-align: center;
+    }
+    .step-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4f8cff, #6ee7b7);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .step h3 {
+      margin: 0 0 8px;
+      font-size: 1.15rem;
+      color: #222;
+    }
+    .step p {
+      margin: 0;
+      color: #444;
+      font-size: 0.98rem;
     }
     .features {
       display: flex;
       flex-wrap: wrap;
       gap: 32px;
       justify-content: center;
-      margin-bottom: 48px;
     }
     .feature {
       background: #fff;
       border-radius: 18px;
       box-shadow: 0 2px 12px rgba(79,140,255,0.07);
       padding: 32px 24px;
-      flex: 1 1 320px;
-      min-width: 280px;
+      flex: 1 1 300px;
       max-width: 340px;
       text-align: center;
     }
-    .feature h3 {
-      margin-top: 0;
-      color: #4f8cff;
-      font-size: 1.2rem;
+    .feature-icon {
+      font-size: 2rem;
       margin-bottom: 12px;
+    }
+    .feature h3 {
+      margin: 0 0 10px;
+      color: #4f8cff;
+      font-size: 1.15rem;
     }
     .feature p {
       margin: 0;
       font-size: 1rem;
       color: #444;
     }
-    .screenshots {
+    .why-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 32px;
-      margin-top: 32px;
     }
-    .screenshot-card {
+    .why-card {
       background: #fff;
       border-radius: 16px;
+      padding: 32px 24px;
       box-shadow: 0 2px 12px rgba(79,140,255,0.07);
-      padding: 18px 12px 12px 12px;
+    }
+    .why-card h3 {
+      color: #4f8cff;
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+    }
+    .why-card p {
+      color: #444;
+      margin: 0;
+      font-size: 0.98rem;
+    }
+    .showcase {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-top: 32px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .showcase-card {
+      background: #fff;
+      border-radius: 16px;
       text-align: center;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(79,140,255,0.07);
     }
-    .screenshot-card img {
+    .showcase-card .img-wrapper {
       width: 100%;
-      max-width: 260px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      margin-bottom: 10px;
+      aspect-ratio: 3 / 4;
+      overflow: hidden;
     }
-    .screenshot-card span {
-      font-size: 0.98rem;
-      color: #333;
-      margin-top: 4px;
+    .showcase-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center bottom;
     }
-    .privacy {
-      background: #e0f2fe;
-      border-radius: 16px;
-      padding: 32px 24px;
-      margin: 48px 0;
+    .showcase-card span {
+      font-size: 0.95rem;
+      color: #444;
+      font-weight: 600;
+      padding: 14px 8px;
+    }
+    .social-proof {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-radius: 18px;
+      padding: 48px 32px;
       text-align: center;
+      margin: 0 auto;
+      max-width: 800px;
     }
-    .privacy h2 {
-      color: #2563eb;
-      margin-bottom: 12px;
+    .social-proof .rating {
+      font-size: 2rem;
+      margin-bottom: 8px;
     }
-    .privacy p {
-      color: #222;
+    .social-proof .rating-text {
       font-size: 1.1rem;
+      color: #222;
+      font-weight: 700;
+      margin-bottom: 24px;
+    }
+    .social-proof .testimonial {
+      font-size: 1.05rem;
+      color: #444;
+      font-style: italic;
+      max-width: 540px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .faq-list {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .faq-item {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(79,140,255,0.07);
+      padding: 24px 28px;
+      margin-bottom: 16px;
+    }
+    .faq-item h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      color: #222;
+    }
+    .faq-item p {
       margin: 0;
+      color: #444;
+      font-size: 0.98rem;
     }
     .support {
       max-width: 600px;
-      margin: 48px auto 0 auto;
+      margin: 0 auto;
       padding: 32px 24px;
       background: #fff;
       border-radius: 16px;
@@ -142,12 +293,12 @@
     }
     .support h2 {
       color: #4f8cff;
-      margin-bottom: 12px;
+      margin: 0 0 12px;
     }
     .support p {
       font-size: 1.08rem;
-      color: #222;
-      margin-bottom: 18px;
+      color: #444;
+      margin: 0 0 18px;
     }
     .support a {
       display: inline-block;
@@ -163,151 +314,17 @@
     .support a:hover {
       background: #2563eb;
     }
-    .screenshots-title {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    footer {
-      text-align: center;
-      color: #888;
-      font-size: 0.98rem;
-      padding: 32px 0 18px 0;
-      background: #f1f5f9;
-      margin-top: 48px;
-    }
-    @media (max-width: 800px) {
-      .features { flex-direction: column; }
-      .feature { max-width: 100%; }
-    }
-    @media (max-width: 600px) {
-      header h1 { font-size: 2rem; }
-      .screenshots { grid-template-columns: 1fr; }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>In Office Days iOS App</h1>
-    <p>Effortless, privacy-first office attendance tracking for hybrid work. No accounts, no cloud, just seamless geofencing.</p>
-    <div class="badges">
-      <img src="https://img.shields.io/badge/iOS-17.0+-blue.svg" alt="iOS 17+">
-      <img src="https://img.shields.io/badge/Swift-5.9+-orange.svg" alt="Swift 5.9+">
-      <img src="https://img.shields.io/badge/SwiftUI-5.0+-green.svg" alt="SwiftUI 5.0+">
-      <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
-    </div>
-    <div class="cta">
-      <a href="#">Download on the App Store</a>
-    </div>
-  </header>
-
-  <section>
-    <div class="features">
-      <div class="feature">
-        <h3>Automatic Tracking</h3>
-        <p>Smart geofencing logs your office visits—no manual check-ins. Just arrive and go!</p>
-      </div>
-      <div class="feature">
-        <h3>Privacy First</h3>
-        <p>All data stays on your device. No cloud sync, no accounts, no tracking—ever.</p>
-      </div>
-      <div class="feature">
-        <h3>Hybrid Work Ready</h3>
-        <p>Set monthly goals, track your progress, and meet your company’s in-office requirements.</p>
-      </div>
-      <div class="feature">
-        <h3>Beautiful & Simple</h3>
-        <p>Modern, intuitive design with a dashboard, history, and easy setup. Built for iOS 17+.</p>
-      </div>
-    </div>
-
-    <div class="privacy">
-      <h2>Why Choose In Office Days app?</h2>
-      <p>
-        Designed for hybrid workers and flexible workplaces, In Office Days app makes it easy to stay compliant and organized—while keeping your data private and secure.
-      </p>
-    </div>
-
-    <h2 class="screenshots-title">App Screenshots</h2>
-    <div class="screenshots">
-      <div class="screenshot-card">
-        <img src="01. InOfficeDays Setup Welcome Screen.png" alt="Welcome Screen">
-        <span>Welcome</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="02. InOfficeDays Setup Location Screen.png" alt="Location Setup">
-        <span>Set Office Location</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="03. InOfficeDays Setup Days Screen.png" alt="Days Setup">
-        <span>Choose Tracking Days</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="04. InOfficeDays Setup Hours Screen.png" alt="Hours Setup">
-        <span>Set Office Hours</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="05. InOfficeDays Setup Goal Screen.png" alt="Goal Setup">
-        <span>Set Monthly Goal</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="06. InOfficeDays Setup Permissions Screen.png" alt="Permissions Setup">
-        <span>Grant Permissions</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="07. InOfficeDays Dashboard Screen.png" alt="Dashboard">
-        <span>Dashboard</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="08. InOfficeDays History Screen.png" alt="History">
-        <span>Visit History</span>
-      </div>
-      <div class="screenshot-card">
-        <img src="09. InOfficeDays Settings Screen.png" alt="Settings">
-        <span>Settings</span>
-      </div>
-    </div>
-    <div class="support">
-      <h2>Support</h2>
-      <p>Have questions, feedback, or need help? Reach out and I'll get back to you as soon as possible.</p>
-      <a href="mailto:luispineda.me@gmail.com">Contact Support</a>
-    </div>
-  </section>
-
-  <section class="privacy-policy">
-    <h2>Privacy Policy</h2>
-    <p>
-      <strong>In Office Days</strong> is designed with your privacy as the top priority. All attendance and location data is stored <strong>locally on your device</strong> and is never uploaded to any server or cloud. The app does not require an account, does not collect personal information, and does not share your data with anyone.
-    </p>
-    <ul>
-      <li><strong>No accounts:</strong> You are never asked to sign up or log in.</li>
-      <li><strong>No cloud sync:</strong> Your data never leaves your device.</li>
-      <li><strong>No tracking:</strong> The app does not track you outside your chosen office location.</li>
-      <li><strong>No ads or analytics:</strong> There are no third-party trackers, ads, or analytics SDKs.</li>
-      <li><strong>Full control:</strong> You can delete your data at any time from the app settings.</li>
-    </ul>
-    <p>
-      If you have any questions about privacy, please <a href="mailto:luispineda.me@gmail.com">contact support</a>.
-    </p>
-  </section>
-
-  <footer>
-    &copy; 2025 Luis Pineda. Built with ❤️ using SwiftUI. <br>
-    No accounts. No cloud. 100% privacy.
-  </footer>
-  <style>
     .privacy-policy {
       max-width: 800px;
-      margin: 56px auto 0 auto;
+      margin: 0 auto;
       padding: 40px 28px;
       background: #f7fafc;
       border-radius: 18px;
       box-shadow: 0 2px 12px rgba(79,140,255,0.06);
-      color: #1a202c;
     }
     .privacy-policy h2 {
       color: #2563eb;
-      margin-top: 0;
-      margin-bottom: 18px;
+      margin: 0 0 18px;
       text-align: center;
     }
     .privacy-policy p {
@@ -334,6 +351,248 @@
     .privacy-policy a:hover {
       color: #2563eb;
     }
+    footer {
+      text-align: center;
+      color: #666;
+      font-size: 0.95rem;
+      padding: 40px 24px 24px;
+      background: #f1f5f9;
+      margin-top: 0;
+    }
+    footer a {
+      color: #4f8cff;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    footer a:hover {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+    .footer-links {
+      margin-bottom: 12px;
+    }
+    .footer-links a {
+      margin: 0 12px;
+    }
+    @media (max-width: 800px) {
+      .features { flex-direction: column; align-items: center; }
+      .feature { max-width: 100%; }
+      .steps { flex-direction: column; align-items: center; }
+      .why-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      header { padding: 48px 16px 40px; }
+      header h1 { font-size: 2rem; }
+      section { padding: 48px 16px; }
+      .showcase { grid-template-columns: 1fr; max-width: 360px; gap: 16px; }
+    }
   </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <header>
+    <h1>Know exactly how often you're in the office</h1>
+    <p class="subtitle">Automatic attendance tracking powered by geofencing. No check-ins, no accounts, no cloud — just show up and your days are counted.</p>
+    <div class="cta">
+      <a href="https://apps.apple.com/app/id6748882914" class="cta-primary">Download Free on the App Store</a>
+    </div>
+    <p class="cta-badge">Free · iPhone · iOS 17+</p>
+  </header>
+
+  <!-- How It Works -->
+  <section>
+    <h2 class="section-title">How It Works</h2>
+    <p class="section-subtitle">Set up once in under a minute. Then forget about it.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Set Your Office Location</h3>
+        <p>Drop a pin on the map or use your current location. The app creates a geofence around your office.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Arrive at Work</h3>
+        <p>Walk into your office like normal. The app automatically detects when you arrive and leave.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Track Your Progress</h3>
+        <p>See your monthly stats, hit your attendance goals, and sync visits to your calendar.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section>
+    <h2 class="section-title">Built for Hybrid Workers</h2>
+    <p class="section-subtitle">Everything you need to stay on top of your in-office schedule.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📍</div>
+        <h3>Automatic Geofencing</h3>
+        <p>No manual check-ins. The app knows when you arrive and leave based on your office location.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <h3>100% Private</h3>
+        <p>All data stays on your device. No accounts, no cloud, no tracking outside your office.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🎯</div>
+        <h3>Monthly Goals</h3>
+        <p>Set a target for how many days you want to be in the office, then track your progress with a visual ring.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📅</div>
+        <h3>Calendar Sync</h3>
+        <p>Office visits automatically appear in your calendar. Perfect for time reporting and expense tracking.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📱</div>
+        <h3>Widgets</h3>
+        <p>Glance at your monthly count, current streak, or today's status without opening the app.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <h3>Visit History</h3>
+        <p>View every office visit with exact arrival and departure times. Review any month at a glance.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Choose -->
+  <section>
+    <h2 class="section-title">Why In Office Days?</h2>
+    <p class="section-subtitle">Most attendance tools are built for managers. This one is built for you.</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <h3>vs. Spreadsheets and Manual Logs</h3>
+        <p>Stop remembering to update a spreadsheet at the end of each day. The app tracks automatically.</p>
+      </div>
+      <div class="why-card">
+        <h3>vs. Corporate Surveillance Tools</h3>
+        <p>Your data never leaves your phone. No employer dashboard, no location history on a server, no one watching.</p>
+      </div>
+      <div class="why-card">
+        <h3>vs. Generic Habit Trackers</h3>
+        <p>Purpose-built for office attendance. Geofencing, monthly goals, work-day awareness, and calendar integration.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- App Showcase -->
+  <section>
+    <h2 class="section-title">See It in Action</h2>
+    <p class="section-subtitle">A clean, intuitive interface that gets out of your way.</p>
+    <div class="showcase">
+      <div class="showcase-card">
+        <div class="img-wrapper">
+          <img src="screenshot-dashboard.png" alt="In Office Days dashboard showing monthly progress rings and attendance trend">
+        </div>
+        <span>Progress at a Glance</span>
+      </div>
+      <div class="showcase-card">
+        <div class="img-wrapper">
+          <img src="screenshot-history.png" alt="Visit history showing office dates with entry and exit times">
+        </div>
+        <span>Visit History</span>
+      </div>
+      <div class="showcase-card">
+        <div class="img-wrapper">
+          <img src="screenshot-setup.png" alt="Settings screen with office locations and tracking day preferences">
+        </div>
+        <span>Tracking Preferences</span>
+      </div>
+      <div class="showcase-card">
+        <div class="img-wrapper">
+          <img src="screenshot-goal.png" alt="Goal progress showing days completed, pace needed, and auto-calculated monthly target">
+        </div>
+        <span>Smart Goals</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Social Proof -->
+  <section>
+    <div class="social-proof">
+      <div class="rating">⭐⭐⭐⭐⭐</div>
+      <div class="rating-text">Loved by hybrid workers</div>
+      <p class="testimonial">"Finally an app that just works. I set my office location once and it's tracked every visit since. No fuss, no accounts, totally private."</p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <h2 class="section-title">Frequently Asked Questions</h2>
+    <p class="section-subtitle">Quick answers to common questions.</p>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>Does it track me all day?</h3>
+        <p>No. The app only checks whether you are inside your designated office geofence. It does not record your location history or movements.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Do I need to create an account?</h3>
+        <p>No. There are no accounts, no sign-ups, no email required. Just download and set your office location.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can my employer see my data?</h3>
+        <p>No. All data is stored locally on your iPhone. There is no server, no admin dashboard, and no way for anyone else to access your information.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Does it work with multiple offices?</h3>
+        <p>Currently the app tracks one primary office location. Support for multiple offices is on the roadmap.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How much battery does it use?</h3>
+        <p>Minimal. Geofencing uses iOS built-in low-power location monitoring. You will not notice a difference.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is it really free?</h3>
+        <p>Yes. The app is free to download and use with no ads, no subscriptions, and no in-app purchases.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Support -->
+  <section>
+    <div class="support">
+      <h2>Need Help?</h2>
+      <p>Have questions or feedback? I would love to hear from you.</p>
+      <a href="mailto:luispineda.me@gmail.com">Contact Support</a>
+    </div>
+  </section>
+
+  <!-- Privacy Policy -->
+  <section id="privacy">
+    <div class="privacy-policy">
+      <h2>Privacy Policy</h2>
+      <p>
+        <strong>In Office Days</strong> is designed with your privacy as the top priority. All attendance and location data is stored <strong>locally on your device</strong> and is never uploaded to any server or cloud.
+      </p>
+      <ul>
+        <li><strong>No accounts:</strong> You are never asked to sign up or log in.</li>
+        <li><strong>No cloud sync:</strong> Your data never leaves your device.</li>
+        <li><strong>No tracking:</strong> The app does not track you outside your chosen office location.</li>
+        <li><strong>No ads or analytics:</strong> There are no third-party trackers, ads, or analytics SDKs.</li>
+        <li><strong>Full control:</strong> You can delete your data at any time from the app settings.</li>
+      </ul>
+      <p>
+        If you have any questions about privacy, please <a href="mailto:luispineda.me@gmail.com">contact support</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="https://apps.apple.com/app/id6748882914">App Store</a>
+      <a href="#privacy">Privacy Policy</a>
+      <a href="#faq">FAQ</a>
+      <a href="mailto:luispineda.me@gmail.com">Support</a>
+    </div>
+    <p>&#169; 2025-2026 Luis Pineda. Made with care for hybrid workers everywhere.</p>
+  </footer>
+
 </body>
 </html>
