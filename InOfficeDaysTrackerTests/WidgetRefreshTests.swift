@@ -76,7 +76,7 @@ struct WidgetRefreshTests {
         #expect(appData.isCurrentlyInOffice == true)
         
         // End office visit  
-        appData.endVisit()
+        await appData.endVisit()
         
         // Force synchronization (simulating what LocationService does)
         appData.sharedUserDefaults.synchronize()
@@ -97,7 +97,7 @@ struct WidgetRefreshTests {
                 appData.startVisit(at: testCoord)
                 #expect(appData.isCurrentlyInOffice == true)
             } else {
-                appData.endVisit()
+                await appData.endVisit()
                 #expect(appData.isCurrentlyInOffice == false)
             }
             
@@ -115,7 +115,7 @@ struct WidgetRefreshTests {
         
         // Ensure clean state by explicitly ending any existing visit
         if appData.isCurrentlyInOffice {
-            appData.endVisit()
+            await appData.endVisit()
         }
         appData.sharedUserDefaults.synchronize()
         
@@ -142,7 +142,7 @@ struct WidgetRefreshTests {
         }
         
         // End visit
-        appData.endVisit()
+        await appData.endVisit()
         appData.sharedUserDefaults.synchronize()
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         
@@ -172,7 +172,7 @@ struct WidgetRefreshTests {
         #expect(isInOfficeStatus == true)
         
         // End office visit
-        appData.endVisit()
+        await appData.endVisit()
         appData.sharedUserDefaults.synchronize()
         
         // Test when away again - check through UserDefaults directly
@@ -192,7 +192,7 @@ struct WidgetRefreshTests {
         #expect(isInOfficeAfterStart == true)
         
         // End visit and verify
-        appData.endVisit()
+        await appData.endVisit()
         
         // UserDefaults should reflect the status change
         let isInOfficeAfterEnd = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
@@ -215,7 +215,7 @@ struct WidgetRefreshTests {
         #expect(appData.isCurrentlyInOffice == true)
         
         // Simulate location service ending the visit (like didExitRegion would do)
-        appData.endVisit()
+        await appData.endVisit()
         appData.sharedUserDefaults.synchronize()
         
         // Verify all states are consistent
@@ -246,7 +246,7 @@ struct WidgetRefreshTests {
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             
             // Exit office  
-            appData.endVisit()
+            await appData.endVisit()
             appData.sharedUserDefaults.synchronize()
             
             #expect(appData.isCurrentlyInOffice == false)
@@ -256,5 +256,127 @@ struct WidgetRefreshTests {
         // Final state should be consistent
         let finalStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
         #expect(finalStatus == false)
+    }
+    
+    // MARK: - Grace Period Expiry Override Tests
+    
+    @Test("Widget Grace Period - Expired grace period overrides IsCurrentlyInOffice to false")
+    func testExpiredGracePeriodOverridesOfficeStatus() async throws {
+        let appData = await createTestAppData()
+        let testCoord = testCoordinate()
+        
+        // Simulate: user was in office
+        appData.startVisit(at: testCoord)
+        appData.sharedUserDefaults.synchronize()
+        #expect(appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") == true)
+        
+        // Simulate: app detected exit and set grace period expiry 5 minutes ago
+        // (timer was suspended in background, so endVisit() never ran)
+        let expiredTime = Date().addingTimeInterval(-300) // 5 minutes ago
+        appData.sharedUserDefaults.set(expiredTime, forKey: "GracePeriodExpires")
+        appData.sharedUserDefaults.synchronize()
+        
+        // Verify: IsCurrentlyInOffice is still true (app never updated it)
+        #expect(appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") == true)
+        
+        // Apply the same logic the widget uses to detect expired grace period
+        var isCurrentlyInOffice = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        if isCurrentlyInOffice,
+           let gracePeriodExpires = appData.sharedUserDefaults.object(forKey: "GracePeriodExpires") as? Date,
+           gracePeriodExpires <= Date() {
+            isCurrentlyInOffice = false
+        }
+        
+        // The widget should show "away" because grace period has expired
+        #expect(isCurrentlyInOffice == false, "Widget should override to 'away' when grace period has expired")
+    }
+    
+    @Test("Widget Grace Period - Active grace period keeps IsCurrentlyInOffice true")
+    func testActiveGracePeriodKeepsOfficeStatus() async throws {
+        let appData = await createTestAppData()
+        let testCoord = testCoordinate()
+        
+        // Simulate: user was in office
+        appData.startVisit(at: testCoord)
+        appData.sharedUserDefaults.synchronize()
+        
+        // Simulate: grace period set to expire 3 minutes from now (still active)
+        let futureTime = Date().addingTimeInterval(180) // 3 minutes from now
+        appData.sharedUserDefaults.set(futureTime, forKey: "GracePeriodExpires")
+        appData.sharedUserDefaults.synchronize()
+        
+        // Apply the same logic the widget uses
+        var isCurrentlyInOffice = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        if isCurrentlyInOffice,
+           let gracePeriodExpires = appData.sharedUserDefaults.object(forKey: "GracePeriodExpires") as? Date,
+           gracePeriodExpires <= Date() {
+            isCurrentlyInOffice = false
+        }
+        
+        // Should still show "in office" because grace period hasn't expired yet
+        #expect(isCurrentlyInOffice == true, "Widget should still show 'in office' during active grace period")
+    }
+    
+    @Test("Widget Grace Period - No grace period key leaves status unchanged")
+    func testNoGracePeriodKeyLeavesStatusUnchanged() async throws {
+        let appData = await createTestAppData()
+        let testCoord = testCoordinate()
+        
+        // Simulate: user is in office, no grace period active
+        appData.startVisit(at: testCoord)
+        appData.sharedUserDefaults.synchronize()
+        
+        // Ensure no grace period key exists
+        appData.sharedUserDefaults.removeObject(forKey: "GracePeriodExpires")
+        appData.sharedUserDefaults.synchronize()
+        
+        // Apply the same logic the widget uses
+        var isCurrentlyInOffice = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        if isCurrentlyInOffice,
+           let gracePeriodExpires = appData.sharedUserDefaults.object(forKey: "GracePeriodExpires") as? Date,
+           gracePeriodExpires <= Date() {
+            isCurrentlyInOffice = false
+        }
+        
+        // Should still show "in office" - no grace period means user is genuinely there
+        #expect(isCurrentlyInOffice == true, "Widget should show 'in office' when no grace period exists")
+    }
+    
+    @Test("Widget Grace Period - Visit duration is nil when grace period expired")
+    func testVisitDurationNilWhenGracePeriodExpired() async throws {
+        let appData = await createTestAppData()
+        let testCoord = testCoordinate()
+        
+        // Simulate: user was in office with active visit
+        appData.startVisit(at: testCoord)
+        appData.sharedUserDefaults.synchronize()
+        
+        // Verify current visit data exists
+        #expect(appData.sharedUserDefaults.data(forKey: "CurrentVisit") != nil)
+        
+        // Simulate: grace period expired (app didn't clean up)
+        let expiredTime = Date().addingTimeInterval(-300)
+        appData.sharedUserDefaults.set(expiredTime, forKey: "GracePeriodExpires")
+        appData.sharedUserDefaults.synchronize()
+        
+        // Apply the widget's logic: if grace period expired, treat as away
+        var isCurrentlyInOffice = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        if isCurrentlyInOffice,
+           let gracePeriodExpires = appData.sharedUserDefaults.object(forKey: "GracePeriodExpires") as? Date,
+           gracePeriodExpires <= Date() {
+            isCurrentlyInOffice = false
+        }
+        
+        // Calculate visit duration only if still in office
+        var currentVisitDuration: TimeInterval? = nil
+        if isCurrentlyInOffice,
+           let currentVisitData = appData.sharedUserDefaults.data(forKey: "CurrentVisit"),
+           let currentVisit = try? JSONDecoder().decode(OfficeVisit.self, from: currentVisitData) {
+            currentVisitDuration = Date().timeIntervalSince(currentVisit.entryTime)
+        }
+        
+        // Duration should be nil since user has left
+        #expect(currentVisitDuration == nil, "Visit duration should be nil when grace period has expired")
+        #expect(isCurrentlyInOffice == false)
     }
 }

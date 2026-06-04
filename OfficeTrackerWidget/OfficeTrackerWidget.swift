@@ -30,18 +30,85 @@ struct Provider: TimelineProvider {
         
         debugLog("🔄", "[Widget] Timeline data - isInOffice: \(widgetData.isCurrentlyInOffice), visits: \(widgetData.current)")
         
-        // Create entries for the next 6 hours, updating hourly
-        for hourOffset in 0..<6 {
-            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            // Use the same data for all timeline entries since they represent the current state
-            let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
+        // Check if there's an active exit grace period
+        let gracePeriodExpires = checkForActiveGracePeriod()
+        
+        if let expiryDate = gracePeriodExpires, expiryDate > currentDate {
+            // Grace period is active - schedule next update for when it expires
+            let timeUntilExpiry = expiryDate.timeIntervalSince(currentDate)
+            debugLog("🔄", "[Widget] Grace period active, expires in \(Int(timeUntilExpiry))s")
+            
+            // Create current entry (still shows "in office" during grace period)
+            let entry = SimpleEntry(date: currentDate, widgetData: widgetData)
             entries.append(entry)
-        }
+            
+            // Create "away" entry at expiry time so widget visually updates immediately
+            let awayData = WidgetData(
+                current: widgetData.current,
+                goal: widgetData.goal,
+                percentage: widgetData.percentage,
+                monthName: widgetData.monthName,
+                isCurrentlyInOffice: false,
+                currentVisitDuration: nil,
+                visitStartTime: nil,
+                weeklyProgress: widgetData.weeklyProgress,
+                averageDuration: widgetData.averageDuration,
+                daysRemaining: widgetData.daysRemaining,
+                paceNeeded: widgetData.paceNeeded,
+                lastUpdated: expiryDate,
+                statusMessage: widgetData.statusMessage,
+                daysLeftInMonth: widgetData.daysLeftInMonth
+            )
+            let expiryEntry = SimpleEntry(date: expiryDate, widgetData: awayData)
+            entries.append(expiryEntry)
+            
+            // Schedule timeline to update when grace period expires (with small buffer)
+            let nextUpdate = expiryDate.addingTimeInterval(10) // 10 second buffer
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+            debugLog("🔄", "[Widget] Scheduled next update for grace period expiry: \(nextUpdate)")
+            completion(timeline)
+        } else if widgetData.isCurrentlyInOffice {
+            // CRITICAL: When user is in office, create entries every 15 minutes
+            // so the visit duration display stays accurate
+            debugLog("🔄", "[Widget] User is in office - using 15-minute update intervals")
+            
+            for intervalOffset in 0..<8 { // 8 entries × 15 min = 2 hours
+                let entryDate = Calendar.current.date(byAdding: .minute, value: intervalOffset * 15, to: currentDate)!
+                let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
+                entries.append(entry)
+            }
 
-        // Update hourly
-        let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
-        let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
-        completion(timeline)
+            // Refresh timeline every 15 minutes for live duration updates
+            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: currentDate)!
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+            debugLog("🔄", "[Widget] Scheduled next update in 15 min for in-office duration tracking")
+            completion(timeline)
+        } else {
+            // Not in office, no grace period - use hourly updates
+            // Create entries for the next 6 hours, updating hourly
+            for hourOffset in 0..<6 {
+                let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
+                // Use the same data for all timeline entries since they represent the current state
+                let entry = SimpleEntry(date: entryDate, widgetData: widgetData)
+                entries.append(entry)
+            }
+
+            // Update hourly
+            let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+            completion(timeline)
+        }
+    }
+    
+    /// Check UserDefaults for active grace period and return expiry date
+    private func checkForActiveGracePeriod() -> Date? {
+        guard let sharedDefaults = UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker"),
+              let expiryDate = sharedDefaults.object(forKey: "GracePeriodExpires") as? Date else {
+            return nil
+        }
+        
+        // Only return if grace period hasn't expired yet
+        return expiryDate > Date() ? expiryDate : nil
     }
 }
 
@@ -60,9 +127,9 @@ struct OfficeTrackerWidgetEntryView: View {
         case .systemSmall:
             SmallWidgetView(data: entry.widgetData)
         case .systemMedium:
-            MediumWidgetView(data: entry.widgetData)
+            MediumWidgetView(data: entry.widgetData, entryDate: entry.date)
         case .systemLarge:
-            LargeWidgetView(data: entry.widgetData)
+            LargeWidgetView(data: entry.widgetData, entryDate: entry.date)
         // Lock Screen widgets
         case .accessoryCircular:
             AccessoryCircularView(data: entry.widgetData)
@@ -71,7 +138,7 @@ struct OfficeTrackerWidgetEntryView: View {
         case .accessoryInline:
             AccessoryInlineView(data: entry.widgetData)
         default:
-            MediumWidgetView(data: entry.widgetData)
+            MediumWidgetView(data: entry.widgetData, entryDate: entry.date)
         }
     }
 }

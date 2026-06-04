@@ -226,6 +226,13 @@ class AppData: ObservableObject {
                 visits[index] = visit
                 saveVisits()
                 debugLog("[AppData] Auto-closed stale visit with exit time: \(endOfDay)")
+                
+                // CRITICAL: Update calendar event with exit time
+                // This ensures the calendar event reflects the auto-closed state
+                Task {
+                    await calendarEventManager.handleVisitEnd(visit, settings: settings)
+                    debugLog("[AppData] Updated calendar event for auto-closed stale visit")
+                }
             }
         }
     }
@@ -331,7 +338,7 @@ class AppData: ObservableObject {
         debugLog("[AppData] Started new office session for today")
     }
     
-    func endVisit(at exitTime: Date? = nil) {
+    func endVisit(at exitTime: Date? = nil) async {
         guard var visit = currentVisit else { 
             debugLog("[AppData] No current visit to end")
             return 
@@ -352,10 +359,11 @@ class AppData: ObservableObject {
         
         saveVisits()
         
-        // Handle calendar event end
-        Task {
-            await calendarEventManager.handleVisitEnd(visit, settings: settings)
-        }
+        // Clear current visit state BEFORE calendar update to prevent UI confusion
+        // But keep reference to visit for calendar update
+        currentVisit = nil
+        isCurrentlyInOffice = false
+        clearCurrentVisit()
         
         if visit.isValidVisit {
             debugLog("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
@@ -363,10 +371,10 @@ class AppData: ObservableObject {
             debugLog("[AppData] Completed session (\(visit.formattedDuration)), saved for record")
         }
         
-        // Clear current visit state (session is paused, can be resumed later)
-        currentVisit = nil
-        isCurrentlyInOffice = false
-        clearCurrentVisit()
+        // CRITICAL FIX: Await calendar update to ensure it completes before app suspension
+        // This prevents calendar events from showing "Currently in office" after you've left
+        await calendarEventManager.handleVisitEnd(visit, settings: settings)
+        debugLog("[AppData] Calendar event update completed for exit")
         
         debugLog("[AppData] Session ended successfully")
     }
@@ -595,29 +603,11 @@ class AppData: ObservableObject {
         let verifyStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") 
         debugLog("🔍", "[AppData] Verified persisted office status: \(verifyStatus)")
         
-        // Request widget timeline reload with multiple strategies for reliability
+        // Request widget timeline reload - single call to preserve WidgetKit daily budget
         #if canImport(WidgetKit)
-        Task {
-            await MainActor.run {
-                // Strategy 1: Reload all timelines
-                WidgetCenter.shared.reloadAllTimelines()
-                
-                // Strategy 2: Also reload specific widget configuration
-                WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
-                
-                debugLog("🔄", "[AppData] Widget reload requests sent (all + specific)")
-                
-                // Strategy 3: Multiple delayed reloads to handle iOS widget caching issues
-                Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                    WidgetCenter.shared.reloadAllTimelines()
-                    debugLog("🔄", "[AppData] First delayed widget reload request sent")
-                    
-                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-                    WidgetCenter.shared.reloadAllTimelines()
-                    debugLog("🔄", "[AppData] Second delayed widget reload request sent")
-                }
-            }
+        Task { @MainActor in
+            WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
+            debugLog("🔄", "[AppData] Widget reload request sent")
         }
         #else
         debugLog("⚠️", "[AppData] WidgetKit not available")

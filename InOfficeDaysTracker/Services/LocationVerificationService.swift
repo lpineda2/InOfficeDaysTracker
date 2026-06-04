@@ -3,6 +3,7 @@
 //  InOfficeDaysTracker
 //
 //  Created to improve location accuracy and handle intermittent status issues
+//  Uses LocationService's shared CLLocationManager instead of creating its own.
 //
 
 import Foundation
@@ -13,9 +14,7 @@ import WidgetKit
 
 @MainActor
 class LocationVerificationService: NSObject, ObservableObject {
-    private let locationManager = CLLocationManager()
     private var verificationTimer: Timer?
-    private var lastKnownLocation: CLLocation?
     
     weak var appData: AppData?
     weak var locationService: LocationService?
@@ -34,13 +33,6 @@ class LocationVerificationService: NSObject, ObservableObject {
     
     override init() {
         super.init()
-        setupLocationManager()
-    }
-    
-    private func setupLocationManager() {
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 10 // Update every 10 meters
     }
     
     func setServices(appData: AppData, locationService: LocationService) {
@@ -74,7 +66,6 @@ class LocationVerificationService: NSObject, ObservableObject {
     func stopPeriodicVerification() {
         verificationTimer?.invalidate()
         verificationTimer = nil
-        locationManager.stopUpdatingLocation()
     }
     
     /// Trigger immediate location verification (typically called when app enters foreground)
@@ -103,7 +94,8 @@ class LocationVerificationService: NSObject, ObservableObject {
     }
     
     private func verifyCurrentLocation() async {
-        guard let appData = appData else {
+        guard let appData = appData,
+              let locationService = locationService else {
             return
         }
         
@@ -111,13 +103,11 @@ class LocationVerificationService: NSObject, ObservableObject {
         let officeLocations: [(coordinate: CLLocationCoordinate2D, name: String, radius: Double)]
         
         if !appData.settings.officeLocations.isEmpty {
-            // Use multi-location array
             officeLocations = appData.settings.officeLocations.compactMap { office in
                 guard let coord = office.coordinate else { return nil }
                 return (coord, office.name, office.detectionRadius)
             }
         } else if let legacyLocation = appData.settings.officeLocation {
-            // Fallback to legacy single location
             officeLocations = [(legacyLocation, "Office", appData.settings.detectionRadius)]
         } else {
             return
@@ -125,13 +115,10 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         guard !officeLocations.isEmpty else { return }
         
-        // Request a fresh location update
-        locationManager.requestLocation()
+        // Request location through the shared LocationService manager
+        let currentLocation = await locationService.requestSingleLocation(timeout: 30.0)
         
-        // Wait for location update with timeout
-        let location = await waitForLocationUpdate(timeout: 30.0)
-        
-        guard let currentLocation = location else {
+        guard let currentLocation = currentLocation else {
             debugLog("📍", "[LocationVerification] Failed to get current location")
             return
         }
@@ -159,7 +146,6 @@ class LocationVerificationService: NSObject, ObservableObject {
         }
         
         // Only correct if there's a significant status mismatch
-        // Allow a small delay buffer to avoid conflicts with geofencing
         if isWithinAnyGeofence && !appData.isCurrentlyInOffice {
             // Add a small delay to allow geofencing to handle the entry first
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
@@ -178,34 +164,6 @@ class LocationVerificationService: NSObject, ObservableObject {
             debugLog("📍", "[LocationVerification] Status is correct, no action needed")
         }
     }
-    
-    private func waitForLocationUpdate(timeout: TimeInterval) async -> CLLocation? {
-        return await withCheckedContinuation { continuation in
-            var hasReturned = false
-            
-            // Capture the current location value to avoid main actor isolation issues
-            let currentLocation = self.lastKnownLocation
-            
-            // Set up timeout
-            let timeoutTimer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { _ in
-                if !hasReturned {
-                    hasReturned = true
-                    continuation.resume(returning: currentLocation)
-                }
-            }
-            
-            // Store continuation for location delegate
-            self.locationContinuation = { location in
-                timeoutTimer.invalidate()
-                if !hasReturned {
-                    hasReturned = true
-                    continuation.resume(returning: location)
-                }
-            }
-        }
-    }
-    
-    private var locationContinuation: ((CLLocation?) -> Void)?
     
     private func handleManualEntry(at location: CLLocationCoordinate2D, officeName: String) async {
         guard let appData = appData else { return }
@@ -234,9 +192,7 @@ class LocationVerificationService: NSObject, ObservableObject {
         if !appData.isCurrentlyInOffice {
             appData.startVisit(at: location)
             debugLog("📍", "[LocationVerification] Manually started office visit at \(officeName)")
-            
-            // Trigger aggressive widget refresh for foreground corrections
-            await triggerWidgetRefresh(reason: "foreground verification - entry")
+            triggerWidgetRefresh(reason: "foreground verification - entry")
         }
     }
     
@@ -244,18 +200,14 @@ class LocationVerificationService: NSObject, ObservableObject {
         guard let appData = appData else { return }
         
         // CRITICAL FIX: Never end active sessions prematurely
-        // Check if there's an active session before ending
         guard appData.isCurrentlyInOffice else {
             debugLog("📍", "[LocationVerification] No active session to end")
             return
         }
         
         // Check if user has been away long enough to confirm exit
-        // This prevents ending sessions during brief GPS fluctuations
         guard let locationService = locationService,
               let exitTime = locationService.exitTime else {
-            // No exit time tracked - this might be a foreground verification
-            // that detected the user is away. We should be conservative here.
             debugLog("⚠️", "[LocationVerification] No exit time tracked, skipping manual exit")
             return
         }
@@ -270,58 +222,18 @@ class LocationVerificationService: NSObject, ObservableObject {
         
         // Confirmed: User has been away long enough
         debugLog("📍", "[LocationVerification] Confirmed user away for \(Int(awayDuration))s, ending visit")
-        appData.endVisit(at: exitTime)
+        await appData.endVisit(at: exitTime)
         debugLog("📍", "[LocationVerification] Manually ended office visit")
-        
-        // Trigger aggressive widget refresh for foreground corrections
-        await triggerWidgetRefresh(reason: "foreground verification - exit")
+        triggerWidgetRefresh(reason: "foreground verification - exit")
     }
     
     // MARK: - Widget Refresh
     
-    /// Trigger immediate widget refresh when verification corrects office status
-    /// Uses multi-strategy approach to ensure reliable widget updates
-    private func triggerWidgetRefresh(reason: String) async {
+    /// Single widget reload call to preserve WidgetKit daily budget
+    private func triggerWidgetRefresh(reason: String) {
         #if canImport(WidgetKit)
         debugLog("🔄", "[LocationVerification] Triggering widget refresh: \(reason)")
-        
-        await MainActor.run {
-            // Force UserDefaults synchronization
-            appData?.sharedUserDefaults.synchronize()
-            
-            // Strategy 1: Immediate reload
-            WidgetCenter.shared.reloadAllTimelines()
-            
-            // Strategy 2: Specific widget reload
-            WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
-            
-            // Strategy 3: Delayed backup refresh
-            Task {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                WidgetCenter.shared.reloadAllTimelines()
-                debugLog("🔄", "[LocationVerification] Delayed widget refresh completed")
-            }
-        }
+        WidgetCenter.shared.reloadTimelines(ofKind: "OfficeTrackerWidget")
         #endif
-    }
-}
-
-extension LocationVerificationService: CLLocationManagerDelegate {
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        
-        Task { @MainActor in
-            self.lastKnownLocation = location
-            self.locationContinuation?(location)
-            self.locationContinuation = nil
-        }
-    }
-    
-    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        Task { @MainActor in
-            debugLog("📍", "[LocationVerification] Location update failed: \(error.localizedDescription)")
-            self.locationContinuation?(self.lastKnownLocation)
-            self.locationContinuation = nil
-        }
     }
 }

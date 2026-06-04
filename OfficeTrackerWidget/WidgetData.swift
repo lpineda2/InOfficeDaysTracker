@@ -14,6 +14,7 @@ struct WidgetData: Codable {
     let monthName: String
     let isCurrentlyInOffice: Bool
     let currentVisitDuration: TimeInterval?
+    let visitStartTime: Date?
     let weeklyProgress: Int
     let averageDuration: Double
     let daysRemaining: Int
@@ -21,6 +22,12 @@ struct WidgetData: Codable {
     let lastUpdated: Date
     let statusMessage: String
     let daysLeftInMonth: Int
+    
+    /// Compute visit duration dynamically based on a given date (for timeline entries)
+    func visitDuration(at date: Date) -> TimeInterval? {
+        guard isCurrentlyInOffice, let startTime = visitStartTime else { return nil }
+        return max(0, date.timeIntervalSince(startTime))
+    }
     
     // Computed properties matching your MainProgressView
     var safePercentage: Double {
@@ -74,6 +81,7 @@ extension WidgetData {
         monthName: "October 2025",
         isCurrentlyInOffice: false,
         currentVisitDuration: nil,
+        visitStartTime: nil,
         weeklyProgress: 3,
         averageDuration: 7.5,
         daysRemaining: 4,
@@ -90,6 +98,7 @@ extension WidgetData {
         monthName: "October 2025",
         isCurrentlyInOffice: true,
         currentVisitDuration: 14400, // 4 hours
+        visitStartTime: Date().addingTimeInterval(-14400),
         weeklyProgress: 4,
         averageDuration: 8.2,
         daysRemaining: 0,
@@ -106,6 +115,7 @@ extension WidgetData {
         monthName: "October 2025",
         isCurrentlyInOffice: false,
         currentVisitDuration: nil,
+        visitStartTime: nil,
         weeklyProgress: 0,
         averageDuration: 0.0,
         daysRemaining: 12,

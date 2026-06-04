@@ -59,7 +59,7 @@ struct GeofencingStateTests {
         // State is .outside (user is not at office)
         // This should end the stale visit
         if appData.isCurrentlyInOffice {
-            appData.endVisit()
+            await appData.endVisit()
         }
         
         // Verify stale visit was ended
@@ -105,7 +105,7 @@ struct GeofencingStateTests {
         // Simulate determining state as .outside
         // Should not crash or cause issues
         if appData.isCurrentlyInOffice {
-            appData.endVisit()
+            await appData.endVisit()
         }
         
         // Verify state unchanged
@@ -230,7 +230,7 @@ struct GeofencingStateTests {
         
         // Simulate exit detection (in real code, grace period would wait 5 minutes)
         // For unit test, directly call endVisit
-        appData.endVisit()
+        await appData.endVisit()
         
         // Verify visit ended
         #expect(appData.isCurrentlyInOffice == false)
@@ -249,7 +249,7 @@ struct GeofencingStateTests {
         #expect(appData.isCurrentlyInOffice == false)
         
         // Try to end non-existent visit (shouldn't happen normally)
-        appData.endVisit()
+        await appData.endVisit()
         
         // Verify state unchanged
         #expect(appData.isCurrentlyInOffice == false)
@@ -317,7 +317,7 @@ struct GeofencingStateTests {
         // Simulate the fix: only end visit if no grace period
         let hasActiveGracePeriod = false // No exitGraceTimer
         if !hasActiveGracePeriod {
-            appData.endVisit()
+            await appData.endVisit()
         }
         
         // Verify stale visit was ended
@@ -345,7 +345,7 @@ struct GeofencingStateTests {
         //    - Should see active grace period and NOT end visit
         if !hasActiveGracePeriod {
             // Only end if no grace period
-            appData.endVisit()
+            await appData.endVisit()
         }
         
         // 4. Visit should still be active (grace period protecting it)
@@ -400,12 +400,12 @@ struct GeofencingStateTests {
         let hasActiveGracePeriod = true
         
         // BUG (before fix): didDetermineState(.outside) would immediately:
-        //   if appData.isCurrentlyInOffice { appData.endVisit() }
+        //   if appData.isCurrentlyInOffice { await appData.endVisit() }
         // This bypassed the grace period!
         
         // FIX: Check for active grace period:
         if appData.isCurrentlyInOffice && !hasActiveGracePeriod {
-            appData.endVisit()
+            await appData.endVisit()
         }
         
         // Result: Visit stays active during grace period
