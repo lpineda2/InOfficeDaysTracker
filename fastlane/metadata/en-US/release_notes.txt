@@ -1,8 +1,9 @@
 What's New in Version 1.14:
 
-• Instant status updates - Your office presence now refreshes immediately when you open the app, so you always see accurate information
-• Smarter location detection - Automatically corrects your status if there are any delays in background tracking
-• Faster widget updates - Home and lock screen widgets refresh more reliably when you arrive at or leave the office
-• Improved battery efficiency - Optimized location checking to minimize battery impact while maintaining accuracy
+• Rock-solid office detection — Fixed several issues that could cause your status to appear stuck or incorrect after leaving the office
+• Reliable widgets — Your home screen and lock screen widgets now update consistently when you arrive or leave, showing accurate duration times
+• Crash fix — Resolved a rare crash that could occur when leaving your office area
+• Better calendar sync — Office visit times in your calendar now update correctly, even if the app is in the background
+• Smarter exit detection — Improved accuracy of departure time tracking to prevent false notifications
 
 We're constantly improving your experience. Thank you for using In Office Days Tracker!
