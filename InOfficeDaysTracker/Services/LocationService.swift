@@ -416,7 +416,7 @@ class LocationService: NSObject, ObservableObject {
         
         // Check if there's a persisted exit grace period
         guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
-              let regionId = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
+              let _ = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
             return // No pending exit to check
         }
         
