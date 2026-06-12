@@ -1140,6 +1140,31 @@ class AppData: ObservableObject {
     
     // MARK: - Calendar Integration
     
+    /// Optimistically write exit time to calendar during the geofence background window.
+    /// Called immediately on exit detection so the calendar updates even if the app is suspended
+    /// before the grace period timer fires. If the user re-enters (false exit), the calendar
+    /// will be corrected by revertOptimisticCalendarExit on re-entry.
+    func writeOptimisticCalendarExit(at exitTime: Date) async {
+        guard let visit = currentVisit, visit.isActiveSession else {
+            debugLog("📅", "[AppData] No active visit for optimistic calendar exit")
+            return
+        }
+        
+        // Create a snapshot of the visit with the exit time applied
+        var snapshot = visit
+        snapshot.endCurrentSession(at: exitTime)
+        
+        debugLog("📅", "[AppData] Writing optimistic calendar exit at \(exitTime)")
+        await calendarEventManager.handleVisitEnd(snapshot, settings: settings)
+    }
+    
+    /// Revert an optimistic calendar exit when user re-enters during grace period (false exit).
+    /// Restores the calendar event to "currently in office" state.
+    func revertOptimisticCalendarExit(visit: OfficeVisit) async {
+        debugLog("📅", "[AppData] Reverting optimistic calendar exit - user returned")
+        await calendarEventManager.handleVisitStart(visit, settings: settings)
+    }
+    
     private func ensureCalendarEventForCurrentVisit(_ visit: OfficeVisit) async {
         guard settings.calendarSettings.isEnabled,
               visit.isActiveSession else {

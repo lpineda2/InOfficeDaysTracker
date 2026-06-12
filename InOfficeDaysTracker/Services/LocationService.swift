@@ -705,6 +705,15 @@ extension LocationService: CLLocationManagerDelegate {
             // Clear persisted grace period state
             clearPersistedExitGracePeriod()
             
+            // CRITICAL: Revert optimistic calendar exit since user returned
+            // The calendar was written with exit info during the exit detection window;
+            // now restore it to "currently in office" state
+            if let visit = appData.currentVisit {
+                Task {
+                    await appData.revertOptimisticCalendarExit(visit: visit)
+                }
+            }
+            
             // CRITICAL FIX: Trigger widget refresh to show user is back in office
             // Widget may be showing "away" status from when exit was initiated
             debugLog("🔄", "[LocationService] Triggering widget refresh for cancelled exit")
@@ -935,6 +944,11 @@ extension LocationService: CLLocationManagerDelegate {
         
         // Persist grace period state to survive app termination
         persistExitGracePeriod()
+        
+        // CRITICAL: Write calendar event with exit time NOW during the geofence background window.
+        // iOS only gives ~10s of background execution — the 5-min grace timer won't fire if suspended.
+        // If user re-enters (false exit), handleVisitStart will revert the calendar on re-entry.
+        await appData.writeOptimisticCalendarExit(at: exitTime!)
         
         // CRITICAL: Trigger immediate widget refresh when exit is detected
         // iOS briefly wakes the app in background for geofence events
