@@ -173,6 +173,8 @@ class AppData: ObservableObject {
     private func loadCurrentStatus() {
         // Restore office status and current visit from persistent storage
         isCurrentlyInOffice = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        debugLog("[AppData] ===== LOADING STATE ON APP LAUNCH =====")
+        debugLog("[AppData] Loaded isCurrentlyInOffice from UserDefaults: \(isCurrentlyInOffice)")
         
         if let data = sharedUserDefaults.data(forKey: currentVisitKey),
            let visit = try? JSONDecoder().decode(OfficeVisit.self, from: data) {
@@ -279,11 +281,11 @@ class AppData: ObservableObject {
         let now = Date()
         let calendar = Calendar.current
         
-        #if DEBUG
-        debugLog("[AppData] startVisit called at \(now)")
+        debugLog("[AppData] ===== START VISIT CALLED =====")
+        debugLog("[AppData] Time: \(now)")
         debugLog("[AppData] Current visits count: \(visits.count)")
         debugLog("[AppData] Current visit exists: \(currentVisit != nil)")
-        #endif
+        debugLog("[AppData] isCurrentlyInOffice BEFORE: \(isCurrentlyInOffice)")
         
         // Session Management: Check if there's already a visit for today
         if let todayVisitIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: now) }) {
@@ -298,6 +300,7 @@ class AppData: ObservableObject {
                 debugLog("[AppData] DUPLICATE PREVENTED: Session already active for today")
                 currentVisit = todayVisit
                 isCurrentlyInOffice = true
+                debugLog("[AppData] isCurrentlyInOffice set to: \(isCurrentlyInOffice)")
                 return
             }
             
@@ -306,8 +309,17 @@ class AppData: ObservableObject {
             visits[todayVisitIndex] = todayVisit
             currentVisit = todayVisit
             isCurrentlyInOffice = true
+            debugLog("[AppData] isCurrentlyInOffice set to: \(isCurrentlyInOffice)")
             
             saveVisits()
+            
+            // DIAGNOSTIC: Verify state persistence
+            sharedUserDefaults.synchronize()
+            let persistedStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+            debugLog("[AppData] State persisted to UserDefaults: \(persistedStatus)")
+            if persistedStatus != isCurrentlyInOffice {
+                debugLog("⚠️", "[AppData] WARNING: Persistence failed! In-memory=\(isCurrentlyInOffice), Persisted=\(persistedStatus)")
+            }
             
             // Handle calendar event update
             Task {
@@ -324,10 +336,19 @@ class AppData: ObservableObject {
         
         currentVisit = newVisit
         isCurrentlyInOffice = true
+        debugLog("[AppData] isCurrentlyInOffice set to: \(isCurrentlyInOffice)")
         
         // Add the visit to the array
         visits.append(newVisit)
         saveVisits()
+        
+        // DIAGNOSTIC: Verify state persistence
+        sharedUserDefaults.synchronize()
+        let persistedStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        debugLog("[AppData] State persisted to UserDefaults: \(persistedStatus)")
+        if persistedStatus != isCurrentlyInOffice {
+            debugLog("⚠️", "[AppData] WARNING: Persistence failed! In-memory=\(isCurrentlyInOffice), Persisted=\(persistedStatus)")
+        }
         
         // Handle calendar event creation
         debugLog("[AppData] About to call calendar event manager...")
@@ -339,12 +360,16 @@ class AppData: ObservableObject {
     }
     
     func endVisit(at exitTime: Date? = nil) async {
-        guard var visit = currentVisit else { 
-            debugLog("[AppData] No current visit to end")
-            return 
+        debugLog("[AppData] ===== END VISIT CALLED =====")
+        debugLog("[AppData] isCurrentlyInOffice BEFORE: \(isCurrentlyInOffice)")
+        debugLog("[AppData] Current visit exists: \(currentVisit != nil)")
+        
+        guard var visit = currentVisit else {
+            debugLog("[AppData] No current visit to end - this is unexpected if exit was detected")
+            return
         }
         
-        debugLog("[AppData] Ending current session")
+        debugLog("[AppData] Ending current session for visit: \(visit.id.uuidString)")
         
         let exitTime = exitTime ?? Date()
         
@@ -363,7 +388,16 @@ class AppData: ObservableObject {
         // But keep reference to visit for calendar update
         currentVisit = nil
         isCurrentlyInOffice = false
+        debugLog("[AppData] isCurrentlyInOffice set to: \(isCurrentlyInOffice)")
         clearCurrentVisit()
+        
+        // DIAGNOSTIC: Verify state persistence
+        sharedUserDefaults.synchronize()
+        let persistedStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        debugLog("[AppData] State persisted to UserDefaults: \(persistedStatus)")
+        if persistedStatus != isCurrentlyInOffice {
+            debugLog("⚠️", "[AppData] WARNING: Persistence failed! In-memory=\(isCurrentlyInOffice), Persisted=\(persistedStatus)")
+        }
         
         if visit.isValidVisit {
             debugLog("[AppData] Completed valid office session with total duration: \(visit.formattedDuration)")
