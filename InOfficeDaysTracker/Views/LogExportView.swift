@@ -142,7 +142,7 @@ struct LogExportView: View {
         }
         .sheet(isPresented: $showingShareSheet) {
             if let url = shareURL {
-                ShareSheet(items: [url])
+                ShareSheet(fileURL: url, csvContent: "")
             }
         }
         .alert("Clear All Logs?", isPresented: $showingClearConfirmation) {
