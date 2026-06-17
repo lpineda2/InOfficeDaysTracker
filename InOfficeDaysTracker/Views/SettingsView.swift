@@ -322,6 +322,19 @@ struct SettingsView: View {
                 }
             }
             
+            #if DEBUG
+            NavigationLink {
+                LogExportView()
+            } label: {
+                HStack {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .foregroundColor(.orange)
+                    Text("Export Debug Logs")
+                        .font(.body)
+                }
+            }
+            #endif
+            
             Button {
                 showingResetAlert = true
             } label: {
@@ -336,7 +349,11 @@ struct SettingsView: View {
         } header: {
             Text("Data Management")
         } footer: {
+            #if DEBUG
+            Text("Export your visit history, debug logs for troubleshooting, or reset all data. Resetting cannot be undone.")
+            #else
             Text("Export your visit history or reset all data. Resetting cannot be undone.")
+            #endif
         }
     }
     

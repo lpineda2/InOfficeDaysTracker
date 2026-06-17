@@ -73,6 +73,9 @@ class AppData: ObservableObject {
         // Validate current visit consistency
         validateCurrentVisitConsistency()
         
+        // DEFENSIVE: Check for data loss and attempt recovery
+        performDataIntegrityCheck()
+        
         // Debug: Add test data if no visits exist
         #if DEBUG
         addTestDataIfNeeded()
@@ -283,9 +286,17 @@ class AppData: ObservableObject {
         
         debugLog("[AppData] ===== START VISIT CALLED =====")
         debugLog("[AppData] Time: \(now)")
+        debugLog("[AppData] Location: (\(location.latitude), \(location.longitude))")
         debugLog("[AppData] Current visits count: \(visits.count)")
         debugLog("[AppData] Current visit exists: \(currentVisit != nil)")
         debugLog("[AppData] isCurrentlyInOffice BEFORE: \(isCurrentlyInOffice)")
+        
+        // DEFENSIVE: Log all existing visits for this month
+        let thisMonthVisits = getVisits(for: now)
+        debugLog("[AppData] Existing visits this month: \(thisMonthVisits.count)")
+        for (index, visit) in thisMonthVisits.enumerated() {
+            debugLog("[AppData]   Visit \(index + 1): \(visit.formattedDate), duration: \(visit.formattedDuration), valid: \(visit.isValidVisit)")
+        }
         
         // Session Management: Check if there's already a visit for today
         if let todayVisitIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: now) }) {
@@ -339,8 +350,26 @@ class AppData: ObservableObject {
         debugLog("[AppData] isCurrentlyInOffice set to: \(isCurrentlyInOffice)")
         
         // Add the visit to the array
+        debugLog("[AppData] Adding new visit to array...")
+        debugLog("[AppData] Visits count before add: \(visits.count)")
         visits.append(newVisit)
+        debugLog("[AppData] Visits count after add: \(visits.count)")
+        debugLog("[AppData] New visit ID: \(newVisit.id.uuidString)")
+        debugLog("[AppData] New visit date: \(newVisit.formattedDate)")
+        debugLog("[AppData] New visit has \(newVisit.events.count) events")
+        
+        debugLog("[AppData] About to save visits...")
         saveVisits()
+        debugLog("[AppData] Visits saved")
+        
+        // DEFENSIVE: Verify the visit is in the array after save
+        let calendar = Calendar.current
+        if let verifyIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: newVisit.date) }) {
+            debugLog("✅", "[AppData] Verification: New visit found in array at index \(verifyIndex)")
+            debugLog("✅", "[AppData] Verification: Visit ID matches: \(visits[verifyIndex].id == newVisit.id)")
+        } else {
+            debugLog("🚨", "[AppData] CRITICAL: New visit not found in array after save!")
+        }
         
         // DIAGNOSTIC: Verify state persistence
         sharedUserDefaults.synchronize()
@@ -365,24 +394,50 @@ class AppData: ObservableObject {
         debugLog("[AppData] Current visit exists: \(currentVisit != nil)")
         
         guard var visit = currentVisit else {
-            debugLog("[AppData] No current visit to end - this is unexpected if exit was detected")
+            debugLog("🚨", "[AppData] CRITICAL: No current visit to end - this is unexpected if exit was detected")
+            debugLog("🚨", "[AppData] This means the visit was never created or was lost!")
             return
         }
         
         debugLog("[AppData] Ending current session for visit: \(visit.id.uuidString)")
+        debugLog("[AppData] Visit date: \(visit.formattedDate)")
+        debugLog("[AppData] Visit entry time: \(visit.entryTime)")
+        debugLog("[AppData] Visit has \(visit.events.count) events")
         
         let exitTime = exitTime ?? Date()
+        debugLog("[AppData] Exit time: \(exitTime)")
         
         // End the current session in the visit
         visit.endCurrentSession(at: exitTime)
+        debugLog("[AppData] Session ended, visit now has \(visit.events.count) events")
+        debugLog("[AppData] Visit duration: \(visit.formattedDuration)")
+        debugLog("[AppData] Visit is valid: \(visit.isValidVisit)")
         
         // Update the visit in the array
         let calendar = Calendar.current
         if let index = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
+            debugLog("[AppData] Found visit in array at index \(index), updating...")
+            let oldVisit = visits[index]
+            debugLog("[AppData] Old visit had \(oldVisit.events.count) events")
             visits[index] = visit
+            debugLog("[AppData] Updated visit now has \(visits[index].events.count) events")
+        } else {
+            debugLog("🚨", "[AppData] CRITICAL: Visit not found in visits array!")
+            debugLog("🚨", "[AppData] This should never happen - visit should have been added on entry")
         }
         
+        debugLog("[AppData] About to save visits...")
         saveVisits()
+        debugLog("[AppData] Visits saved")
+        
+        // DEFENSIVE: Verify the visit is still in the array after save
+        if let verifyIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
+            let savedVisit = visits[verifyIndex]
+            debugLog("✅", "[AppData] Verification: Visit still in array at index \(verifyIndex)")
+            debugLog("✅", "[AppData] Verification: Visit has \(savedVisit.events.count) events, duration: \(savedVisit.formattedDuration)")
+        } else {
+            debugLog("🚨", "[AppData] CRITICAL: Visit disappeared from array after save!")
+        }
         
         // Clear current visit state BEFORE calendar update to prevent UI confusion
         // But keep reference to visit for calendar update
@@ -610,9 +665,42 @@ class AppData: ObservableObject {
     }
     
     private func saveVisits() {
-        if let encoded = try? JSONEncoder().encode(visits) {
-            sharedUserDefaults.set(encoded, forKey: visitsKey)
+        debugLog("💾", "[AppData] ===== SAVING VISITS =====")
+        debugLog("💾", "[AppData] Total visits to save: \(visits.count)")
+        
+        // Log details of what we're saving
+        let thisMonth = Date()
+        let thisMonthVisits = getVisits(for: thisMonth)
+        debugLog("💾", "[AppData] This month's visits: \(thisMonthVisits.count)")
+        for (index, visit) in thisMonthVisits.enumerated() {
+            debugLog("💾", "[AppData]   Visit \(index + 1): \(visit.formattedDate), active: \(visit.isActiveSession), valid: \(visit.isValidVisit)")
         }
+        
+        if let encoded = try? JSONEncoder().encode(visits) {
+            debugLog("💾", "[AppData] Successfully encoded \(encoded.count) bytes")
+            sharedUserDefaults.set(encoded, forKey: visitsKey)
+            sharedUserDefaults.synchronize()
+            
+            // DEFENSIVE: Verify the save worked
+            if let savedData = sharedUserDefaults.data(forKey: visitsKey) {
+                debugLog("✅", "[AppData] Save verified: \(savedData.count) bytes persisted")
+                
+                // Double-check we can decode it
+                if let decoded = try? JSONDecoder().decode([OfficeVisit].self, from: savedData) {
+                    debugLog("✅", "[AppData] Save verification: Successfully decoded \(decoded.count) visits")
+                    if decoded.count != visits.count {
+                        debugLog("🚨", "[AppData] CRITICAL: Visit count mismatch! In-memory: \(visits.count), Persisted: \(decoded.count)")
+                    }
+                } else {
+                    debugLog("🚨", "[AppData] CRITICAL: Failed to decode saved visits!")
+                }
+            } else {
+                debugLog("🚨", "[AppData] CRITICAL: No data found after save!")
+            }
+        } else {
+            debugLog("🚨", "[AppData] CRITICAL: Failed to encode visits for saving!")
+        }
+        
         updateWidgetData()
     }
     
@@ -1390,6 +1478,69 @@ class AppData: ObservableObject {
         let daysRemaining = getWorkingDaysRemaining()
         let workingDaysPerWeek = max(1, settings.trackingDays.count)
         return Int(ceil(Double(daysRemaining) / Double(workingDaysPerWeek)))
+    }
+    
+    // MARK: - Data Integrity & Recovery
+    
+    /// Perform data integrity check on app launch
+    /// Detects and attempts to recover from data loss scenarios
+    private func performDataIntegrityCheck() {
+        debugLog("🔍", "[AppData] ===== PERFORMING DATA INTEGRITY CHECK =====")
+        
+        let calendar = Calendar.current
+        let today = Date()
+        let thisMonth = Date()
+        
+        // Check 1: Verify visits array is not corrupted
+        debugLog("🔍", "[AppData] Total visits in memory: \(visits.count)")
+        debugLog("🔍", "[AppData] This month's visits: \(getVisits(for: thisMonth).count)")
+        
+        // Check 2: Look for today's visit
+        let todayVisits = visits.filter { calendar.isDate($0.date, inSameDayAs: today) }
+        debugLog("🔍", "[AppData] Today's visits: \(todayVisits.count)")
+        
+        if todayVisits.isEmpty {
+            debugLog("ℹ️", "[AppData] No visit found for today (this is normal if you haven't been to office yet)")
+        } else {
+            for (index, visit) in todayVisits.enumerated() {
+                debugLog("🔍", "[AppData] Today's visit \(index + 1): \(visit.events.count) events, active: \(visit.isActiveSession), valid: \(visit.isValidVisit)")
+            }
+        }
+        
+        // Check 3: Verify UserDefaults persistence
+        if let savedData = sharedUserDefaults.data(forKey: visitsKey) {
+            debugLog("🔍", "[AppData] UserDefaults has \(savedData.count) bytes of visit data")
+            
+            if let decoded = try? JSONDecoder().decode([OfficeVisit].self, from: savedData) {
+                debugLog("✅", "[AppData] Successfully decoded \(decoded.count) visits from UserDefaults")
+                
+                if decoded.count != visits.count {
+                    debugLog("⚠️", "[AppData] WARNING: Visit count mismatch! In-memory: \(visits.count), UserDefaults: \(decoded.count)")
+                    debugLog("⚠️", "[AppData] This could indicate data corruption or incomplete save")
+                }
+            } else {
+                debugLog("🚨", "[AppData] CRITICAL: Failed to decode visits from UserDefaults!")
+                debugLog("🚨", "[AppData] Data may be corrupted")
+            }
+        } else {
+            debugLog("⚠️", "[AppData] WARNING: No visit data found in UserDefaults")
+            if !visits.isEmpty {
+                debugLog("⚠️", "[AppData] But we have \(visits.count) visits in memory - this is suspicious")
+            }
+        }
+        
+        // Check 4: Verify current visit state consistency
+        if isCurrentlyInOffice {
+            if currentVisit == nil {
+                debugLog("🚨", "[AppData] CRITICAL: Marked as in office but no current visit!")
+                debugLog("🚨", "[AppData] This indicates state corruption - resetting")
+                isCurrentlyInOffice = false
+            } else {
+                debugLog("✅", "[AppData] Current visit state is consistent")
+            }
+        }
+        
+        debugLog("🔍", "[AppData] Data integrity check complete")
     }
     
     #if DEBUG
