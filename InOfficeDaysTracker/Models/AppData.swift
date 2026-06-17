@@ -363,7 +363,6 @@ class AppData: ObservableObject {
         debugLog("[AppData] Visits saved")
         
         // DEFENSIVE: Verify the visit is in the array after save
-        let calendar = Calendar.current
         if let verifyIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: newVisit.date) }) {
             debugLog("✅", "[AppData] Verification: New visit found in array at index \(verifyIndex)")
             debugLog("✅", "[AppData] Verification: Visit ID matches: \(visits[verifyIndex].id == newVisit.id)")
