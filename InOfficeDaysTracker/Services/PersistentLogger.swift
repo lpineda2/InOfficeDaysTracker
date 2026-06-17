@@ -7,6 +7,9 @@
 //
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Persistent logger that writes to a file for troubleshooting
 /// Only active in DEBUG builds to protect user privacy in production
@@ -48,12 +51,23 @@ class PersistentLogger {
     }
     
     private func writeHeader() {
+        #if canImport(UIKit)
+        let deviceInfo = """
+        Device: \(UIDevice.current.model)
+        iOS Version: \(UIDevice.current.systemVersion)
+        """
+        #else
+        let deviceInfo = """
+        Device: Unknown (Widget Extension)
+        iOS Version: Unknown
+        """
+        #endif
+        
         let header = """
         ================================================================================
         InOfficeDaysTracker Debug Log
         Started: \(ISO8601DateFormatter().string(from: Date()))
-        Device: \(UIDevice.current.model)
-        iOS Version: \(UIDevice.current.systemVersion)
+        \(deviceInfo)
         App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
         Build: \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown")
         ================================================================================
