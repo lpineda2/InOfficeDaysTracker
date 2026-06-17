@@ -15,7 +15,18 @@ struct OfficeEvent: Codable {
     
     var duration: TimeInterval? {
         guard let exitTime = exitTime else { return nil }
-        return exitTime.timeIntervalSince(entryTime)
+        let duration = exitTime.timeIntervalSince(entryTime)
+        
+        // DEFENSIVE: Validate duration is positive
+        guard duration >= 0 else {
+            debugLog("🚨", "[OfficeEvent] INVALID EVENT: Exit time before entry time")
+            debugLog("🚨", "  Entry: \(entryTime)")
+            debugLog("🚨", "  Exit: \(exitTime)")
+            debugLog("🚨", "  Duration: \(duration) seconds")
+            return nil
+        }
+        
+        return duration
     }
 }
 
@@ -44,7 +55,23 @@ struct OfficeVisit: Identifiable, Codable {
         guard events.allSatisfy({ $0.exitTime != nil }) else { return nil }
         
         // Calculate total duration across all events
-        return events.compactMap { $0.duration }.reduce(0, +)
+        let totalDuration = events.compactMap { $0.duration }.reduce(0, +)
+        
+        // DEFENSIVE: Validate total duration is positive and finite
+        guard totalDuration >= 0 && totalDuration.isFinite else {
+            debugLog("🚨", "[OfficeVisit] INVALID TOTAL DURATION: \(totalDuration) seconds")
+            debugLog("🚨", "  Visit date: \(date)")
+            debugLog("🚨", "  Events count: \(events.count)")
+            for (i, event) in events.enumerated() {
+                debugLog("🚨", "  Event \(i): \(event.entryTime) -> \(event.exitTime?.description ?? "nil")")
+                if let eventDuration = event.duration {
+                    debugLog("🚨", "    Duration: \(eventDuration) seconds")
+                }
+            }
+            return nil
+        }
+        
+        return totalDuration
     }
     
     // Check if currently in an active session (last event has no exit time)

@@ -701,6 +701,23 @@ extension LocationService: CLLocationManagerDelegate {
             debugLog("🚪", "[LocationService] Current visit is active: \(visit.isActiveSession)")
         }
         
+        // DIAGNOSTIC: Log grace period state to detect stale state from previous day
+        debugLog("🔍", "[LocationService] Grace period state check:")
+        debugLog("🔍", "  pendingExitRegion: \(pendingExitRegion?.identifier ?? "nil")")
+        debugLog("🔍", "  exitTime: \(exitTime?.description ?? "nil")")
+        if let exitTime = exitTime {
+            let calendar = Calendar.current
+            let isToday = calendar.isDateInToday(exitTime)
+            let exitDate = calendar.startOfDay(for: exitTime)
+            let todayDate = calendar.startOfDay(for: Date())
+            debugLog("🔍", "  exitTime is from today: \(isToday)")
+            debugLog("🔍", "  exitTime date: \(exitDate)")
+            debugLog("🔍", "  today's date: \(todayDate)")
+            if !isToday {
+                debugLog("⚠️", "[LocationService] WARNING: Grace period is from a PREVIOUS DAY - potential stale state bug")
+            }
+        }
+        
         // Cancel exit grace timer if user re-entered during grace period
         if let pendingRegion = pendingExitRegion, pendingRegion.identifier == region.identifier {
             exitGraceTimer?.invalidate()
@@ -713,6 +730,7 @@ extension LocationService: CLLocationManagerDelegate {
             if let exitTime = exitTime {
                 let awayDuration = Date().timeIntervalSince(exitTime)
                 debugLog("✅", "[LocationService] Re-entry detected during grace period (away for \(Int(awayDuration))s), canceling exit")
+                debugLog("✅", "[LocationService] Exit time was: \(exitTime)")
             }
             
             exitTime = nil
@@ -733,6 +751,10 @@ extension LocationService: CLLocationManagerDelegate {
             // Widget may be showing "away" status from when exit was initiated
             debugLog("🔄", "[LocationService] Triggering widget refresh for cancelled exit")
             triggerWidgetRefresh(reason: "exit cancelled - user returned")
+            
+            // DIAGNOSTIC: Log early return to track when startVisit() is skipped
+            debugLog("⚠️", "[LocationService] EARLY RETURN: Skipping startVisit() due to grace period re-entry")
+            debugLog("⚠️", "[LocationService] Visit will NOT be created/resumed for this entry")
             
             // User re-entered quickly - don't end/restart session
             return
@@ -1080,9 +1102,20 @@ extension LocationService: CLLocationManagerDelegate {
             return // No pending exit to restore
         }
         
-        let elapsed = Date().timeIntervalSince(persistedExitTime)
+        // DIAGNOSTIC: Log restoration details with date validation
+        let calendar = Calendar.current
+        let isToday = calendar.isDateInToday(persistedExitTime)
+        debugLog("🔄", "[LocationService] Found persisted exit grace period")
+        debugLog("🔄", "  Exit time: \(persistedExitTime)")
+        debugLog("🔄", "  Is from today: \(isToday)")
+        debugLog("🔄", "  Region: \(regionId)")
         
-        debugLog("🔄", "[LocationService] Found persisted exit grace period, elapsed: \(Int(elapsed))s")
+        if !isToday {
+            debugLog("⚠️", "[LocationService] WARNING: Grace period is from PREVIOUS DAY - should be cleared")
+        }
+        
+        let elapsed = Date().timeIntervalSince(persistedExitTime)
+        debugLog("🔄", "[LocationService] Elapsed time: \(Int(elapsed))s")
         
         if elapsed >= exitGracePeriod {
             // Grace period expired while app was terminated - complete the exit
