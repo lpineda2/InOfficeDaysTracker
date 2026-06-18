@@ -234,8 +234,11 @@ class PersistentLogger {
     /// Create a combined log file with all logs for easy export
     func createCombinedLogFile() -> URL? {
         guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("❌ [PersistentLogger] DIAGNOSTIC: Could not access documents directory")
             return nil
         }
+        
+        print("📁 [PersistentLogger] DIAGNOSTIC: Documents URL: \(documentsURL.path)")
         
         let timestamp = DateFormatter().apply {
             $0.dateFormat = "yyyy-MM-dd_HH-mm-ss"
@@ -244,7 +247,10 @@ class PersistentLogger {
         let combinedFileName = "InOfficeDaysTracker_Combined_\(timestamp).log"
         let combinedURL = documentsURL.appendingPathComponent(combinedFileName)
         
+        print("📄 [PersistentLogger] DIAGNOSTIC: Combined file URL: \(combinedURL.path)")
+        
         let logFiles = getAllLogFiles()
+        print("📚 [PersistentLogger] DIAGNOSTIC: Found \(logFiles.count) log files")
         
         var combinedContent = """
         ================================================================================
@@ -270,9 +276,21 @@ class PersistentLogger {
         
         do {
             try combinedContent.write(to: combinedURL, atomically: true, encoding: .utf8)
+            
+            // Verify file was created
+            let fileExists = fileManager.fileExists(atPath: combinedURL.path)
+            print("✅ [PersistentLogger] DIAGNOSTIC: File created successfully, exists: \(fileExists)")
+            
+            // Check file attributes
+            if let attributes = try? fileManager.attributesOfItem(atPath: combinedURL.path) {
+                let fileSize = attributes[.size] as? Int64 ?? 0
+                print("📊 [PersistentLogger] DIAGNOSTIC: File size: \(fileSize) bytes")
+            }
+            
             return combinedURL
         } catch {
-            print("❌ [PersistentLogger] Failed to create combined log file: \(error)")
+            print("❌ [PersistentLogger] DIAGNOSTIC: Failed to create combined log file: \(error)")
+            print("❌ [PersistentLogger] DIAGNOSTIC: Error details: \(error.localizedDescription)")
             return nil
         }
     }

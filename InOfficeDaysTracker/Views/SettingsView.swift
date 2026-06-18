@@ -797,15 +797,31 @@ struct ShareSheet: UIViewControllerRepresentable {
     let csvContent: String
     
     func makeUIViewController(context: Context) -> UIActivityViewController {
+        print("🎬 [ShareSheet] DIAGNOSTIC: makeUIViewController called")
+        print("📍 [ShareSheet] DIAGNOSTIC: fileURL: \(fileURL?.path ?? "nil")")
+        print("📝 [ShareSheet] DIAGNOSTIC: csvContent length: \(csvContent.count)")
+        
         // Determine items to share based on current state
         let items: [Any]
         
         // Always prioritize file sharing if we have a valid file URL
         if let fileURL = fileURL {
+            print("📁 [ShareSheet] DIAGNOSTIC: Using file URL for sharing")
+            print("📍 [ShareSheet] DIAGNOSTIC: File exists: \(FileManager.default.fileExists(atPath: fileURL.path))")
+            
+            // Check if file is readable
+            if FileManager.default.isReadableFile(atPath: fileURL.path) {
+                print("✅ [ShareSheet] DIAGNOSTIC: File is readable")
+            } else {
+                print("❌ [ShareSheet] DIAGNOSTIC: File is NOT readable")
+            }
+            
             items = [fileURL]
         } else if !csvContent.isEmpty && csvContent.count > 50 { // Ensure we have substantial content
+            print("📝 [ShareSheet] DIAGNOSTIC: Using CSV content for sharing")
             items = [csvContent]
         } else {
+            print("⚠️ [ShareSheet] DIAGNOSTIC: Using fallback message")
             // Provide a meaningful fallback message
             let fallbackMessage = "No visit data available to export. Start tracking your office visits to generate exportable data."
             items = [fallbackMessage]
@@ -816,9 +832,12 @@ struct ShareSheet: UIViewControllerRepresentable {
         // For files, ensure we're setting the proper content type
         if let fileURL = fileURL {
             controller.setValue(fileURL.lastPathComponent, forKey: "subject")
+            print("📋 [ShareSheet] DIAGNOSTIC: Set subject to: \(fileURL.lastPathComponent)")
         } else {
             controller.setValue("Office Visits Data", forKey: "subject")
         }
+        
+        print("✅ [ShareSheet] DIAGNOSTIC: UIActivityViewController created successfully")
         
         return controller
     }

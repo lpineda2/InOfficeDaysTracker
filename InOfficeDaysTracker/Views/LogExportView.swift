@@ -141,9 +141,7 @@ struct LogExportView: View {
             updateLogInfo()
         }
         .sheet(isPresented: $showingShareSheet) {
-            if let url = shareURL {
-                ShareSheet(fileURL: url, csvContent: "")
-            }
+            ShareSheet(fileURL: shareURL, csvContent: "")
         }
         .alert("Clear All Logs?", isPresented: $showingClearConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -162,8 +160,15 @@ struct LogExportView: View {
     
     private func exportCurrentLog() {
         guard let url = PersistentLogger.shared.getCurrentLogFileURL() else {
+            print("❌ [LogExportView] DIAGNOSTIC: Current log URL is nil")
             return
         }
+        
+        print("📄 [LogExportView] DIAGNOSTIC: Exporting current log")
+        print("📍 [LogExportView] DIAGNOSTIC: File URL: \(url.absoluteString)")
+        print("📍 [LogExportView] DIAGNOSTIC: File path: \(url.path)")
+        print("📍 [LogExportView] DIAGNOSTIC: File exists: \(FileManager.default.fileExists(atPath: url.path))")
+        
         shareURL = url
         showingShareSheet = true
     }
@@ -171,14 +176,25 @@ struct LogExportView: View {
     private func exportAllLogs() {
         isGeneratingCombinedLog = true
         
+        print("🔄 [LogExportView] DIAGNOSTIC: Starting export all logs")
+        
         DispatchQueue.global(qos: .userInitiated).async {
             let combinedURL = PersistentLogger.shared.createCombinedLogFile()
+            
+            print("📦 [LogExportView] DIAGNOSTIC: Combined URL returned: \(combinedURL?.path ?? "nil")")
             
             DispatchQueue.main.async {
                 isGeneratingCombinedLog = false
                 if let url = combinedURL {
+                    print("✅ [LogExportView] DIAGNOSTIC: Setting shareURL and showing sheet")
+                    print("📍 [LogExportView] DIAGNOSTIC: File URL: \(url.absoluteString)")
+                    print("📍 [LogExportView] DIAGNOSTIC: File path: \(url.path)")
+                    print("📍 [LogExportView] DIAGNOSTIC: File exists: \(FileManager.default.fileExists(atPath: url.path))")
+                    
                     shareURL = url
                     showingShareSheet = true
+                } else {
+                    print("❌ [LogExportView] DIAGNOSTIC: Combined URL is nil, not showing share sheet")
                 }
             }
         }
