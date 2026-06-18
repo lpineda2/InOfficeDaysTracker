@@ -42,6 +42,12 @@ struct SettingsView: View {
     @State private var isUpdatingLocation = false
     @State private var updateError: String?
     
+    // Help & Support section states
+    @State private var diagnosticsCopied = false
+    @State private var showingResetLogsAlert = false
+    @State private var showingDiagnosticsCopiedToast = false
+    @State private var showingLogsResetToast = false
+    
     var body: some View {
         Form {
             goalsSection
@@ -50,6 +56,7 @@ struct SettingsView: View {
             calendarSection
             notificationsSection
             dataSection
+            helpAndSupportSection
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
@@ -75,6 +82,51 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will permanently delete all visit history and reset your settings. This action cannot be undone.")
+        }
+        .alert("Reset Debug Logs", isPresented: $showingResetLogsAlert) {
+            Button("Reset", role: .destructive) {
+                resetDebugLogs()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete all diagnostic logs. This action cannot be undone.")
+        }
+        .overlay(alignment: .top) {
+            if showingDiagnosticsCopiedToast {
+                Text("Diagnostics copied to clipboard")
+                    .font(.subheadline)
+                    .padding()
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.top, 50)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation {
+                                showingDiagnosticsCopiedToast = false
+                            }
+                        }
+                    }
+            }
+            
+            if showingLogsResetToast {
+                Text("Debug logs cleared")
+                    .font(.subheadline)
+                    .padding()
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.top, 50)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation {
+                                showingLogsResetToast = false
+                            }
+                        }
+                    }
+            }
         }
     }
     
@@ -317,23 +369,11 @@ struct SettingsView: View {
                 HStack {
                     Image(systemName: "square.and.arrow.up")
                         .foregroundColor(.blue)
+                        .frame(width: 24)
                     Text("Export Data")
                         .font(.body)
                 }
             }
-            
-            #if DEBUG
-            NavigationLink {
-                LogExportView()
-            } label: {
-                HStack {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .foregroundColor(.orange)
-                    Text("Export Debug Logs")
-                        .font(.body)
-                }
-            }
-            #endif
             
             Button {
                 showingResetAlert = true
@@ -341,6 +381,7 @@ struct SettingsView: View {
                 HStack {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
+                        .frame(width: 24)
                     Text("Reset All Data")
                         .font(.body)
                         .foregroundColor(.red)
@@ -349,11 +390,81 @@ struct SettingsView: View {
         } header: {
             Text("Data Management")
         } footer: {
-            #if DEBUG
-            Text("Export your visit history, debug logs for troubleshooting, or reset all data. Resetting cannot be undone.")
-            #else
             Text("Export your visit history or reset all data. Resetting cannot be undone.")
-            #endif
+        }
+    }
+    
+    // MARK: - Help & Support Section
+    
+    private var helpAndSupportSection: some View {
+        Section {
+            // Export Debug Logs
+            NavigationLink {
+                LogExportView()
+            } label: {
+                HStack {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .foregroundColor(.orange)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Export Debug Logs")
+                            .font(.body)
+                        Text("Share detailed logs for troubleshooting")
+                            .font(.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+                }
+            }
+            
+            // Copy App Diagnostics
+            Button {
+                copyAppDiagnostics()
+            } label: {
+                HStack {
+                    Image(systemName: "doc.on.clipboard")
+                        .foregroundColor(.blue)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Copy App Diagnostics")
+                            .font(.body)
+                        Text("Copy system info to clipboard")
+                            .font(.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    if diagnosticsCopied {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+            
+            // Reset Debug Logs
+            Button {
+                showingResetLogsAlert = true
+            } label: {
+                HStack {
+                    Image(systemName: "trash.circle")
+                        .foregroundColor(.orange)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reset Debug Logs")
+                            .font(.body)
+                        Text("Clear all diagnostic logs")
+                            .font(.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Help & Support")
+        } footer: {
+            Text("Diagnostic tools for troubleshooting issues. Debug logs help identify problems with entry/exit detection.")
         }
     }
     
@@ -437,6 +548,35 @@ struct SettingsView: View {
     
     private func coordinatesEqual(_ coord1: CLLocationCoordinate2D, _ coord2: CLLocationCoordinate2D) -> Bool {
         return abs(coord1.latitude - coord2.latitude) < 0.000001 && abs(coord1.longitude - coord2.longitude) < 0.000001
+    }
+    
+    // MARK: - Help & Support Functions
+    
+    private func copyAppDiagnostics() {
+        let diagnostics = DiagnosticsHelper.generateAppDiagnostics(appData: appData)
+        DiagnosticsHelper.copyToClipboard(diagnostics)
+        
+        // Show feedback
+        withAnimation {
+            diagnosticsCopied = true
+            showingDiagnosticsCopiedToast = true
+        }
+        
+        // Reset checkmark after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation {
+                diagnosticsCopied = false
+            }
+        }
+    }
+    
+    private func resetDebugLogs() {
+        PersistentLogger.shared.clearAllLogs()
+        
+        // Show confirmation
+        withAnimation {
+            showingLogsResetToast = true
+        }
     }
 }
 
