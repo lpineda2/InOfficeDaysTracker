@@ -12,8 +12,8 @@ import UIKit
 #endif
 
 /// Persistent logger that writes to a file for troubleshooting
-/// Active in DEBUG and TestFlight builds for troubleshooting
-/// Automatically disabled in App Store production builds
+/// Always enabled to support debugging in all environments
+/// Logs are stored locally and can be exported via Settings
 class PersistentLogger {
     static let shared = PersistentLogger()
     
@@ -27,28 +27,11 @@ class PersistentLogger {
     private var isEnabled = false
     
     private init() {
-        // Enable logging in DEBUG and TestFlight builds
-        // TestFlight builds have the embedded.mobileprovision file
-        #if DEBUG
+        // Always enable logging for troubleshooting
+        // Logs are stored locally and only accessible via Settings > Export Logs
         setupLogFile()
         isEnabled = true
         cleanupOldLogs()
-        #else
-        // Check if this is a TestFlight build (has embedded.mobileprovision)
-        if isTestFlightBuild() {
-            setupLogFile()
-            isEnabled = true
-            cleanupOldLogs()
-        }
-        #endif
-    }
-    
-    /// Check if running in TestFlight
-    private func isTestFlightBuild() -> Bool {
-        guard let receiptURL = Bundle.main.appStoreReceiptURL else {
-            return false
-        }
-        return receiptURL.path.contains("sandboxReceipt")
     }
     
     // MARK: - Setup
