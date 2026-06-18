@@ -12,7 +12,8 @@ import UIKit
 #endif
 
 /// Persistent logger that writes to a file for troubleshooting
-/// Only active in DEBUG builds to protect user privacy in production
+/// Active in DEBUG and TestFlight builds for troubleshooting
+/// Automatically disabled in App Store production builds
 class PersistentLogger {
     static let shared = PersistentLogger()
     
@@ -26,11 +27,28 @@ class PersistentLogger {
     private var isEnabled = false
     
     private init() {
+        // Enable logging in DEBUG and TestFlight builds
+        // TestFlight builds have the embedded.mobileprovision file
         #if DEBUG
         setupLogFile()
         isEnabled = true
         cleanupOldLogs()
+        #else
+        // Check if this is a TestFlight build (has embedded.mobileprovision)
+        if isTestFlightBuild() {
+            setupLogFile()
+            isEnabled = true
+            cleanupOldLogs()
+        }
         #endif
+    }
+    
+    /// Check if running in TestFlight
+    private func isTestFlightBuild() -> Bool {
+        guard let receiptURL = Bundle.main.appStoreReceiptURL else {
+            return false
+        }
+        return receiptURL.path.contains("sandboxReceipt")
     }
     
     // MARK: - Setup
@@ -80,7 +98,6 @@ class PersistentLogger {
     
     /// Log a message to the persistent log file
     func log(_ message: String, level: LogLevel = .info, file: String = #file, function: String = #function, line: Int = #line) {
-        #if DEBUG
         guard isEnabled, let logURL = logFileURL else { return }
         
         logQueue.async { [weak self] in
@@ -96,12 +113,10 @@ class PersistentLogger {
             self.writeToFile(logEntry)
             self.checkAndRotateLogIfNeeded()
         }
-        #endif
     }
     
     /// Log with emoji prefix (for compatibility with existing debugLog calls)
     func log(_ emoji: String, _ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        #if DEBUG
         guard isEnabled, let logURL = logFileURL else { return }
         
         logQueue.async { [weak self] in
@@ -117,7 +132,6 @@ class PersistentLogger {
             self.writeToFile(logEntry)
             self.checkAndRotateLogIfNeeded()
         }
-        #endif
     }
     
     private func writeToFile(_ content: String) {
