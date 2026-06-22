@@ -750,7 +750,11 @@ extension LocationService: CLLocationManagerDelegate {
             } else {
                 // Stale or expired grace period found - clean up state and continue with normal entry
                 debugLog("🧹", "[LocationService] Stale or expired grace period found during region entry - clearing and continuing")
-                debugLog("🧹", "[LocationService] Grace period exit time was: \(exitTime) (is today: \(Calendar.current.isDateInToday(exitTime)))")
+                if let exitTime = exitTime {
+                    debugLog("🧹", "[LocationService] Grace period exit time was: \(exitTime) (is today: \(Calendar.current.isDateInToday(exitTime)))")
+                } else {
+                    debugLog("🧹", "[LocationService] Grace period exit time was nil")
+                }
 
                 clearExitGracePeriodState(reason: "stale or expired grace period before region entry")
 
