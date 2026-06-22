@@ -32,6 +32,10 @@ class LocationService: NSObject, ObservableObject {
     // Fallback timer for widget refresh reliability
     private var widgetRefreshTimer: Timer?
     
+    // Periodic location check timer to detect missed exits
+    private var periodicLocationCheckTimer: Timer?
+    private let periodicCheckInterval: TimeInterval = 300 // 5 minutes
+    
     // Exit grace period to prevent false exits from GPS drift
     private var exitGraceTimer: Timer?
     private var pendingExitRegion: CLRegion?
@@ -686,41 +690,80 @@ extension LocationService: CLLocationManagerDelegate {
             return
         }
         
-        // Cancel exit grace timer if user re-entered during grace period
-        if let pendingRegion = pendingExitRegion, pendingRegion.identifier == region.identifier {
-            exitGraceTimer?.invalidate()
-            exitGraceTimer = nil
-            pendingExitRegion = nil
-            
-            // Cancel scheduled exit notification
-            NotificationService.shared.cancelPendingExitNotification()
-            
-            if let exitTime = exitTime {
+        // DIAGNOSTIC: Log entry event details
+        debugLog("🚪", "[LocationService] ===== ENTRY EVENT DETECTED =====")
+        debugLog("🚪", "[LocationService] Region: \(region.identifier)")
+        debugLog("🚪", "[LocationService] Time: \(Date())")
+        debugLog("🚪", "[LocationService] Current isCurrentlyInOffice state: \(appData.isCurrentlyInOffice)")
+        debugLog("🚪", "[LocationService] Current visit exists: \(appData.currentVisit != nil)")
+        if let visit = appData.currentVisit {
+            debugLog("🚪", "[LocationService] Current visit ID: \(visit.id.uuidString)")
+            debugLog("🚪", "[LocationService] Current visit is active: \(visit.isActiveSession)")
+        }
+        
+        // DIAGNOSTIC: Log grace period state to detect stale state from previous day
+        debugLog("🔍", "[LocationService] Grace period state check:")
+        debugLog("🔍", "  pendingExitRegion: \(pendingExitRegion?.identifier ?? "nil")")
+        debugLog("🔍", "  exitTime: \(exitTime?.description ?? "nil")")
+        if let exitTime = exitTime {
+            let calendar = Calendar.current
+            let isToday = calendar.isDateInToday(exitTime)
+            let exitDate = calendar.startOfDay(for: exitTime)
+            let todayDate = calendar.startOfDay(for: Date())
+            debugLog("🔍", "  exitTime is from today: \(isToday)")
+            debugLog("🔍", "  exitTime date: \(exitDate)")
+            debugLog("🔍", "  today's date: \(todayDate)")
+            if !isToday {
+                debugLog("⚠️", "[LocationService] WARNING: Grace period is from a PREVIOUS DAY - potential stale state bug")
+            }
+        }
+        
+        // FIX: Handle grace period re-entry with date validation
+        // Only cancel exit and return early if grace period is valid (today and not expired)
+        if let pendingRegion = pendingExitRegion,
+           pendingRegion.identifier == region.identifier {
+
+            guard let exitTime = exitTime else {
+                // Malformed state: pendingRegion exists but no exit time
+                debugLog("⚠️", "[LocationService] Pending region exists without exit time - clearing invalid state")
+                clearExitGracePeriodState(reason: "pending region exists without exit time")
+                // Do not return. Fall through to normal entry handling below so startVisit() can run.
+                // The method will continue to office matching and visit creation.
+            } else if isValidExitGracePeriod(exitTime) {
+                // Valid same-day re-entry during active grace period - cancel pending exit
+                debugLog("🔄", "[LocationService] Valid same-day re-entry during exit grace period - cancelling exit")
+
                 let awayDuration = Date().timeIntervalSince(exitTime)
-                debugLog("✅", "[LocationService] Re-entry detected during grace period (away for \(Int(awayDuration))s), canceling exit")
-            }
-            
-            exitTime = nil
-            
-            // Clear persisted grace period state
-            clearPersistedExitGracePeriod()
-            
-            // CRITICAL: Revert optimistic calendar exit since user returned
-            // The calendar was written with exit info during the exit detection window;
-            // now restore it to "currently in office" state
-            if let visit = appData.currentVisit {
-                Task {
-                    await appData.revertOptimisticCalendarExit(visit: visit)
+                debugLog("✅", "[LocationService] Re-entry detected during grace period (away for \(Int(awayDuration))s)")
+
+                clearExitGracePeriodState(reason: "valid same-day re-entry")
+
+                // CRITICAL: Revert optimistic calendar exit since user returned
+                // The calendar was written with exit info during the exit detection window;
+                // now restore it to "currently in office" state
+                if let visit = appData.currentVisit {
+                    Task {
+                        await appData.revertOptimisticCalendarExit(visit: visit)
+                    }
                 }
+
+                // CRITICAL FIX: Trigger widget refresh to show user is back in office
+                debugLog("🔄", "[LocationService] Triggering widget refresh for cancelled exit")
+                triggerWidgetRefresh(reason: "exit cancelled - user returned")
+
+                // User re-entered quickly - don't end/restart session
+                return
+            } else {
+                // Stale or expired grace period found - clean up state and continue with normal entry
+                debugLog("🧹", "[LocationService] Stale or expired grace period found during region entry - clearing and continuing")
+                debugLog("🧹", "[LocationService] Grace period exit time was: \(exitTime) (is today: \(Calendar.current.isDateInToday(exitTime)))")
+
+                clearExitGracePeriodState(reason: "stale or expired grace period before region entry")
+
+                // Do not return.
+                // Fall through to normal entry handling below so startVisit() can run.
+                // The method will continue to office matching and visit creation.
             }
-            
-            // CRITICAL FIX: Trigger widget refresh to show user is back in office
-            // Widget may be showing "away" status from when exit was initiated
-            debugLog("🔄", "[LocationService] Triggering widget refresh for cancelled exit")
-            triggerWidgetRefresh(reason: "exit cancelled - user returned")
-            
-            // User re-entered quickly - don't end/restart session
-            return
         }
         
         // Find which office location was entered
@@ -762,9 +805,10 @@ extension LocationService: CLLocationManagerDelegate {
 
         // Check if today is a tracking day
         guard appData.settings.trackingDays.contains(weekday) else {
-            debugLog("❌", "[LocationService] Not a tracking day, ignoring entry")
+            debugLog("❌", "[LocationService] ENTRY REJECTED: Not a tracking day (weekday=\(weekday), tracking days=\(appData.settings.trackingDays))")
             return
         }
+        debugLog("✅", "[LocationService] Tracking day check passed")
 
         // Check if within office hours (with some flexibility)
         let officeStartHour = calendar.component(.hour, from: appData.settings.officeHours.startTime)
@@ -783,33 +827,46 @@ extension LocationService: CLLocationManagerDelegate {
         #endif
 
         guard hour >= flexibleStartHour && hour <= flexibleEndHour else {
-            debugLog("❌", "[LocationService] Outside office hours, ignoring entry")
+            debugLog("❌", "[LocationService] ENTRY REJECTED: Outside office hours (hour=\(hour), flexible window=\(flexibleStartHour)-\(flexibleEndHour))")
             return
         }
+        debugLog("✅", "[LocationService] Office hours check passed")
 
         // Prevent duplicate notifications if already marked as in office
         if appData.isCurrentlyInOffice {
-            debugLog("ℹ️", "[LocationService] Already marked as in office")
+            debugLog("ℹ️", "[LocationService] ENTRY SKIPPED: Already marked as in office")
             return
         }
+        debugLog("✅", "[LocationService] Not currently in office, proceeding with entry")
 
         debugLog("✅", "[LocationService] Valid office entry detected")
 
         debugLog("🔍", "[LocationService] Office status before entry: \(appData.isCurrentlyInOffice)")
         
         // Start tracking visit at the entered office location
+        debugLog("🎯", "[LocationService] Calling appData.startVisit()...")
         appData.startVisit(at: officeCoordinate)
 
         debugLog("🔍", "[LocationService] Office status after startVisit(): \(appData.isCurrentlyInOffice)")
+        
+        // DIAGNOSTIC: Verify state was persisted
+        let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        debugLog("🔍", "[LocationService] Persisted status in UserDefaults: \(persistedStatus)")
+        if persistedStatus != appData.isCurrentlyInOffice {
+            debugLog("⚠️", "[LocationService] WARNING: State mismatch! In-memory=\(appData.isCurrentlyInOffice), Persisted=\(persistedStatus)")
+        }
         debugLog("🔍", "[LocationService] Current visit after entry: \(appData.currentVisit?.id.uuidString ?? "none")")
         
         // Force immediate data synchronization
         appData.sharedUserDefaults.synchronize()
         
         // Verify UserDefaults was updated
-        let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
-        debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
+        let verifyPersistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(verifyPersistedStatus)")
 
+        // Start periodic location checks to detect missed exits
+        startPeriodicLocationChecks()
+        
         // Trigger immediate widget refresh for office entry
         triggerWidgetRefresh(reason: "office entry")
 
@@ -824,6 +881,24 @@ extension LocationService: CLLocationManagerDelegate {
             guard let appData = appData else {
                 debugLog("❌", "[LocationService] No appData for exit")
                 return
+            }
+            
+            // DIAGNOSTIC: Log exit event details
+            debugLog("🚪", "[LocationService] ===== EXIT EVENT DETECTED =====")
+            debugLog("🚪", "[LocationService] Region: \(region.identifier)")
+            debugLog("🚪", "[LocationService] Time: \(Date())")
+            debugLog("🚪", "[LocationService] Current isCurrentlyInOffice state: \(appData.isCurrentlyInOffice)")
+            debugLog("🚪", "[LocationService] Current visit exists: \(appData.currentVisit != nil)")
+            if let visit = appData.currentVisit {
+                debugLog("🚪", "[LocationService] Current visit ID: \(visit.id.uuidString)")
+                debugLog("🚪", "[LocationService] Current visit is active: \(visit.isActiveSession)")
+            }
+            
+            // DIAGNOSTIC: Check persisted state
+            let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+            debugLog("🚪", "[LocationService] Persisted status in UserDefaults: \(persistedStatus)")
+            if persistedStatus != appData.isCurrentlyInOffice {
+                debugLog("⚠️", "[LocationService] WARNING: State mismatch on exit! In-memory=\(appData.isCurrentlyInOffice), Persisted=\(persistedStatus)")
             }
             
             // Find which office location was exited
@@ -902,11 +977,16 @@ extension LocationService: CLLocationManagerDelegate {
             // CRITICAL: Only process exits if user was actually marked as being in the office
             // This prevents processing stale exit events when user was never in the geofence
             guard appData.isCurrentlyInOffice else {
-                debugLog("🚫", "[LocationService] Exit rejected - user was not marked as in office")
-                debugLog("ℹ️", "[LocationService] This was likely a stale or duplicate exit event")
+                debugLog("🚫", "[LocationService] EXIT REJECTED - user was not marked as in office")
+                debugLog("🚫", "[LocationService] In-memory state: \(appData.isCurrentlyInOffice)")
+                debugLog("🚫", "[LocationService] Persisted state: \(persistedStatus)")
+                debugLog("🚫", "[LocationService] Current visit: \(appData.currentVisit?.id.uuidString ?? "none")")
+                debugLog("🚫", "[LocationService] This exit will NOT be processed - session will remain open until failsafe")
+                debugLog("ℹ️", "[LocationService] Possible causes: 1) Entry was never detected, 2) State was lost, 3) Stale exit event")
                 NotificationService.shared.cancelPendingExitNotification()
                 return
             }
+            debugLog("✅", "[LocationService] Exit validation passed - user is marked as in office")
             
             // Only process exit if user is actually outside the detection radius
             // Add a small buffer (10m) to account for GPS accuracy
@@ -988,6 +1068,9 @@ extension LocationService: CLLocationManagerDelegate {
                 // Trigger immediate widget refresh for office exit
                 self.triggerWidgetRefresh(reason: "office exit after grace period")
                 
+                // Stop periodic location checks since user has left
+                self.stopPeriodicLocationChecks()
+                
                 // Clear pending exit
                 self.pendingExitRegion = nil
                 self.exitTime = nil
@@ -996,8 +1079,36 @@ extension LocationService: CLLocationManagerDelegate {
         }
     }
     
+    // MARK: - Exit Grace Period Helpers
+
+    /// Determines whether the current grace period is valid for same-day re-entry
+    /// Grace period is only valid if:
+    /// 1. Exit time is from today
+    /// 2. Not enough time has elapsed (< exitGracePeriod)
+    private func isValidExitGracePeriod(_ exitTime: Date) -> Bool {
+        let elapsed = Date().timeIntervalSince(exitTime)
+        let isToday = Calendar.current.isDateInToday(exitTime)
+
+        return isToday && elapsed < exitGracePeriod
+    }
+
+    /// Centralized cleanup for exit grace period state
+    /// Clears all grace period related state consistently
+    private func clearExitGracePeriodState(reason: String) {
+        debugLog("🧹", "[LocationService] Clearing exit grace period state: \(reason)")
+
+        exitGraceTimer?.invalidate()
+        exitGraceTimer = nil
+
+        pendingExitRegion = nil
+        exitTime = nil
+
+        clearPersistedExitGracePeriod()
+        NotificationService.shared.cancelPendingExitNotification()
+    }
+
     // MARK: - Exit Grace Period Persistence
-    
+
     /// Persist exit grace period state to survive app termination
     /// Critical fix: Prevents sessions from remaining open indefinitely if app is killed during grace period
     private func persistExitGracePeriod() {
@@ -1019,43 +1130,57 @@ extension LocationService: CLLocationManagerDelegate {
     /// Called when app launches and AppData is connected
     private func restoreExitGracePeriodIfNeeded() {
         guard let appData = appData else { return }
-        
+
         guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
               let regionId = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
             return // No pending exit to restore
         }
-        
+
+        // CRITICAL FIX: Check if grace period is from today
+        let calendar = Calendar.current
+        let isToday = calendar.isDateInToday(persistedExitTime)
+
+        debugLog("🔄", "[LocationService] Found persisted exit grace period")
+        debugLog("🔄", "  Exit time: \(persistedExitTime)")
+        debugLog("🔄", "  Is from today: \(isToday)")
+        debugLog("🔄", "  Region: \(regionId)")
+
+        // FIX: Previous-day grace periods must be cleared immediately
+        if !isToday {
+            debugLog("🧹", "[LocationService] Clearing previous-day exit grace period during restore")
+            clearPersistedExitGracePeriod()
+            return  // Do not restore stale state
+        }
+
+        // Grace period is from today - check if it has expired
         let elapsed = Date().timeIntervalSince(persistedExitTime)
-        
-        debugLog("🔄", "[LocationService] Found persisted exit grace period, elapsed: \(Int(elapsed))s")
-        
+        debugLog("🔄", "[LocationService] Elapsed time: \(Int(elapsed))s")
+
         if elapsed >= exitGracePeriod {
             // Grace period expired while app was terminated - complete the exit
-            debugLog("⏰", "[LocationService] Grace period expired during app termination, ending visit")
+            debugLog("⏰", "[LocationService] Restored same-day grace period already expired - completing exit")
             Task { await appData.endVisit(at: persistedExitTime) }
             clearPersistedExitGracePeriod()
         } else {
             // Grace period still active - resume the timer with remaining time
             let remainingTime = exitGracePeriod - elapsed
             debugLog("⏰", "[LocationService] Resuming grace period with \(Int(remainingTime))s remaining")
-            
+
             // Find the region by identifier to restore full state
             if let region = locationManager.monitoredRegions.first(where: { $0.identifier == regionId }) {
                 pendingExitRegion = region
                 exitTime = persistedExitTime
-                
+
                 // Resume grace timer with remaining time
                 exitGraceTimer = Timer.scheduledTimer(withTimeInterval: remainingTime, repeats: false) { [weak self] _ in
                     Task { @MainActor [weak self] in
                         guard let self = self, let appData = self.appData else { return }
-                        
+
                         debugLog("⏰", "[LocationService] Restored grace period expired, ending visit")
                         await appData.endVisit(at: self.exitTime)
-                        
+
                         // Clear state
-                        self.pendingExitRegion = nil
-                        self.exitTime = nil
-                        self.clearPersistedExitGracePeriod()
+                        self.clearExitGracePeriodState(reason: "restored grace period expired")
                     }
                 }
             } else {
@@ -1160,6 +1285,133 @@ extension LocationService: CLLocationManagerDelegate {
                 self.locationRequestContinuation = nil
                 continuation(location)
             }
+        }
+    }
+    
+    // MARK: - Periodic Location Checks (Backup for Missed Geofence Exits)
+    
+    /// Start periodic location checks to detect missed exits
+    /// This acts as a backup when iOS geofencing fails to fire exit events
+    private func startPeriodicLocationChecks() {
+        // Stop any existing timer first
+        stopPeriodicLocationChecks()
+        
+        debugLog("🔄", "[LocationService] Starting periodic location checks (interval: \(Int(periodicCheckInterval))s)")
+        
+        // Schedule repeating timer
+        periodicLocationCheckTimer = Timer.scheduledTimer(withTimeInterval: periodicCheckInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.performPeriodicLocationCheck()
+            }
+        }
+        
+        // Ensure timer runs even when app is in background (if possible)
+        if let timer = periodicLocationCheckTimer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+    
+    /// Stop periodic location checks
+    private func stopPeriodicLocationChecks() {
+        periodicLocationCheckTimer?.invalidate()
+        periodicLocationCheckTimer = nil
+        debugLog("🛑", "[LocationService] Stopped periodic location checks")
+    }
+    
+    /// Perform a single periodic location check
+    private func performPeriodicLocationCheck() async {
+        guard let appData = appData else { return }
+        
+        // Only check if user is marked as being in office
+        guard appData.isCurrentlyInOffice else {
+            debugLog("ℹ️", "[LocationService] Periodic check skipped - not in office")
+            return
+        }
+        
+        debugLog("🔍", "[LocationService] Performing periodic location check...")
+        
+        // Get current location
+        let authStatus = locationManager.authorizationStatus
+        guard authStatus == .authorizedAlways || authStatus == .authorizedWhenInUse else {
+            debugLog("⚠️", "[LocationService] Periodic check skipped - no location authorization")
+            return
+        }
+        
+        // Request fresh location
+        locationManager.requestLocation()
+        
+        // Wait for location update
+        try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+        
+        guard let currentLocation = locationManager.location else {
+            debugLog("⚠️", "[LocationService] Periodic check - could not get current location")
+            return
+        }
+        
+        // Check distance from all configured office locations
+        var isNearAnyOffice = false
+        var closestOffice: OfficeLocation?
+        var closestDistance: CLLocationDistance = .infinity
+        
+        // Check legacy single location
+        if let legacyCoord = appData.settings.officeLocation {
+            let legacyOffice = OfficeLocation(
+                name: "Office",
+                coordinate: legacyCoord,
+                address: appData.settings.officeAddress,
+                detectionRadius: appData.settings.detectionRadius,
+                isPrimary: true
+            )
+            let officeCLLocation = CLLocation(latitude: legacyCoord.latitude, longitude: legacyCoord.longitude)
+            let distance = currentLocation.distance(from: officeCLLocation)
+            
+            if distance < closestDistance {
+                closestDistance = distance
+                closestOffice = legacyOffice
+            }
+            
+            if distance <= legacyOffice.detectionRadius {
+                isNearAnyOffice = true
+            }
+        }
+        
+        // Check multi-location offices
+        for office in appData.settings.officeLocations {
+            guard let coord = office.coordinate else { continue }
+            let officeCLLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+            let distance = currentLocation.distance(from: officeCLLocation)
+            
+            if distance < closestDistance {
+                closestDistance = distance
+                closestOffice = office
+            }
+            
+            if distance <= office.detectionRadius {
+                isNearAnyOffice = true
+            }
+        }
+        
+        if let office = closestOffice {
+            debugLog("📍", "[LocationService] Periodic check - distance from \(office.name): \(Int(closestDistance))m (radius: \(Int(office.detectionRadius))m)")
+        }
+        
+        // If user is outside all office locations, trigger exit
+        if !isNearAnyOffice {
+            debugLog("🚨", "[LocationService] MISSED EXIT DETECTED via periodic check!")
+            debugLog("🚨", "[LocationService] User is \(Int(closestDistance))m from nearest office")
+            debugLog("🚨", "[LocationService] Geofence exit event was missed - processing exit now")
+            
+            // Process the missed exit
+            if let office = closestOffice, let region = locationManager.monitoredRegions.first(where: { $0.identifier == office.id.uuidString || $0.identifier == "office_location" }) {
+                await processConfirmedExit(office: office, region: region, appData: appData)
+            } else {
+                // Fallback: end visit directly if we can't find the region
+                debugLog("⚠️", "[LocationService] Could not find monitored region, ending visit directly")
+                await appData.endVisit(at: Date())
+                stopPeriodicLocationChecks()
+            }
+        } else {
+            debugLog("✅", "[LocationService] Periodic check - user still in office")
         }
     }
 }
