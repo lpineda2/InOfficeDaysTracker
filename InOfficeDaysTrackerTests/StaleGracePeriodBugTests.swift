@@ -158,7 +158,7 @@ struct StaleGracePeriodBugTests {
 
         #expect(appData.isCurrentlyInOffice == true, "Day 2 entry should mark as in office")
         #expect(appData.currentVisit != nil, "Day 2 entry should create new visit")
-        #expect(appData.currentVisit?.date != day1VisitId, "Day 2 visit should be different from Day 1")
+        #expect(appData.currentVisit?.id != day1VisitId, "Day 2 visit should be different from Day 1")
         #expect(appData.visits.count >= day2VisitCountBefore + 1, "New visit should be added to visits array")
     }
 
