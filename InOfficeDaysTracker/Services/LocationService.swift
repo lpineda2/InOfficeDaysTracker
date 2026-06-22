@@ -37,11 +37,11 @@ class LocationService: NSObject, ObservableObject {
     private let periodicCheckInterval: TimeInterval = 300 // 5 minutes
     
     // Exit grace period to prevent false exits from GPS drift
-    private var exitGraceTimer: Timer?
-    private var pendingExitRegion: CLRegion?
-    
-    // Track when user exited - public so verification service can check minimum away duration
-    private(set) var exitTime: Date?
+    internal var exitGraceTimer: Timer?
+    internal var pendingExitRegion: CLRegion?
+
+    // Track when user exited - internal for testing
+    internal var exitTime: Date?
     
     // Grace period duration (5 minutes default)
     private let exitGracePeriod: TimeInterval = 300 // 5 minutes
@@ -1083,7 +1083,7 @@ extension LocationService: CLLocationManagerDelegate {
     /// Grace period is only valid if:
     /// 1. Exit time is from today
     /// 2. Not enough time has elapsed (< exitGracePeriod)
-    private func isValidExitGracePeriod(_ exitTime: Date) -> Bool {
+    internal func isValidExitGracePeriod(_ exitTime: Date) -> Bool {
         let elapsed = Date().timeIntervalSince(exitTime)
         let isToday = Calendar.current.isDateInToday(exitTime)
 
@@ -1092,7 +1092,7 @@ extension LocationService: CLLocationManagerDelegate {
 
     /// Centralized cleanup for exit grace period state
     /// Clears all grace period related state consistently
-    private func clearExitGracePeriodState(reason: String) {
+    internal func clearExitGracePeriodState(reason: String) {
         debugLog("🧹", "[LocationService] Clearing exit grace period state: \(reason)")
 
         exitGraceTimer?.invalidate()
@@ -1126,7 +1126,7 @@ extension LocationService: CLLocationManagerDelegate {
     
     /// Restore exit grace period that was interrupted by app termination
     /// Called when app launches and AppData is connected
-    private func restoreExitGracePeriodIfNeeded() {
+    internal func restoreExitGracePeriodIfNeeded() {
         guard let appData = appData else { return }
 
         guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
