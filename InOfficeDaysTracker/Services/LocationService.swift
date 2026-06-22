@@ -723,13 +723,7 @@ extension LocationService: CLLocationManagerDelegate {
         if let pendingRegion = pendingExitRegion,
            pendingRegion.identifier == region.identifier {
 
-            guard let exitTime = exitTime else {
-                // Malformed state: pendingRegion exists but no exit time
-                debugLog("⚠️", "[LocationService] Pending region exists without exit time - clearing invalid state")
-                clearExitGracePeriodState(reason: "pending region exists without exit time")
-                // Do not return. Fall through to normal entry handling below so startVisit() can run.
-                // The method will continue to office matching and visit creation.
-            } else if isValidExitGracePeriod(exitTime) {
+            if let exitTime = exitTime, isValidExitGracePeriod(exitTime) {
                 // Valid same-day re-entry during active grace period - cancel pending exit
                 debugLog("🔄", "[LocationService] Valid same-day re-entry during exit grace period - cancelling exit")
 
