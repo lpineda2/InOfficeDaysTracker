@@ -32,10 +32,6 @@ class LocationService: NSObject, ObservableObject {
     // Fallback timer for widget refresh reliability
     private var widgetRefreshTimer: Timer?
     
-    // Periodic location check timer to detect missed exits
-    private var periodicLocationCheckTimer: Timer?
-    private let periodicCheckInterval: TimeInterval = 300 // 5 minutes
-    
     // Exit grace period to prevent false exits from GPS drift
     internal var exitGraceTimer: Timer?
     internal var pendingExitRegion: CLRegion?
@@ -862,9 +858,6 @@ extension LocationService: CLLocationManagerDelegate {
         let verifyPersistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
         debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(verifyPersistedStatus)")
 
-        // Start periodic location checks to detect missed exits
-        startPeriodicLocationChecks()
-        
         // Trigger immediate widget refresh for office entry
         triggerWidgetRefresh(reason: "office entry")
 
@@ -1065,10 +1058,7 @@ extension LocationService: CLLocationManagerDelegate {
                 
                 // Trigger immediate widget refresh for office exit
                 self.triggerWidgetRefresh(reason: "office exit after grace period")
-                
-                // Stop periodic location checks since user has left
-                self.stopPeriodicLocationChecks()
-                
+
                 // Clear pending exit
                 self.pendingExitRegion = nil
                 self.exitTime = nil
@@ -1143,10 +1133,10 @@ extension LocationService: CLLocationManagerDelegate {
         debugLog("🔄", "  Is from today: \(isToday)")
         debugLog("🔄", "  Region: \(regionId)")
 
-        // FIX: Previous-day grace periods must be cleared immediately
+        // FIX: Previous-day grace periods must be cleared immediately, including in-memory state
         if !isToday {
             debugLog("🧹", "[LocationService] Clearing previous-day exit grace period during restore")
-            clearPersistedExitGracePeriod()
+            clearExitGracePeriodState(reason: "previous-day grace period on restore")
             return  // Do not restore stale state
         }
 
@@ -1283,133 +1273,6 @@ extension LocationService: CLLocationManagerDelegate {
                 self.locationRequestContinuation = nil
                 continuation(location)
             }
-        }
-    }
-    
-    // MARK: - Periodic Location Checks (Backup for Missed Geofence Exits)
-    
-    /// Start periodic location checks to detect missed exits
-    /// This acts as a backup when iOS geofencing fails to fire exit events
-    private func startPeriodicLocationChecks() {
-        // Stop any existing timer first
-        stopPeriodicLocationChecks()
-        
-        debugLog("🔄", "[LocationService] Starting periodic location checks (interval: \(Int(periodicCheckInterval))s)")
-        
-        // Schedule repeating timer
-        periodicLocationCheckTimer = Timer.scheduledTimer(withTimeInterval: periodicCheckInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                await self?.performPeriodicLocationCheck()
-            }
-        }
-        
-        // Ensure timer runs even when app is in background (if possible)
-        if let timer = periodicLocationCheckTimer {
-            RunLoop.main.add(timer, forMode: .common)
-        }
-    }
-    
-    /// Stop periodic location checks
-    private func stopPeriodicLocationChecks() {
-        periodicLocationCheckTimer?.invalidate()
-        periodicLocationCheckTimer = nil
-        debugLog("🛑", "[LocationService] Stopped periodic location checks")
-    }
-    
-    /// Perform a single periodic location check
-    private func performPeriodicLocationCheck() async {
-        guard let appData = appData else { return }
-        
-        // Only check if user is marked as being in office
-        guard appData.isCurrentlyInOffice else {
-            debugLog("ℹ️", "[LocationService] Periodic check skipped - not in office")
-            return
-        }
-        
-        debugLog("🔍", "[LocationService] Performing periodic location check...")
-        
-        // Get current location
-        let authStatus = locationManager.authorizationStatus
-        guard authStatus == .authorizedAlways || authStatus == .authorizedWhenInUse else {
-            debugLog("⚠️", "[LocationService] Periodic check skipped - no location authorization")
-            return
-        }
-        
-        // Request fresh location
-        locationManager.requestLocation()
-        
-        // Wait for location update
-        try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
-        
-        guard let currentLocation = locationManager.location else {
-            debugLog("⚠️", "[LocationService] Periodic check - could not get current location")
-            return
-        }
-        
-        // Check distance from all configured office locations
-        var isNearAnyOffice = false
-        var closestOffice: OfficeLocation?
-        var closestDistance: CLLocationDistance = .infinity
-        
-        // Check legacy single location
-        if let legacyCoord = appData.settings.officeLocation {
-            let legacyOffice = OfficeLocation(
-                name: "Office",
-                coordinate: legacyCoord,
-                address: appData.settings.officeAddress,
-                detectionRadius: appData.settings.detectionRadius,
-                isPrimary: true
-            )
-            let officeCLLocation = CLLocation(latitude: legacyCoord.latitude, longitude: legacyCoord.longitude)
-            let distance = currentLocation.distance(from: officeCLLocation)
-            
-            if distance < closestDistance {
-                closestDistance = distance
-                closestOffice = legacyOffice
-            }
-            
-            if distance <= legacyOffice.detectionRadius {
-                isNearAnyOffice = true
-            }
-        }
-        
-        // Check multi-location offices
-        for office in appData.settings.officeLocations {
-            guard let coord = office.coordinate else { continue }
-            let officeCLLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
-            let distance = currentLocation.distance(from: officeCLLocation)
-            
-            if distance < closestDistance {
-                closestDistance = distance
-                closestOffice = office
-            }
-            
-            if distance <= office.detectionRadius {
-                isNearAnyOffice = true
-            }
-        }
-        
-        if let office = closestOffice {
-            debugLog("📍", "[LocationService] Periodic check - distance from \(office.name): \(Int(closestDistance))m (radius: \(Int(office.detectionRadius))m)")
-        }
-        
-        // If user is outside all office locations, trigger exit
-        if !isNearAnyOffice {
-            debugLog("🚨", "[LocationService] MISSED EXIT DETECTED via periodic check!")
-            debugLog("🚨", "[LocationService] User is \(Int(closestDistance))m from nearest office")
-            debugLog("🚨", "[LocationService] Geofence exit event was missed - processing exit now")
-            
-            // Process the missed exit
-            if let office = closestOffice, let region = locationManager.monitoredRegions.first(where: { $0.identifier == office.id.uuidString || $0.identifier == "office_location" }) {
-                await processConfirmedExit(office: office, region: region, appData: appData)
-            } else {
-                // Fallback: end visit directly if we can't find the region
-                debugLog("⚠️", "[LocationService] Could not find monitored region, ending visit directly")
-                await appData.endVisit(at: Date())
-                stopPeriodicLocationChecks()
-            }
-        } else {
-            debugLog("✅", "[LocationService] Periodic check - user still in office")
         }
     }
 }
