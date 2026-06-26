@@ -88,7 +88,12 @@ struct OfficeVisit: Identifiable, Codable {
     mutating func endCurrentSession(at time: Date = Date()) {
         guard let lastEvent = events.last,
               lastEvent.exitTime == nil else { return }
-        
+
+        // Guard against invalid exit times that precede entry (e.g. a degenerate
+        // end-of-day cap on a malformed date). Leave the session active rather
+        // than record a negative-duration event.
+        guard time >= lastEvent.entryTime else { return }
+
         let completedEvent = OfficeEvent(entryTime: lastEvent.entryTime, exitTime: time)
         events[events.count - 1] = completedEvent
     }
