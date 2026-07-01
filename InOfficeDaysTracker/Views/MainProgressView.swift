@@ -38,7 +38,15 @@ struct MainProgressView: View {
                     weeksRemaining: appData.getWeeksRemaining(),
                     isGoalUnreachable: isPaceUnreachable
                 )
-                
+
+                // Weekly Policy Compliance (only when weekly tracking is enabled)
+                if let weeklyCompliance = appData.getCurrentWeekCompliance() {
+                    WeeklyComplianceCard(
+                        result: weeklyCompliance,
+                        policy: appData.settings.weeklyPolicy
+                    )
+                }
+
                 // Status Card (if in office)
                 if appData.isCurrentlyInOffice, let currentVisit = appData.currentVisit {
                     currentStatusCard(visit: currentVisit)

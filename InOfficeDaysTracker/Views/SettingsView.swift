@@ -89,9 +89,9 @@ struct SettingsView: View {
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Monthly Goal")
+                        Text("Goals & Policy")
                             .font(.body)
-                        
+
                         Text(goalStatusText)
                             .font(.caption)
                                 .foregroundColor(DesignTokens.textSecondary)
@@ -108,12 +108,25 @@ struct SettingsView: View {
     }
     
     private var goalStatusText: String {
+        let cadence = appData.settings.trackingCadence
+
+        if cadence == .weekly {
+            let policy = appData.settings.weeklyPolicy
+            return "Weekly: min \(policy.weeklyMinimumDays) day\(policy.weeklyMinimumDays == 1 ? "" : "s")/week"
+        }
+
+        let monthlyText: String
         if appData.settings.autoCalculateGoal {
             let goal = appData.getGoalForMonth(Date())
-            return "Auto-calculate: \(goal) days this month"
+            monthlyText = "Auto-calculate: \(goal) days this month"
         } else {
-            return "Manual: \(appData.settings.monthlyGoal) days"
+            monthlyText = "Manual: \(appData.settings.monthlyGoal) days"
         }
+
+        if cadence == .both {
+            return monthlyText + " • Weekly policy on"
+        }
+        return monthlyText
     }
     
     // MARK: - Office Locations Section (New)

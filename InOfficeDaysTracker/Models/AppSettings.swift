@@ -29,6 +29,11 @@ struct AppSettings: Codable {
     var officeLocations: [OfficeLocation] = []  // Multiple locations (max 2)
     var ptoSickDays: [String: [Date]] = [:]  // Keyed by "YYYY-MM"
     var lockedMonthlyGoals: [String: Int] = [:]  // Historical goals keyed by "YYYY-MM"
+
+    // Weekly Hybrid Policy (v1.10.0)
+    // Existing users default to monthly tracking, preserving current behavior.
+    var trackingCadence: TrackingCadence = .monthly
+    var weeklyPolicy: WeeklyPolicy = WeeklyPolicy()
     
     struct OfficeHours: Codable {
         var startTime: Date = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
@@ -53,6 +58,8 @@ struct AppSettings: Codable {
         case calendarSettings, hasSeenCalendarSetup
         // Auto-Calculate Goal Feature (v1.9.0)
         case autoCalculateGoal, companyPolicy, holidayCalendar, officeLocations, ptoSickDays, lockedMonthlyGoals
+        // Weekly Hybrid Policy (v1.10.0)
+        case trackingCadence, weeklyPolicy
     }
     
     init() {}
@@ -86,6 +93,10 @@ struct AppSettings: Codable {
         officeLocations = try container.decodeIfPresent([OfficeLocation].self, forKey: .officeLocations) ?? []
         ptoSickDays = try container.decodeIfPresent([String: [Date]].self, forKey: .ptoSickDays) ?? [:]
         lockedMonthlyGoals = try container.decodeIfPresent([String: Int].self, forKey: .lockedMonthlyGoals) ?? [:]
+
+        // Weekly Hybrid Policy (v1.10.0) - default to monthly for existing users
+        trackingCadence = try container.decodeIfPresent(TrackingCadence.self, forKey: .trackingCadence) ?? .monthly
+        weeklyPolicy = try container.decodeIfPresent(WeeklyPolicy.self, forKey: .weeklyPolicy) ?? WeeklyPolicy()
     }
     
     func encode(to encoder: Encoder) throws {
@@ -117,6 +128,10 @@ struct AppSettings: Codable {
         try container.encode(officeLocations, forKey: .officeLocations)
         try container.encode(ptoSickDays, forKey: .ptoSickDays)
         try container.encode(lockedMonthlyGoals, forKey: .lockedMonthlyGoals)
+
+        // Weekly Hybrid Policy (v1.10.0)
+        try container.encode(trackingCadence, forKey: .trackingCadence)
+        try container.encode(weeklyPolicy, forKey: .weeklyPolicy)
     }
     
     var trackingDaysFormatted: String {

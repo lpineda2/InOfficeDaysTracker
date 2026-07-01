@@ -403,7 +403,34 @@ class AppData: ObservableObject {
         let percentage = goal > 0 ? Double(current) / Double(goal) : 0.0
         return (current, goal, min(percentage, 1.0))
     }
-    
+
+    // MARK: - Weekly Hybrid Policy
+
+    /// Evaluate the user's current week against their weekly hybrid policy.
+    ///
+    /// Returns `nil` when the tracking cadence does not include weekly tracking,
+    /// so existing monthly-only users are unaffected. The heavy lifting lives in
+    /// `WeeklyComplianceEvaluator` to keep calculation logic out of this singleton.
+    func getCurrentWeekCompliance(asOf date: Date = Date()) -> WeeklyComplianceResult? {
+        guard settings.trackingCadence.includesWeekly else { return nil }
+
+        let calendar = Calendar.current
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return nil }
+
+        // In-office days for this week: completed valid visits plus any active session.
+        let inOfficeDates = visits
+            .filter { $0.date >= week.start && $0.date < week.end && ($0.isValidVisit || $0.isActiveSession) }
+            .map { $0.date }
+
+        return WeeklyComplianceEvaluator.evaluate(
+            policy: settings.weeklyPolicy,
+            weekContaining: date,
+            inOfficeDates: inOfficeDates,
+            evaluationDate: date,
+            calendar: calendar
+        )
+    }
+
     // MARK: - Auto-Calculate Goal Methods
     
     /// Get the goal for a specific month, respecting locked historical goals

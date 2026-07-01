@@ -16,10 +16,11 @@ struct PolicySettingsView: View {
     @State private var policyType: PolicyType
     @State private var customPercentage: Int
     @State private var roundingMode: RoundingMode
+    @State private var trackingCadence: TrackingCadence
     @State private var showingPTOPicker = false
-    
+
     private let currentMonth = Date()
-    
+
     init(appData: AppData) {
         self.appData = appData
         _autoCalculateGoal = State(initialValue: appData.settings.autoCalculateGoal)
@@ -27,23 +28,35 @@ struct PolicySettingsView: View {
         _policyType = State(initialValue: appData.settings.companyPolicy.policyType)
         _customPercentage = State(initialValue: appData.settings.companyPolicy.customPercentage)
         _roundingMode = State(initialValue: appData.settings.companyPolicy.roundingMode)
+        _trackingCadence = State(initialValue: appData.settings.trackingCadence)
     }
-    
+
     var body: some View {
         Form {
-            calculationMethodSection
-            
-            if autoCalculateGoal {
-                companyPolicySection
-                holidayCalendarSection
-                ptoSection
-                calculationPreviewSection
-            } else {
-                manualGoalSection
+            trackingCadenceSection
+
+            if trackingCadence.includesWeekly {
+                weeklyPolicySection
+            }
+
+            if trackingCadence.includesMonthly {
+                calculationMethodSection
+
+                if autoCalculateGoal {
+                    companyPolicySection
+                    holidayCalendarSection
+                    ptoSection
+                    calculationPreviewSection
+                } else {
+                    manualGoalSection
+                }
             }
         }
-        .navigationTitle("Monthly Goal")
+        .navigationTitle("Goals")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: trackingCadence) { _, newValue in
+            saveTrackingCadence(newValue)
+        }
         .onChange(of: autoCalculateGoal) { _, newValue in
             saveAutoCalculateSetting(newValue)
         }
@@ -64,8 +77,60 @@ struct PolicySettingsView: View {
         }
     }
     
+    // MARK: - Tracking Cadence Section
+
+    private var trackingCadenceSection: some View {
+        Section {
+            Picker("Tracking Cadence", selection: $trackingCadence) {
+                ForEach(TrackingCadence.allCases) { cadence in
+                    Text(cadence.displayName).tag(cadence)
+                }
+            }
+            .pickerStyle(.navigationLink)
+        } header: {
+            Text("Tracking Cadence")
+        } footer: {
+            Text(trackingCadence.description)
+        }
+    }
+
+    // MARK: - Weekly Policy Section
+
+    private var weeklyPolicySection: some View {
+        Section {
+            NavigationLink(destination: WeeklyPolicySettingsView(appData: appData)) {
+                HStack {
+                    Image(systemName: "calendar.badge.clock")
+                        .foregroundColor(DesignTokens.cyanAccent)
+                        .frame(width: 24)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Weekly Policy")
+                            .font(.body)
+                        Text(weeklyPolicySummary)
+                            .font(.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+
+                    Spacer()
+                }
+            }
+        } header: {
+            Text("Weekly Policy")
+        }
+    }
+
+    private var weeklyPolicySummary: String {
+        let policy = appData.settings.weeklyPolicy
+        var summary = "Min \(policy.weeklyMinimumDays) day\(policy.weeklyMinimumDays == 1 ? "" : "s")/week"
+        if let anchor = policy.anchorDaysDescription {
+            summary += " • \(anchor)"
+        }
+        return summary
+    }
+
     // MARK: - Calculation Method Section
-    
+
     private var calculationMethodSection: some View {
         Section {
             Toggle("Auto-calculate based on policy", isOn: $autoCalculateGoal)
@@ -300,6 +365,12 @@ struct PolicySettingsView: View {
     
     // MARK: - Save Methods
     
+    private func saveTrackingCadence(_ value: TrackingCadence) {
+        var newSettings = appData.settings
+        newSettings.trackingCadence = value
+        appData.updateSettings(newSettings)
+    }
+
     private func saveAutoCalculateSetting(_ value: Bool) {
         var newSettings = appData.settings
         newSettings.autoCalculateGoal = value
