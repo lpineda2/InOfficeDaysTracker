@@ -41,6 +41,13 @@ class AppData: ObservableObject {
     private let visitsKey = "OfficeVisits"
     private let currentVisitKey = "CurrentVisit"
     private let widgetDataKey = "WidgetData"
+
+    // Mirror of LocationService's exit-grace-period persistence keys.
+    // Used when finalizing a stale active session so we can recover the real
+    // exit time captured by an interrupted exit grace period.
+    private let pendingExitTimeKey = "PendingExitTime"
+    private let pendingExitRegionIdKey = "PendingExitRegionId"
+    private let gracePeriodExpiresKey = "GracePeriodExpires"
     
     // Historical repair constants
     private static let repairGapThreshold: TimeInterval = 90 * 60 // 90 minutes
@@ -212,29 +219,74 @@ class AppData: ObservableObject {
         sharedUserDefaults.removeObject(forKey: currentVisitKey)
     }
     
-    /// Auto-close a stale visit from a previous day by setting exit time to end of that day
+    /// Auto-close a stale session left open across a day boundary.
+    ///
+    /// This finalizes only a genuinely-active trailing session on the authoritative
+    /// `visits` entry. It must NEVER overwrite a visit that already has a real exit
+    /// time — doing so was the cause of exit times being replaced with 11:59 PM.
     private func autoCloseStaleVisit(_ staleVisit: OfficeVisit) {
-        var visit = staleVisit
         let calendar = Calendar.current
-        
-        // Set exit time to 11:59 PM on the visit's date (end of that day)
-        if let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: visit.date) {
-            visit.endCurrentSession(at: endOfDay)
-            
-            // Update the visit in the array
-            if let index = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: visit.date) }) {
-                visits[index] = visit
-                saveVisits()
-                debugLog("[AppData] Auto-closed stale visit with exit time: \(endOfDay)")
-                
-                // CRITICAL: Update calendar event with exit time
-                // This ensures the calendar event reflects the auto-closed state
-                Task {
-                    await calendarEventManager.handleVisitEnd(visit, settings: settings)
-                    debugLog("[AppData] Updated calendar event for auto-closed stale visit")
-                }
-            }
+
+        // Operate on the authoritative array entry, not the (possibly stale) copy.
+        guard let index = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: staleVisit.date) }) else {
+            // No history entry for that day; nothing to finalize.
+            return
         }
+
+        var visit = visits[index]
+
+        // Preserve completed visits: if the trailing session already has a real
+        // exit time, the visit is authoritative and must not be modified.
+        guard visit.isActiveSession else {
+            debugLog("[AppData] Stale visit already completed in history; preserving real exit time")
+            return
+        }
+
+        // Prefer the real exit time captured by an interrupted grace period;
+        // fall back to end-of-day only when no real exit is available.
+        let exitTimeToApply = resolveStaleExitTime(for: visit, calendar: calendar)
+
+        visit.endCurrentSession(at: exitTimeToApply)
+        visits[index] = visit
+        saveVisits()
+        debugLog("[AppData] Auto-closed stale active visit with exit time: \(exitTimeToApply)")
+
+        // CRITICAL: Update calendar event with exit time
+        // This ensures the calendar event reflects the auto-closed state
+        Task {
+            await calendarEventManager.handleVisitEnd(visit, settings: settings)
+            debugLog("[AppData] Updated calendar event for auto-closed stale visit")
+        }
+    }
+
+    /// Resolve the exit time used to finalize a stale active session.
+    ///
+    /// Prefers the real exit time persisted by an interrupted exit grace period
+    /// (when it is valid for the visit's day and not before entry). Consuming it
+    /// here also prevents the grace-period restore from discarding it later.
+    /// Falls back to end-of-day (23:59:59), and never returns a time before entry.
+    private func resolveStaleExitTime(for visit: OfficeVisit, calendar: Calendar) -> Date {
+        let entryTime = visit.entryTime
+
+        if let pendingExit = sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
+           calendar.isDate(pendingExit, inSameDayAs: visit.date),
+           pendingExit >= entryTime {
+            // Consume the pending-exit state so grace-period restore won't re-handle it.
+            sharedUserDefaults.removeObject(forKey: pendingExitTimeKey)
+            sharedUserDefaults.removeObject(forKey: pendingExitRegionIdKey)
+            sharedUserDefaults.removeObject(forKey: gracePeriodExpiresKey)
+            sharedUserDefaults.synchronize()
+            debugLog("[AppData] Recovered real exit time from interrupted grace period: \(pendingExit)")
+            return pendingExit
+        }
+
+        if let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: visit.date),
+           endOfDay >= entryTime {
+            return endOfDay
+        }
+
+        // Degenerate guard: never return a time before entry.
+        return entryTime
     }
     
     // MARK: - Visit Management

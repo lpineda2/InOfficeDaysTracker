@@ -31,6 +31,14 @@ Push a new release to the App Store
 
 Deploy to TestFlight for testing
 
+### ios build_and_upload_testflight
+
+```sh
+[bundle exec] fastlane ios build_and_upload_testflight
+```
+
+Build and upload to TestFlight (skips tests - run ./scripts/test.sh first)
+
 ### ios submit_for_review
 
 ```sh
