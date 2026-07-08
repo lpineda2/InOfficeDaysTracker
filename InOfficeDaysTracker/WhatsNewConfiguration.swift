@@ -9,7 +9,70 @@ import SwiftUI
 import WhatsNewKit
 
 struct WhatsNewConfiguration {
-    
+
+    // MARK: - Version 1.15.0: Weekly Hybrid Policies
+
+    /// The WhatsNew instance for version 1.15.0 weekly hybrid policy support
+    static var weeklyHybridPolicy: WhatsNew {
+        WhatsNew(
+            version: "1.15.0",
+            title: WhatsNew.Title(
+                text: "Weekly Hybrid Policies",
+                foregroundColor: DesignTokens.textPrimary
+            ),
+            features: [
+                // Weekly tracking mode
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "calendar.badge.clock",
+                        foregroundColor: DesignTokens.cyanAccent
+                    ),
+                    title: "Weekly Tracking Mode",
+                    subtitle: "Set a minimum number of in-office days per week—track weekly alongside or instead of monthly"
+                ),
+
+                // Anchor-day rules
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "flag.fill",
+                        foregroundColor: DesignTokens.orangeAccent
+                    ),
+                    title: "Anchor-Day Rules",
+                    subtitle: "Require at least one office day on key days, such as Monday or Friday"
+                ),
+
+                // Weekly compliance on the dashboard
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "checkmark.seal.fill",
+                        foregroundColor: DesignTokens.successGreen
+                    ),
+                    title: "Weekly Compliance",
+                    subtitle: "See this week's status on your dashboard, with guidance on what's still needed to finish the week"
+                ),
+
+                // Monthly stays the default
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "calendar",
+                        foregroundColor: DesignTokens.purpleAccent
+                    ),
+                    title: "Monthly Stays the Default",
+                    subtitle: "Nothing changes unless you opt in. Switch anytime in Settings → Goals & Policy → Tracking Cadence → Weekly or Both"
+                )
+            ],
+            primaryAction: WhatsNew.PrimaryAction(
+                title: "Configure in Settings",
+                backgroundColor: .accentColor,
+                foregroundColor: .white,
+                hapticFeedback: .notification(.success),
+                onDismiss: {
+                    debugLog("✅", "[WhatsNew] Weekly hybrid policy showcase dismissed")
+                }
+            )
+        )
+    }
+
     // MARK: - Version 1.9.0: Auto-Calculate Office Days
     
     /// The WhatsNew instance for version 1.9.0 auto-calculate office days
@@ -194,6 +257,7 @@ extension InOfficeDaysTrackerApp: WhatsNewCollectionProvider {
     
     /// Provide all WhatsNew instances for different versions
     var whatsNewCollection: WhatsNewCollection {
+        WhatsNewConfiguration.weeklyHybridPolicy         // 1.15.0
         WhatsNewConfiguration.ptoManagementAndRounding  // 1.13.0
         WhatsNewConfiguration.autoCalculateGoal          // 1.9.0
         WhatsNewConfiguration.lockScreenWidgets          // 1.7.0

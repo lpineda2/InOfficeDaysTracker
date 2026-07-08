@@ -1,9 +1,12 @@
-What's New in Version 1.14:
+What's New in Version 1.15.0:
 
-• Rock-solid office detection — Fixed several issues that could cause your status to appear stuck or incorrect after leaving the office
-• Reliable widgets — Your home screen and lock screen widgets now update consistently when you arrive or leave, showing accurate duration times
-• Crash fix — Resolved a rare crash that could occur when leaving your office area
-• Better calendar sync — Office visit times in your calendar now update correctly, even if the app is in the background
-• Smarter exit detection — Improved accuracy of departure time tracking to prevent false notifications
+Version 1.15.0 adds Weekly Hybrid Policies.
 
-We're constantly improving your experience. Thank you for using In Office Days Tracker!
+You can now track weekly in-office expectations, including a minimum number of office days per week and anchor-day rules such as requiring at least one Monday or Friday. This week's compliance status and next-step guidance appear right on your dashboard.
+
+To enable weekly tracking:
+Settings → Goals & Policy → Tracking Cadence → Weekly or Both
+
+Monthly tracking remains the default for existing users, so nothing changes unless you choose to enable weekly tracking.
+
+Thank you for using In Office Days Tracker!
