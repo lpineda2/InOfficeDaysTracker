@@ -21,14 +21,35 @@ struct MainProgressView: View {
         GridItem(.flexible(), spacing: DesignTokens.gridSpacing),
         GridItem(.flexible(), spacing: DesignTokens.gridSpacing)
     ]
-    
+
+    /// Current-week compliance when weekly tracking is enabled (nil otherwise).
+    private var weeklyCompliance: WeeklyComplianceResult? {
+        appData.getCurrentWeekCompliance()
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: DesignTokens.gridSpacing) {
                 // Header with month
                 headerSection
                 
-                // Hero Progress Card (Macro Ring style)
+                // In Weekly mode, the weekly card is primary (shown first) and
+                // the monthly card is clearly labelled as a secondary summary.
+                if let weeklyCompliance = weeklyCompliance {
+                    WeeklyComplianceCard(
+                        result: weeklyCompliance,
+                        policy: appData.settings.weeklyPolicy
+                    )
+
+                    Text("Monthly Summary")
+                        .font(Typography.sectionHeader)
+                        .foregroundColor(DesignTokens.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                        .accessibilityAddTraits(.isHeader)
+                }
+
+                // Hero Progress Card (Macro Ring style) — monthly goal
                 MacroRingCard(
                     daysCompleted: progressData.current,
                     daysGoal: progressData.goal,
@@ -39,14 +60,6 @@ struct MainProgressView: View {
                     isGoalUnreachable: isPaceUnreachable
                 )
 
-                // Weekly Policy Compliance (only when weekly tracking is enabled)
-                if let weeklyCompliance = appData.getCurrentWeekCompliance() {
-                    WeeklyComplianceCard(
-                        result: weeklyCompliance,
-                        policy: appData.settings.weeklyPolicy
-                    )
-                }
-
                 // Status Card (if in office)
                 if appData.isCurrentlyInOffice, let currentVisit = appData.currentVisit {
                     currentStatusCard(visit: currentVisit)
@@ -56,7 +69,8 @@ struct MainProgressView: View {
                 LazyVGrid(columns: columns, spacing: DesignTokens.gridSpacing) {
                     StreakMetricCard(
                         streakMonths: appData.getMonthlyStreak(),
-                        isOnTrack: appData.isCurrentMonthGoalMet()
+                        isOnTrack: appData.isCurrentMonthGoalMet(),
+                        title: weeklyCompliance != nil ? "Monthly Streak" : "Streak"
                     )
                     
                     DurationMetricCard(

@@ -31,6 +31,7 @@ final class WeeklyPolicyTests: XCTestCase {
     private var wednesday: Date { day(9) }
     private var thursday: Date { day(10) }
     private var friday: Date { day(11) }
+    private var saturday: Date { day(12) }
 
     /// Standard target policy: 3 days/week, anchor Monday-or-Friday.
     private func standardPolicy(effectiveStart: Date? = nil) -> WeeklyPolicy {
@@ -126,7 +127,52 @@ final class WeeklyPolicyTests: XCTestCase {
         )
         XCTAssertEqual(result.status, .needsAnchorDay)
         XCTAssertEqual(result.suggestedWeekday, .friday)
-        XCTAssertTrue(result.guidanceMessage.contains("Monday or Friday"))
+        // Day-aware: Monday has passed, so guidance names Friday specifically.
+        XCTAssertEqual(result.guidanceMessage,
+                       "You need an office day on Friday to meet your anchor-day requirement.")
+        XCTAssertFalse(result.guidanceMessage.contains("Monday or Friday"))
+    }
+
+    // MARK: - Anchor-day guidance (day-aware)
+
+    func testAnchorGuidanceBeforeMondayListsBothDays() {
+        // Start of week, no office days yet: both anchor days are still ahead.
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [],
+            reference: monday,
+            evaluationDate: monday
+        )
+        XCTAssertEqual(result.status, .needsAnchorDay)
+        XCTAssertEqual(result.guidanceMessage,
+                       "You need an office day on Monday or Friday to meet your anchor-day requirement.")
+    }
+
+    func testAnchorGuidanceOnFridaySaysTodayMustCount() {
+        // It's Friday, no anchor day attended yet — today is the last chance.
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [tuesday, wednesday, thursday],
+            reference: friday,
+            evaluationDate: friday
+        )
+        XCTAssertEqual(result.status, .needsAnchorDay)
+        XCTAssertEqual(result.suggestedWeekday, .friday)
+        XCTAssertEqual(result.guidanceMessage,
+                       "Today (Friday) must be an office day to meet your anchor-day requirement.")
+    }
+
+    func testAnchorMissedAfterFriday() {
+        // Evaluated Saturday: no anchor day was attended and none remain.
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [tuesday, wednesday, thursday],
+            reference: saturday,
+            evaluationDate: saturday
+        )
+        XCTAssertEqual(result.status, .missed)
+        XCTAssertEqual(result.guidanceMessage,
+                       "This week's anchor-day requirement was missed.")
     }
 
     // MARK: - Effective date gating

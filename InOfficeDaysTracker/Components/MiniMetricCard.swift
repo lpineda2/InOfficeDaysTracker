@@ -110,11 +110,12 @@ struct ProgressBarView: View {
 struct StreakMetricCard: View {
     let streakMonths: Int
     let isOnTrack: Bool
-    
+    var title: String = "Streak"
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Streak")
+                Text(title)
                     .font(Typography.cardTitle)
                     .foregroundColor(DesignTokens.textPrimary)
                 

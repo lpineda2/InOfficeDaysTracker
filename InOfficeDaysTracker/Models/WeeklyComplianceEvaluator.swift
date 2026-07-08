@@ -150,12 +150,14 @@ enum WeeklyComplianceEvaluator {
         }()
 
         // Build guidance message + suggested next weekday.
+        let todayWeekday = PolicyWeekday(rawValue: calendar.component(.weekday, from: evalDate))
         let (message, suggested) = guidance(
             for: status,
             policy: policy,
             completedWeekdays: completedWeekdays,
             remainingWeekdaysOrdered: remainingWeekdaysOrdered,
             officeDaysCompleted: officeDaysCompleted,
+            todayWeekday: todayWeekday,
             calendar: calendar
         )
 
@@ -182,6 +184,7 @@ enum WeeklyComplianceEvaluator {
         completedWeekdays: Set<PolicyWeekday>,
         remainingWeekdaysOrdered: [PolicyWeekday],
         officeDaysCompleted: Int,
+        todayWeekday: PolicyWeekday?,
         calendar: Calendar
     ) -> (message: String, suggested: PolicyWeekday?) {
 
@@ -210,20 +213,41 @@ enum WeeklyComplianceEvaluator {
             return ("Weekly tracking isn't in effect this week.", nil)
 
         case .missed:
+            // If an anchor group is unsatisfied and no anchor day remains this
+            // week, call that out specifically (e.g. after Friday has passed).
+            let anchorMissed = policy.anchorDayGroups.contains { group in
+                !group.contains { completedWeekdays.contains($0) } &&
+                !group.contains { remainingWeekdaysOrdered.contains($0) }
+            }
+            if anchorMissed {
+                return ("This week's anchor-day requirement was missed.", nil)
+            }
             return ("This week's office-day goal can no longer be met.", nil)
 
         case .needsAnchorDay:
-            // Find the first unsatisfied anchor group and suggest the soonest
-            // remaining eligible day within it (e.g. Friday after Monday passes).
+            // First unsatisfied anchor group, and the anchor days within it that
+            // are still achievable (today or later), in date order.
             let unsatisfied = policy.anchorDayGroups.first { group in
                 !group.contains { completedWeekdays.contains($0) }
             } ?? policy.anchorDayGroups.first ?? []
-            let names = unsatisfied.map(\.fullName).joined(separator: " or ")
-            let suggested = firstRemaining(in: unsatisfied)
-            return (
-                "You need an office day on \(names) to meet your anchor-day requirement.",
-                suggested
-            )
+            let remainingAnchorDays = remainingWeekdaysOrdered.filter { unsatisfied.contains($0) }
+            let suggested = remainingAnchorDays.first
+
+            if remainingAnchorDays.count >= 2 {
+                // More than one anchor day still ahead (e.g. before Monday).
+                let names = remainingAnchorDays.map(\.fullName).joined(separator: " or ")
+                return ("You need an office day on \(names) to meet your anchor-day requirement.", suggested)
+            } else if let only = remainingAnchorDays.first {
+                // Exactly one anchor day left (e.g. Friday after Monday passed).
+                if only == todayWeekday {
+                    return ("Today (\(only.fullName)) must be an office day to meet your anchor-day requirement.", suggested)
+                }
+                return ("You need an office day on \(only.fullName) to meet your anchor-day requirement.", suggested)
+            } else {
+                // No anchor day remains — defensive; feasibility routes this to .missed.
+                let names = unsatisfied.map(\.fullName).joined(separator: " or ")
+                return ("You need an office day on \(names) to meet your anchor-day requirement.", nil)
+            }
 
         case .needsOfficeDays, .onTrack:
             // A mandatory specific weekday takes priority in the message.
