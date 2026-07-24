@@ -137,6 +137,7 @@ Use extra care with:
 
 The following model files exist in both the app and widget targets:
 
+* `AppGroupKeys.swift`
 * `CompanyPolicy.swift`
 * `HolidayCalendar.swift`
 * `OfficeLocation.swift`
