@@ -56,14 +56,17 @@ class AppData: ObservableObject {
         self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: AppGroupKeys.appGroupSuiteName) ?? UserDefaults.standard
         self.visitRepository = VisitRepository(sharedUserDefaults: self.sharedUserDefaults)
         self.settingsStore = SettingsStore(sharedUserDefaults: self.sharedUserDefaults)
-        self.migrationRunner = AppDataMigrationRunner(sharedUserDefaults: self.sharedUserDefaults) { updatedSettings in
-            self.settings = updatedSettings
-            self.saveSettings()
-        }
+        self.migrationRunner = AppDataMigrationRunner(sharedUserDefaults: self.sharedUserDefaults, settingsUpdater: nil)
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrationRunner.migrateDataFromStandardUserDefaults()
 
         loadSettings()
+
+        // Set up settings updater callback now that self is fully initialized
+        migrationRunner.setSettingsUpdater { [weak self] updatedSettings in
+            self?.settings = updatedSettings
+            self?.saveSettings()
+        }
 
         // Run v1.9.0 migration AFTER settings are loaded
         migrationRunner.migrateToMultipleOfficeLocations(currentSettings: settings)

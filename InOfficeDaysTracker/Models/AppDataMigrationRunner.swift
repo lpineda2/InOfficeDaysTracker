@@ -9,11 +9,16 @@ import Foundation
 
 final class AppDataMigrationRunner {
     private let sharedUserDefaults: UserDefaults
-    private let settingsUpdater: (AppSettings) -> Void
+    private var settingsUpdater: ((AppSettings) -> Void)?
 
-    init(sharedUserDefaults: UserDefaults, settingsUpdater: @escaping (AppSettings) -> Void) {
+    init(sharedUserDefaults: UserDefaults, settingsUpdater: ((AppSettings) -> Void)?) {
         self.sharedUserDefaults = sharedUserDefaults
         self.settingsUpdater = settingsUpdater
+    }
+
+    /// Set the settings updater callback (called after AppData is fully initialized).
+    func setSettingsUpdater(_ updater: @escaping (AppSettings) -> Void) {
+        self.settingsUpdater = updater
     }
 
     /// Run migrations from standard UserDefaults to app groups (v1.6.0).
@@ -108,7 +113,7 @@ final class AppDataMigrationRunner {
                 isPrimary: true
             )
             updatedSettings.officeLocations = [migratedLocation]
-            settingsUpdater(updatedSettings)
+            settingsUpdater?(updatedSettings)
             debugLog("[AppData] Migrated single office location to locations array")
         }
 
