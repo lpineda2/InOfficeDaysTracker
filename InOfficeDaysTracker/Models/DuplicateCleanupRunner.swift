@@ -9,24 +9,41 @@ import Foundation
 
 final class DuplicateCleanupRunner {
     /// Clean up duplicate entries by consolidating multiple visits for the same day.
+    /// Preserves original visit order when no duplicates exist; only reorders when consolidating.
     /// Returns the cleaned visits array.
     func cleanupDuplicateEntries(from visits: [OfficeVisit]) -> ([OfficeVisit], Int) {
+        // Quick check: if no visit shares a date with another, return original array unchanged
         var visitsByDate: [String: [OfficeVisit]] = [:]
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
 
         for visit in visits {
             let dateKey = dateFormatter.string(from: visit.date)
-            if visitsByDate[dateKey] == nil {
-                visitsByDate[dateKey] = []
-            }
-            visitsByDate[dateKey]?.append(visit)
+            visitsByDate[dateKey, default: []].append(visit)
         }
 
+        // If no date has multiple visits, no consolidation needed; return original order
+        let hasDuplicates = visitsByDate.values.contains { $0.count > 1 }
+        if !hasDuplicates {
+            debugLog("[AppData] No duplicates found")
+            return (visits, 0)
+        }
+
+        // Consolidate duplicates while preserving original order via index mapping
         var cleanedVisits: [OfficeVisit] = []
         var duplicatesRemoved = 0
+        var processedDates = Set<String>()
 
-        for (dateKey, dayVisits) in visitsByDate {
+        for visit in visits {
+            let dateKey = dateFormatter.string(from: visit.date)
+
+            // Skip if we already processed this date
+            if processedDates.contains(dateKey) {
+                continue
+            }
+            processedDates.insert(dateKey)
+
+            let dayVisits = visitsByDate[dateKey] ?? []
             if dayVisits.count > 1 {
                 debugLog("[AppData] Found \(dayVisits.count) visits for \(dateKey) - consolidating into session")
 
@@ -36,16 +53,11 @@ final class DuplicateCleanupRunner {
                     debugLog("[AppData] Consolidated \(dayVisits.count) visits into single session")
                 }
             } else {
-                cleanedVisits.append(dayVisits[0])
+                cleanedVisits.append(visit)
             }
         }
 
-        if duplicatesRemoved > 0 {
-            debugLog("[AppData] Cleanup complete: consolidated \(duplicatesRemoved) duplicate visits into sessions")
-        } else {
-            debugLog("[AppData] No duplicates found")
-        }
-
+        debugLog("[AppData] Cleanup complete: consolidated \(duplicatesRemoved) duplicate visits into sessions")
         return (cleanedVisits, duplicatesRemoved)
     }
 
