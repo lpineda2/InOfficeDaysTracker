@@ -37,6 +37,9 @@ class AppData: ObservableObject {
     // Repository for visit persistence
     private let visitRepository: VisitRepository
 
+    // Store for settings persistence
+    private let settingsStore: SettingsStore
+
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
     
@@ -49,6 +52,7 @@ class AppData: ObservableObject {
         // Allow tests to inject a custom UserDefaults (isolated suite) to avoid cross-test races
         self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: AppGroupKeys.appGroupSuiteName) ?? UserDefaults.standard
         self.visitRepository = VisitRepository(sharedUserDefaults: self.sharedUserDefaults)
+        self.settingsStore = SettingsStore(sharedUserDefaults: self.sharedUserDefaults)
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrateDataFromStandardUserDefaults()
         
@@ -122,49 +126,37 @@ class AppData: ObservableObject {
         debugLog("  - Calendar enabled: \(settings.calendarSettings.isEnabled)")
         debugLog("  - Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
         debugLog("  - Setup complete: \(settings.isSetupComplete)")
-        
-        if let encoded = try? JSONEncoder().encode(settings) {
-            sharedUserDefaults.set(encoded, forKey: AppGroupKeys.settingsKey)
-            debugLog("✅", "Settings encoded and saved to UserDefaults")
-            
-            // Verify the data was actually written
-            if let savedData = sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) {
-                debugLog("📄", "Saved data size: \(savedData.count) bytes")
-                if let jsonString = String(data: savedData, encoding: .utf8) {
-                    debugLog("📄", "JSON preview: \(String(jsonString.prefix(200)))...")
-                }
-            } else {
-                debugLog("❌", "No data found immediately after saving!")
+
+        settingsStore.save(settings)
+        debugLog("✅", "Settings encoded and saved to UserDefaults")
+
+        // Verify the data was actually written
+        if let savedData = sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) {
+            debugLog("📄", "Saved data size: \(savedData.count) bytes")
+            if let jsonString = String(data: savedData, encoding: .utf8) {
+                debugLog("📄", "JSON preview: \(String(jsonString.prefix(200)))...")
             }
         } else {
-            debugLog("❌", "Failed to encode settings")
+            debugLog("❌", "No data found immediately after saving!")
         }
     }
     
     private func loadSettings() {
         debugLog("🔍", "[AppData] loadSettings called")
-        
+
         if let data = sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) {
             debugLog("📄", "Found settings data: \(data.count) bytes")
-            
+
             if let jsonString = String(data: data, encoding: .utf8) {
                 debugLog("📄", "JSON preview: \(String(jsonString.prefix(200)))...")
             }
-            
-            if let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
-                settings = decoded
-                debugLog("✅", "Settings loaded successfully")
-                debugLog("📅", "Calendar enabled: \(settings.calendarSettings.isEnabled)")
-                debugLog("📅", "Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
-                debugLog("📅", "Setup complete: \(settings.isSetupComplete)")
-            } else {
-                debugLog("❌", "Failed to decode settings JSON!")
-                settings = AppSettings()
-            }
-        } else {
-            debugLog("⚠️", "No settings data found in UserDefaults")
-            settings = AppSettings()
         }
+
+        settings = settingsStore.load()
+        debugLog("✅", "Settings loaded successfully")
+        debugLog("📅", "Calendar enabled: \(settings.calendarSettings.isEnabled)")
+        debugLog("📅", "Calendar ID: \(settings.calendarSettings.selectedCalendarId ?? "none")")
+        debugLog("📅", "Setup complete: \(settings.isSetupComplete)")
     }
     
     // MARK: - Status Persistence
