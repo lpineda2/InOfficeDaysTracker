@@ -47,6 +47,9 @@ class AppData: ObservableObject {
     private let historicalRepairRunner: HistoricalRepairRunner
     private let duplicateCleanupRunner: DuplicateCleanupRunner
 
+    // Validator for visit/session consistency
+    private let visitSessionValidator: VisitSessionValidator
+
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
     
@@ -63,6 +66,7 @@ class AppData: ObservableObject {
         self.migrationRunner = AppDataMigrationRunner(sharedUserDefaults: self.sharedUserDefaults, settingsUpdater: nil)
         self.historicalRepairRunner = HistoricalRepairRunner(sharedUserDefaults: self.sharedUserDefaults)
         self.duplicateCleanupRunner = DuplicateCleanupRunner()
+        self.visitSessionValidator = VisitSessionValidator()
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrationRunner.migrateDataFromStandardUserDefaults()
 
@@ -95,7 +99,18 @@ class AppData: ObservableObject {
         }
         
         // Validate current visit consistency
-        validateCurrentVisitConsistency()
+        let (validatedVisits, validatedCurrentVisit, validatedInOffice) = visitSessionValidator.validateCurrentVisitConsistency(
+            currentVisit: currentVisit,
+            visits: visits,
+            isCurrentlyInOffice: isCurrentlyInOffice
+        )
+        if validatedVisits.count != visits.count || validatedCurrentVisit !== currentVisit || validatedInOffice != isCurrentlyInOffice {
+            visits = validatedVisits
+            currentVisit = validatedCurrentVisit
+            isCurrentlyInOffice = validatedInOffice
+            clearCurrentVisit()
+            saveVisits()
+        }
         
         // Debug: Add test data if no visits exist
         #if DEBUG
@@ -693,87 +708,8 @@ class AppData: ObservableObject {
         #endif
     }
     
-    // MARK: - Utility Methods
-    
-    /// Clean up duplicate entries with session management awareness
-    private func cleanupDuplicateEntries() {
-        #if DEBUG
-        debugLog("[AppData] Starting duplicate cleanup with session management...")
-        #endif
-        
-        // Group visits by date
-        var visitsByDate: [String: [OfficeVisit]] = [:]
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        
-        for visit in visits {
-            let dateKey = dateFormatter.string(from: visit.date)
-            if visitsByDate[dateKey] == nil {
-                visitsByDate[dateKey] = []
-            }
-            visitsByDate[dateKey]?.append(visit)
-        }
-        
-        var cleanedVisits: [OfficeVisit] = []
-        var duplicatesRemoved = 0
-        
-        for (dateKey, dayVisits) in visitsByDate {
-            if dayVisits.count > 1 {
-                debugLog("[AppData] Found \(dayVisits.count) visits for \(dateKey) - consolidating into session")
-                
-                // Merge multiple visits for the same day into a single session-based visit
-                if let consolidatedVisit = consolidateVisitsIntoSession(dayVisits) {
-                    cleanedVisits.append(consolidatedVisit)
-                    duplicatesRemoved += dayVisits.count - 1
-                    debugLog("[AppData] Consolidated \(dayVisits.count) visits into single session")
-                }
-            } else {
-                cleanedVisits.append(dayVisits[0])
-            }
-        }
-        
-        if duplicatesRemoved > 0 {
-            visits = cleanedVisits
-            saveVisits()
-            #if DEBUG
-            debugLog("[AppData] Cleanup complete: consolidated \(duplicatesRemoved) duplicate visits into sessions")
-            #endif
-        } else {
-            #if DEBUG
-            debugLog("[AppData] No duplicates found")
-            #endif
-        }
-    }
-    
-    /// Consolidate multiple visits for the same day into a single session-based visit
-    private func consolidateVisitsIntoSession(_ dayVisits: [OfficeVisit]) -> OfficeVisit? {
-        guard !dayVisits.isEmpty else { return nil }
-        
-        // Sort by entry time
-        let sortedVisits = dayVisits.sorted { $0.entryTime < $1.entryTime }
-        let firstVisit = sortedVisits[0]
-        
-        // Create new session-based visit starting with the first visit's data
-        var consolidatedVisit = OfficeVisit(date: firstVisit.date, coordinate: firstVisit.coordinate)
-        
-        // Add events from all visits
-        for visit in sortedVisits {
-            // For legacy visits, create events from entry/exit times
-            if let exitTime = visit.exitTime {
-                let event = OfficeEvent(entryTime: visit.entryTime, exitTime: exitTime)
-                consolidatedVisit.events.append(event)
-            } else {
-                // Incomplete visit - add as active session
-                let event = OfficeEvent(entryTime: visit.entryTime, exitTime: nil)
-                consolidatedVisit.events.append(event)
-            }
-        }
-        
-        return consolidatedVisit
-    }
-    
     // MARK: - Historical Data Repair
-    
+
     /// Trigger foreground repair when app becomes active
     /// Called by the app when returning from background
     func triggerForegroundRepair() {
@@ -782,39 +718,6 @@ class AppData: ObservableObject {
             visits = repairedVisits
             saveVisits()
         }
-    }
-    
-    /// One-time migration to repair historical sessions with spurious splits
-    private func performHistoricalSessionRepairIfNeeded() {
-        let repairKey = "HistoricalSessionRepairLastRun"
-        
-        // Check when repair was last run
-        if let lastRepairTime = sharedUserDefaults.object(forKey: repairKey) as? Date {
-            let timeSinceLastRepair = Date().timeIntervalSince(lastRepairTime)
-            if timeSinceLastRepair < Self.repairDebounceInterval {
-                debugLog("ℹ️", "[AppData] Historical session repair run recently (\(Int(timeSinceLastRepair/60))m ago), skipping")
-                return
-            }
-        }
-        
-        debugLog("🔧", "[AppData] Running historical session repair for recent data...")
-        
-        // Run the repair with 90-minute gap threshold (catches lunch-time GPS drift)
-        // Filter to last 30 days for performance
-        let cutoffDate = Calendar.current.date(byAdding: .day, value: -Self.repairDateRangeDays, to: Date()) ?? Date()
-        
-        let repairedCount = repairHistoricalSessions(
-            gapThreshold: Self.repairGapThreshold,
-            dateFilter: cutoffDate
-        )
-        
-        if repairedCount > 0 {
-            debugLog("✅", "[AppData] Historical repair completed: fixed \(repairedCount) recent visits")
-        }
-        
-        // Update last repair timestamp
-        sharedUserDefaults.set(Date(), forKey: repairKey)
-        sharedUserDefaults.synchronize()
     }
     
     /// Repair historical sessions by merging events with short gaps (likely GPS drift)
@@ -830,146 +733,6 @@ class AppData: ObservableObject {
             saveVisits()
         }
         return repairCount
-    }
-        var repairCount = 0
-        var repairedVisits: [OfficeVisit] = []
-        
-        debugLog("🔧", "[AppData] Starting historical session repair (gap threshold: \(Int(gapThreshold/60)) minutes)")
-        
-        // Filter visits if date range specified
-        let visitsToRepair = if let cutoffDate = dateFilter {
-            visits.filter { $0.date >= cutoffDate }
-        } else {
-            visits
-        }
-        
-        if visitsToRepair.isEmpty {
-            debugLog("ℹ️", "[AppData] No visits in range to repair")
-            return 0
-        }
-        
-        debugLog("ℹ️", "[AppData] Checking \(visitsToRepair.count) visits for repair")
-        
-        for visit in visits {
-            // Skip visits outside date filter
-            if let cutoffDate = dateFilter, visit.date < cutoffDate {
-                repairedVisits.append(visit)
-                continue
-            }
-            
-            // Only repair completed visits with multiple events
-            guard visit.events.count > 1,
-                  !visit.isActiveSession else {
-                repairedVisits.append(visit)
-                continue
-            }
-            
-            // Sort events by entry time
-            let sortedEvents = visit.events.sorted { $0.entryTime < $1.entryTime }
-            var mergedEvents: [OfficeEvent] = []
-            var currentMergedEvent: OfficeEvent? = nil
-            
-            for event in sortedEvents {
-                guard let exitTime = event.exitTime else {
-                    // Skip incomplete events
-                    if let merged = currentMergedEvent {
-                        mergedEvents.append(merged)
-                    }
-                    mergedEvents.append(event)
-                    currentMergedEvent = nil
-                    continue
-                }
-                
-                if let merged = currentMergedEvent, let mergedExit = merged.exitTime {
-                    // Check gap between previous exit and current entry
-                    let gap = event.entryTime.timeIntervalSince(mergedExit)
-                    
-                    if gap <= gapThreshold && gap >= 0 {
-                        // Gap is small enough to merge
-                        currentMergedEvent = OfficeEvent(
-                            entryTime: merged.entryTime,
-                            exitTime: exitTime
-                        )
-                        debugLog("🔧", "[AppData] Merged events with \(Int(gap/60))m gap")
-                    } else {
-                        // Gap too large, keep as separate events
-                        mergedEvents.append(merged)
-                        currentMergedEvent = event
-                    }
-                } else {
-                    // First event or after incomplete event
-                    currentMergedEvent = event
-                }
-            }
-            
-            // Add the last merged event
-            if let merged = currentMergedEvent {
-                mergedEvents.append(merged)
-            }
-            
-            // Check if we actually merged anything
-            if mergedEvents.count < sortedEvents.count {
-                var repairedVisit = visit
-                repairedVisit.events = mergedEvents
-                repairedVisits.append(repairedVisit)
-                repairCount += 1
-                
-                debugLog("✅", "[AppData] Repaired visit on \(visit.formattedDate): \(sortedEvents.count) events → \(mergedEvents.count) events")
-            } else {
-                repairedVisits.append(visit)
-            }
-        }
-        
-        if repairCount > 0 {
-            visits = repairedVisits
-            saveVisits()
-            debugLog("✅", "[AppData] Historical repair complete: fixed \(repairCount) visits")
-        } else {
-            debugLog("ℹ️", "[AppData] No visits needed repair")
-        }
-        
-        return repairCount
-    }
-    
-    /// Validate that currentVisit is consistent with visits array (session management aware)
-    private func validateCurrentVisitConsistency() {
-        guard let currentVisit = currentVisit else {
-            #if DEBUG
-            debugLog("[AppData] No current visit to validate")
-            #endif
-            return
-        }
-        
-        let calendar = Calendar.current
-        let today = Date()
-        
-        // Check if current visit is from today
-        if !calendar.isDate(currentVisit.date, inSameDayAs: today) {
-            debugLog("[AppData] Current visit is from wrong day, clearing it")
-            self.currentVisit = nil
-            isCurrentlyInOffice = false
-            clearCurrentVisit()
-            return
-        }
-        
-        // Check if there's a matching visit in the array
-        if let matchingIndex = visits.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: currentVisit.date) }) {
-            let matchingVisit = visits[matchingIndex]
-            
-            // If the visit in array doesn't have an active session but currentVisit exists,
-            // it means we need to sync the state
-            if !matchingVisit.isActiveSession && isCurrentlyInOffice {
-                debugLog("[AppData] Syncing current visit state with session management")
-                var updatedVisit = matchingVisit
-                updatedVisit.startNewSession()
-                visits[matchingIndex] = updatedVisit
-                self.currentVisit = updatedVisit
-            }
-        } else {
-            debugLog("[AppData] Current visit not found in visits array, adding it")
-            visits.append(currentVisit)
-            saveVisits()
-        }
     }
     
     func deleteVisit(_ visit: OfficeVisit) {
