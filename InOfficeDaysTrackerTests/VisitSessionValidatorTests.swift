@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import CoreLocation
 @testable import InOfficeDaysTracker
 
 final class VisitSessionValidatorTests: XCTestCase {
