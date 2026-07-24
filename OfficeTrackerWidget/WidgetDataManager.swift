@@ -163,7 +163,7 @@ class WidgetDataManager {
     
     private func calculateWeeklyProgress() -> Int {
         guard let userDefaults = sharedDefaults,
-              let visitsData = userDefaults.data(forKey: "OfficeVisits"),
+              let visitsData = userDefaults.data(forKey: AppGroupKeys.visitsKey),
               let visits = try? JSONDecoder().decode([OfficeVisit].self, from: visitsData) else {
             return 0
         }
@@ -185,7 +185,7 @@ class WidgetDataManager {
     
     private func calculateAverageDuration() -> Double {
         guard let userDefaults = sharedDefaults,
-              let visitsData = userDefaults.data(forKey: "OfficeVisits"),
+              let visitsData = userDefaults.data(forKey: AppGroupKeys.visitsKey),
               let visits = try? JSONDecoder().decode([OfficeVisit].self, from: visitsData) else {
             return 0
         }
@@ -239,7 +239,7 @@ class WidgetDataManager {
     
     private func getDaysRemainingInMonth() -> Int {
         guard let userDefaults = sharedDefaults,
-              let settingsData = userDefaults.data(forKey: "AppSettings"),
+              let settingsData = userDefaults.data(forKey: AppGroupKeys.settingsKey),
               let settings = try? JSONDecoder().decode(AppSettings.self, from: settingsData) else {
             // Fallback to just counting weekdays
             let calendar = Calendar.current
@@ -368,7 +368,7 @@ class WidgetDataManager {
     
     private func getMonthlyGoal() -> Int {
         guard let userDefaults = sharedDefaults,
-              let settingsData = userDefaults.data(forKey: "AppSettings"),
+              let settingsData = userDefaults.data(forKey: AppGroupKeys.settingsKey),
               let settings = try? JSONDecoder().decode(AppSettings.self, from: settingsData) else {
             return 10 // Default goal
         }
@@ -451,7 +451,7 @@ class WidgetDataManager {
     
     private func getTrackingDays() -> Set<Int> {
         guard let userDefaults = sharedDefaults,
-              let settingsData = userDefaults.data(forKey: "AppSettings"),
+              let settingsData = userDefaults.data(forKey: AppGroupKeys.settingsKey),
               let settings = try? JSONDecoder().decode(AppSettings.self, from: settingsData) else {
             // Default to weekdays (Mon-Fri)
             return Set([2, 3, 4, 5, 6])

@@ -839,7 +839,7 @@ extension LocationService: CLLocationManagerDelegate {
         debugLog("🔍", "[LocationService] Office status after startVisit(): \(appData.isCurrentlyInOffice)")
         
         // DIAGNOSTIC: Verify state was persisted
-        let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        let persistedStatus = appData.sharedUserDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey)
         debugLog("🔍", "[LocationService] Persisted status in UserDefaults: \(persistedStatus)")
         if persistedStatus != appData.isCurrentlyInOffice {
             debugLog("⚠️", "[LocationService] WARNING: State mismatch! In-memory=\(appData.isCurrentlyInOffice), Persisted=\(persistedStatus)")
@@ -850,7 +850,7 @@ extension LocationService: CLLocationManagerDelegate {
         appData.sharedUserDefaults.synchronize()
         
         // Verify UserDefaults was updated
-        let verifyPersistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        let verifyPersistedStatus = appData.sharedUserDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey)
         debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(verifyPersistedStatus)")
 
         // Trigger immediate widget refresh for office entry
@@ -881,7 +881,7 @@ extension LocationService: CLLocationManagerDelegate {
             }
             
             // DIAGNOSTIC: Check persisted state
-            let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+            let persistedStatus = appData.sharedUserDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey)
             debugLog("🚪", "[LocationService] Persisted status in UserDefaults: \(persistedStatus)")
             if persistedStatus != appData.isCurrentlyInOffice {
                 debugLog("⚠️", "[LocationService] WARNING: State mismatch on exit! In-memory=\(appData.isCurrentlyInOffice), Persisted=\(persistedStatus)")
@@ -1048,7 +1048,7 @@ extension LocationService: CLLocationManagerDelegate {
                 appData.sharedUserDefaults.synchronize()
                 
                 // Verify UserDefaults was updated
-                let persistedStatus = appData.sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+                let persistedStatus = appData.sharedUserDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey)
                 debugLog("🔍", "[LocationService] Persisted office status in UserDefaults: \(persistedStatus)")
                 
                 // Trigger immediate widget refresh for office exit
