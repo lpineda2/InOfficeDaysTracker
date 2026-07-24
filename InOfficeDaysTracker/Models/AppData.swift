@@ -43,6 +43,10 @@ class AppData: ObservableObject {
     // Runner for one-time migrations
     private let migrationRunner: AppDataMigrationRunner
 
+    // Runners for repair and cleanup
+    private let historicalRepairRunner: HistoricalRepairRunner
+    private let duplicateCleanupRunner: DuplicateCleanupRunner
+
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
     
@@ -57,6 +61,8 @@ class AppData: ObservableObject {
         self.visitRepository = VisitRepository(sharedUserDefaults: self.sharedUserDefaults)
         self.settingsStore = SettingsStore(sharedUserDefaults: self.sharedUserDefaults)
         self.migrationRunner = AppDataMigrationRunner(sharedUserDefaults: self.sharedUserDefaults, settingsUpdater: nil)
+        self.historicalRepairRunner = HistoricalRepairRunner(sharedUserDefaults: self.sharedUserDefaults)
+        self.duplicateCleanupRunner = DuplicateCleanupRunner()
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrationRunner.migrateDataFromStandardUserDefaults()
 
@@ -78,10 +84,15 @@ class AppData: ObservableObject {
         // Note: AppDataAccess removed in simplification
         
         // CRITICAL: Clean up any duplicate entries on startup
-        cleanupDuplicateEntries()
-        
+        let (cleanedVisits, _) = duplicateCleanupRunner.cleanupDuplicateEntries(from: visits)
+        visits = cleanedVisits
+
         // Repair historical sessions (one-time migration for v1.15.0)
-        performHistoricalSessionRepairIfNeeded()
+        let (repairedVisits, _) = historicalRepairRunner.triggerForegroundRepair(visits: visits)
+        visits = repairedVisits
+        if cleanedVisits.count != visits.count || repairedVisits.count != visits.count {
+            saveVisits()
+        }
         
         // Validate current visit consistency
         validateCurrentVisitConsistency()
@@ -766,7 +777,11 @@ class AppData: ObservableObject {
     /// Trigger foreground repair when app becomes active
     /// Called by the app when returning from background
     func triggerForegroundRepair() {
-        performHistoricalSessionRepairIfNeeded()
+        let (repairedVisits, repairCount) = historicalRepairRunner.triggerForegroundRepair(visits: visits)
+        if repairCount > 0 {
+            visits = repairedVisits
+            saveVisits()
+        }
     }
     
     /// One-time migration to repair historical sessions with spurious splits
@@ -809,6 +824,13 @@ class AppData: ObservableObject {
     /// - Returns: Number of visits repaired
     @discardableResult
     func repairHistoricalSessions(gapThreshold: TimeInterval = 5400, dateFilter: Date? = nil) -> Int {
+        let (repairedVisits, repairCount) = historicalRepairRunner.repairHistoricalSessions(visits: visits, gapThreshold: gapThreshold, dateFilter: dateFilter)
+        if repairCount > 0 {
+            visits = repairedVisits
+            saveVisits()
+        }
+        return repairCount
+    }
         var repairCount = 0
         var repairedVisits: [OfficeVisit] = []
         
