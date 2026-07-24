@@ -10,9 +10,6 @@ import CoreLocation
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
-#if canImport(WidgetKit)
-import WidgetKit
-#endif
 
 @MainActor
 class AppData: ObservableObject {
@@ -52,11 +49,6 @@ class AppData: ObservableObject {
 
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
-    
-    // Historical repair constants
-    private static let repairGapThreshold: TimeInterval = 90 * 60 // 90 minutes
-    private static let repairDebounceInterval: TimeInterval = 60 * 60 // 1 hour
-    private static let repairDateRangeDays: Int = 30 // Last 30 days
     
     init(sharedUserDefaults: UserDefaults? = nil) {
         // Allow tests to inject a custom UserDefaults (isolated suite) to avoid cross-test races
