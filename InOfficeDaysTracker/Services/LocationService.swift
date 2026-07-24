@@ -44,18 +44,13 @@ class LocationService: NSObject, ObservableObject {
     
     // Minimum away duration to confirm user actually left (3 minutes)
     private let minimumAwayDuration: TimeInterval = 180 // 3 minutes
-    
-    // UserDefaults keys for persisting exit grace period state
-    private let pendingExitTimeKey = "PendingExitTime"
-    private let pendingExitRegionIdKey = "PendingExitRegionId"
-    private let gracePeriodExpiresKey = "GracePeriodExpires"
-    
+
     // iOS region monitoring limit
     private let maxMonitoredRegions = 20
-    
+
     // Continuation for one-shot location requests (used by verification service)
     private var locationRequestContinuation: ((CLLocation?) -> Void)?
-    
+
     override init() {
         super.init()
         setupLocationManager()
@@ -415,8 +410,8 @@ class LocationService: NSObject, ObservableObject {
         guard let appData = appData else { return }
         
         // Check if there's a persisted exit grace period
-        guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
-              let _ = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
+        guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: AppGroupKeys.pendingExitTimeKey) as? Date,
+              let _ = appData.sharedUserDefaults.string(forKey: AppGroupKeys.pendingExitRegionIdKey) else {
             return // No pending exit to check
         }
         
@@ -1106,9 +1101,9 @@ extension LocationService: CLLocationManagerDelegate {
         
         let graceExpires = exitTime.addingTimeInterval(exitGracePeriod)
         
-        appData.sharedUserDefaults.set(exitTime, forKey: pendingExitTimeKey)
-        appData.sharedUserDefaults.set(region.identifier, forKey: pendingExitRegionIdKey)
-        appData.sharedUserDefaults.set(graceExpires, forKey: gracePeriodExpiresKey)
+        appData.sharedUserDefaults.set(exitTime, forKey: AppGroupKeys.pendingExitTimeKey)
+        appData.sharedUserDefaults.set(region.identifier, forKey: AppGroupKeys.pendingExitRegionIdKey)
+        appData.sharedUserDefaults.set(graceExpires, forKey: AppGroupKeys.gracePeriodExpiresKey)
         appData.sharedUserDefaults.synchronize()
         
         debugLog("💾", "[LocationService] Persisted exit grace period for region: \(region.identifier), expires: \(graceExpires)")
@@ -1119,8 +1114,8 @@ extension LocationService: CLLocationManagerDelegate {
     internal func restoreExitGracePeriodIfNeeded() {
         guard let appData = appData else { return }
 
-        guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
-              let regionId = appData.sharedUserDefaults.string(forKey: pendingExitRegionIdKey) else {
+        guard let persistedExitTime = appData.sharedUserDefaults.object(forKey: AppGroupKeys.pendingExitTimeKey) as? Date,
+              let regionId = appData.sharedUserDefaults.string(forKey: AppGroupKeys.pendingExitRegionIdKey) else {
             return // No pending exit to restore
         }
 
@@ -1184,9 +1179,9 @@ extension LocationService: CLLocationManagerDelegate {
     private func clearPersistedExitGracePeriod() {
         guard let appData = appData else { return }
         
-        appData.sharedUserDefaults.removeObject(forKey: pendingExitTimeKey)
-        appData.sharedUserDefaults.removeObject(forKey: pendingExitRegionIdKey)
-        appData.sharedUserDefaults.removeObject(forKey: gracePeriodExpiresKey)
+        appData.sharedUserDefaults.removeObject(forKey: AppGroupKeys.pendingExitTimeKey)
+        appData.sharedUserDefaults.removeObject(forKey: AppGroupKeys.pendingExitRegionIdKey)
+        appData.sharedUserDefaults.removeObject(forKey: AppGroupKeys.gracePeriodExpiresKey)
         appData.sharedUserDefaults.synchronize()
         
         debugLog("🗑️", "[LocationService] Cleared persisted exit grace period")

@@ -26,28 +26,16 @@ class AppData: ObservableObject {
     @Published var isCurrentlyInOffice = false {
         didSet {
             // Persist office status to handle app restarts
-            sharedUserDefaults.set(isCurrentlyInOffice, forKey: "IsCurrentlyInOffice")
+            sharedUserDefaults.set(isCurrentlyInOffice, forKey: AppGroupKeys.isCurrentlyInOfficeKey)
             updateWidgetData()
         }
     }
     
     // Shared UserDefaults for app group (widget access)
     let sharedUserDefaults: UserDefaults
-    
+
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
-    
-    private let settingsKey = "AppSettings"
-    private let visitsKey = "OfficeVisits"
-    private let currentVisitKey = "CurrentVisit"
-    private let widgetDataKey = "WidgetData"
-
-    // Mirror of LocationService's exit-grace-period persistence keys.
-    // Used when finalizing a stale active session so we can recover the real
-    // exit time captured by an interrupted exit grace period.
-    private let pendingExitTimeKey = "PendingExitTime"
-    private let pendingExitRegionIdKey = "PendingExitRegionId"
-    private let gracePeriodExpiresKey = "GracePeriodExpires"
     
     // Historical repair constants
     private static let repairGapThreshold: TimeInterval = 90 * 60 // 90 minutes
@@ -56,7 +44,7 @@ class AppData: ObservableObject {
     
     init(sharedUserDefaults: UserDefaults? = nil) {
         // Allow tests to inject a custom UserDefaults (isolated suite) to avoid cross-test races
-        self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: "group.com.lpineda.InOfficeDaysTracker") ?? UserDefaults.standard
+        self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: AppGroupKeys.appGroupSuiteName) ?? UserDefaults.standard
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrateDataFromStandardUserDefaults()
         
@@ -132,11 +120,11 @@ class AppData: ObservableObject {
         debugLog("  - Setup complete: \(settings.isSetupComplete)")
         
         if let encoded = try? JSONEncoder().encode(settings) {
-            sharedUserDefaults.set(encoded, forKey: settingsKey)
+            sharedUserDefaults.set(encoded, forKey: AppGroupKeys.settingsKey)
             debugLog("✅", "Settings encoded and saved to UserDefaults")
             
             // Verify the data was actually written
-            if let savedData = sharedUserDefaults.data(forKey: settingsKey) {
+            if let savedData = sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) {
                 debugLog("📄", "Saved data size: \(savedData.count) bytes")
                 if let jsonString = String(data: savedData, encoding: .utf8) {
                     debugLog("📄", "JSON preview: \(String(jsonString.prefix(200)))...")
@@ -152,7 +140,7 @@ class AppData: ObservableObject {
     private func loadSettings() {
         debugLog("🔍", "[AppData] loadSettings called")
         
-        if let data = sharedUserDefaults.data(forKey: settingsKey) {
+        if let data = sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) {
             debugLog("📄", "Found settings data: \(data.count) bytes")
             
             if let jsonString = String(data: data, encoding: .utf8) {
@@ -179,9 +167,9 @@ class AppData: ObservableObject {
     
     private func loadCurrentStatus() {
         // Restore office status and current visit from persistent storage
-        isCurrentlyInOffice = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice")
+        isCurrentlyInOffice = sharedUserDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey)
         
-        if let data = sharedUserDefaults.data(forKey: currentVisitKey),
+        if let data = sharedUserDefaults.data(forKey: AppGroupKeys.currentVisitKey),
            let visit = try? JSONDecoder().decode(OfficeVisit.self, from: data) {
             currentVisit = visit
             
@@ -208,15 +196,15 @@ class AppData: ObservableObject {
     private func saveCurrentVisit() {
         if let visit = currentVisit,
            let encoded = try? JSONEncoder().encode(visit) {
-            sharedUserDefaults.set(encoded, forKey: currentVisitKey)
+            sharedUserDefaults.set(encoded, forKey: AppGroupKeys.currentVisitKey)
         } else {
             // Clear persisted current visit when currentVisit is nil
-            sharedUserDefaults.removeObject(forKey: currentVisitKey)
+            sharedUserDefaults.removeObject(forKey: AppGroupKeys.currentVisitKey)
         }
     }
     
     private func clearCurrentVisit() {
-        sharedUserDefaults.removeObject(forKey: currentVisitKey)
+        sharedUserDefaults.removeObject(forKey: AppGroupKeys.currentVisitKey)
     }
     
     /// Auto-close a stale session left open across a day boundary.
@@ -268,13 +256,13 @@ class AppData: ObservableObject {
     private func resolveStaleExitTime(for visit: OfficeVisit, calendar: Calendar) -> Date {
         let entryTime = visit.entryTime
 
-        if let pendingExit = sharedUserDefaults.object(forKey: pendingExitTimeKey) as? Date,
+        if let pendingExit = sharedUserDefaults.object(forKey: AppGroupKeys.pendingExitTimeKey) as? Date,
            calendar.isDate(pendingExit, inSameDayAs: visit.date),
            pendingExit >= entryTime {
             // Consume the pending-exit state so grace-period restore won't re-handle it.
-            sharedUserDefaults.removeObject(forKey: pendingExitTimeKey)
-            sharedUserDefaults.removeObject(forKey: pendingExitRegionIdKey)
-            sharedUserDefaults.removeObject(forKey: gracePeriodExpiresKey)
+            sharedUserDefaults.removeObject(forKey: AppGroupKeys.pendingExitTimeKey)
+            sharedUserDefaults.removeObject(forKey: AppGroupKeys.pendingExitRegionIdKey)
+            sharedUserDefaults.removeObject(forKey: AppGroupKeys.gracePeriodExpiresKey)
             sharedUserDefaults.synchronize()
             debugLog("[AppData] Recovered real exit time from interrupted grace period: \(pendingExit)")
             return pendingExit
@@ -656,13 +644,13 @@ class AppData: ObservableObject {
     
     private func saveVisits() {
         if let encoded = try? JSONEncoder().encode(visits) {
-            sharedUserDefaults.set(encoded, forKey: visitsKey)
+            sharedUserDefaults.set(encoded, forKey: AppGroupKeys.visitsKey)
         }
         updateWidgetData()
     }
     
     private func loadVisits() {
-        if let data = sharedUserDefaults.data(forKey: visitsKey),
+        if let data = sharedUserDefaults.data(forKey: AppGroupKeys.visitsKey),
            let decoded = try? JSONDecoder().decode([OfficeVisit].self, from: data) {
             visits = decoded
         }
@@ -679,7 +667,7 @@ class AppData: ObservableObject {
         sharedUserDefaults.synchronize()
         
         // Verify the data was persisted correctly
-        let verifyStatus = sharedUserDefaults.bool(forKey: "IsCurrentlyInOffice") 
+        let verifyStatus = sharedUserDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey) 
         debugLog("🔍", "[AppData] Verified persisted office status: \(verifyStatus)")
         
         // Request widget timeline reload - single call to preserve WidgetKit daily budget
@@ -1089,34 +1077,34 @@ class AppData: ObservableObject {
         var migrationCount = 0
         
         // Migrate settings
-        if let settingsData = standardDefaults.data(forKey: settingsKey),
-           sharedUserDefaults.data(forKey: settingsKey) == nil {
-            sharedUserDefaults.set(settingsData, forKey: settingsKey)
+        if let settingsData = standardDefaults.data(forKey: AppGroupKeys.settingsKey),
+           sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) == nil {
+            sharedUserDefaults.set(settingsData, forKey: AppGroupKeys.settingsKey)
             migrationCount += 1
             debugLog("[AppData] Migrated app settings")
         }
         
         // Migrate visits
-        if let visitsData = standardDefaults.data(forKey: visitsKey),
-           sharedUserDefaults.data(forKey: visitsKey) == nil {
-            sharedUserDefaults.set(visitsData, forKey: visitsKey)
+        if let visitsData = standardDefaults.data(forKey: AppGroupKeys.visitsKey),
+           sharedUserDefaults.data(forKey: AppGroupKeys.visitsKey) == nil {
+            sharedUserDefaults.set(visitsData, forKey: AppGroupKeys.visitsKey)
             migrationCount += 1
             debugLog("[AppData] Migrated office visits history")
         }
         
         // Migrate current visit
-        if let currentVisitData = standardDefaults.data(forKey: currentVisitKey),
-           sharedUserDefaults.data(forKey: currentVisitKey) == nil {
-            sharedUserDefaults.set(currentVisitData, forKey: currentVisitKey)
+        if let currentVisitData = standardDefaults.data(forKey: AppGroupKeys.currentVisitKey),
+           sharedUserDefaults.data(forKey: AppGroupKeys.currentVisitKey) == nil {
+            sharedUserDefaults.set(currentVisitData, forKey: AppGroupKeys.currentVisitKey)
             migrationCount += 1
             debugLog("[AppData] Migrated current visit state")
         }
         
         // Migrate office status
         if standardDefaults.object(forKey: "IsCurrentlyInOffice") != nil,
-           sharedUserDefaults.object(forKey: "IsCurrentlyInOffice") == nil {
+           sharedUserDefaults.object(forKey: AppGroupKeys.isCurrentlyInOfficeKey) == nil {
             let isInOffice = standardDefaults.bool(forKey: "IsCurrentlyInOffice")
-            sharedUserDefaults.set(isInOffice, forKey: "IsCurrentlyInOffice")
+            sharedUserDefaults.set(isInOffice, forKey: AppGroupKeys.isCurrentlyInOfficeKey)
             migrationCount += 1
             debugLog("[AppData] Migrated office status: \(isInOffice)")
         }

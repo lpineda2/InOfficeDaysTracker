@@ -9,15 +9,11 @@ import Foundation
 
 class WidgetDataManager {
     static let shared = WidgetDataManager()
-    
-    // App Group identifier - update this to match your team/app
-    private let appGroupIdentifier = "group.com.lpineda.InOfficeDaysTracker"
-    private let widgetDataKey = "WidgetData"
-    
+
     private let _testDefaults: UserDefaults?
-    
+
     private var sharedDefaults: UserDefaults? {
-        _testDefaults ?? UserDefaults(suiteName: appGroupIdentifier)
+        _testDefaults ?? UserDefaults(suiteName: AppGroupKeys.appGroupSuiteName)
     }
     
     private init() {
@@ -39,7 +35,7 @@ class WidgetDataManager {
         
         do {
             let encoded = try JSONEncoder().encode(data)
-            defaults.set(encoded, forKey: widgetDataKey)
+            defaults.set(encoded, forKey: AppGroupKeys.widgetDataKey)
             debugLog("✅", "[WidgetDataManager] Widget data saved successfully")
         } catch {
             debugLog("❌", "[WidgetDataManager] Failed to encode widget data: \(error)")
@@ -48,7 +44,7 @@ class WidgetDataManager {
     
     func getCurrentData() -> WidgetData {
         guard let defaults = sharedDefaults,
-              let data = defaults.data(forKey: widgetDataKey) else {
+              let data = defaults.data(forKey: AppGroupKeys.widgetDataKey) else {
             debugLog("⚠️", "[WidgetDataManager] No shared data found, returning placeholder")
             return WidgetData.noData
         }
@@ -104,14 +100,14 @@ class WidgetDataManager {
         )
         
         // Get current office status
-        var isCurrentlyInOffice = userDefaults.bool(forKey: "IsCurrentlyInOffice")
+        var isCurrentlyInOffice = userDefaults.bool(forKey: AppGroupKeys.isCurrentlyInOfficeKey)
         debugLog("🔍", "[WidgetDataManager] Office status from UserDefaults: \(isCurrentlyInOffice)")
         
         // CRITICAL FIX: If the exit grace period has expired but the app process hasn't
         // updated UserDefaults yet (because iOS suspended the app's Timer in background),
         // the widget must independently detect the user has left.
         if isCurrentlyInOffice,
-           let gracePeriodExpires = userDefaults.object(forKey: "GracePeriodExpires") as? Date,
+           let gracePeriodExpires = userDefaults.object(forKey: AppGroupKeys.gracePeriodExpiresKey) as? Date,
            gracePeriodExpires <= Date() {
             debugLog("🔍", "[WidgetDataManager] Grace period expired at \(gracePeriodExpires) - overriding to away")
             isCurrentlyInOffice = false
@@ -123,7 +119,7 @@ class WidgetDataManager {
         var currentVisitDuration: TimeInterval? = nil
         var visitStartTime: Date? = nil
         if isCurrentlyInOffice,
-           let currentVisitData = userDefaults.data(forKey: "CurrentVisit"),
+           let currentVisitData = userDefaults.data(forKey: AppGroupKeys.currentVisitKey),
            let currentVisit = try? JSONDecoder().decode(OfficeVisit.self, from: currentVisitData) {
             currentVisitDuration = Date().timeIntervalSince(currentVisit.entryTime)
             visitStartTime = currentVisit.entryTime
