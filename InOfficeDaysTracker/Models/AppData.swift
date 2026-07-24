@@ -34,6 +34,9 @@ class AppData: ObservableObject {
     // Shared UserDefaults for app group (widget access)
     let sharedUserDefaults: UserDefaults
 
+    // Repository for visit persistence
+    private let visitRepository: VisitRepository
+
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
     
@@ -45,6 +48,7 @@ class AppData: ObservableObject {
     init(sharedUserDefaults: UserDefaults? = nil) {
         // Allow tests to inject a custom UserDefaults (isolated suite) to avoid cross-test races
         self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: AppGroupKeys.appGroupSuiteName) ?? UserDefaults.standard
+        self.visitRepository = VisitRepository(sharedUserDefaults: self.sharedUserDefaults)
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
         migrateDataFromStandardUserDefaults()
         
@@ -643,17 +647,12 @@ class AppData: ObservableObject {
     }
     
     private func saveVisits() {
-        if let encoded = try? JSONEncoder().encode(visits) {
-            sharedUserDefaults.set(encoded, forKey: AppGroupKeys.visitsKey)
-        }
+        visitRepository.save(visits)
         updateWidgetData()
     }
-    
+
     private func loadVisits() {
-        if let data = sharedUserDefaults.data(forKey: AppGroupKeys.visitsKey),
-           let decoded = try? JSONDecoder().decode([OfficeVisit].self, from: data) {
-            visits = decoded
-        }
+        visits = visitRepository.load()
     }
     
     // MARK: - Widget Data Management
