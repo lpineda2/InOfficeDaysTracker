@@ -40,6 +40,9 @@ class AppData: ObservableObject {
     // Store for settings persistence
     private let settingsStore: SettingsStore
 
+    // Runner for one-time migrations
+    private let migrationRunner: AppDataMigrationRunner
+
     // Calendar Integration
     private let calendarEventManager = CalendarEventManager()
     
@@ -53,13 +56,17 @@ class AppData: ObservableObject {
         self.sharedUserDefaults = sharedUserDefaults ?? UserDefaults(suiteName: AppGroupKeys.appGroupSuiteName) ?? UserDefaults.standard
         self.visitRepository = VisitRepository(sharedUserDefaults: self.sharedUserDefaults)
         self.settingsStore = SettingsStore(sharedUserDefaults: self.sharedUserDefaults)
+        self.migrationRunner = AppDataMigrationRunner(sharedUserDefaults: self.sharedUserDefaults) { updatedSettings in
+            self.settings = updatedSettings
+            self.saveSettings()
+        }
         // CRITICAL: Migrate data from standard UserDefaults to App Groups
-        migrateDataFromStandardUserDefaults()
-        
+        migrationRunner.migrateDataFromStandardUserDefaults()
+
         loadSettings()
-        
+
         // Run v1.9.0 migration AFTER settings are loaded
-        migrateToMultipleOfficeLocations()
+        migrationRunner.migrateToMultipleOfficeLocations(currentSettings: settings)
         
         loadVisits()
         loadCurrentStatus()
@@ -1050,121 +1057,11 @@ class AppData: ObservableObject {
         }
     }
 
-    // MARK: - Data Migration
-    
-    /// Migrate data from standard UserDefaults to App Groups container
-    /// This fixes data loss when upgrading from pre-widget versions
-    private func migrateDataFromStandardUserDefaults() {
-        let standardDefaults = UserDefaults.standard
-        let migrationKey = "DataMigratedToAppGroups_v1.6.0"
-        
-        // Check if migration already completed
-        if sharedUserDefaults.bool(forKey: migrationKey) {
-            debugLog("[AppData] Data migration already completed")
-            return
-        }
-        
-        debugLog("[AppData] Starting data migration from standard UserDefaults...")
-        var migrationCount = 0
-        
-        // Migrate settings
-        if let settingsData = standardDefaults.data(forKey: AppGroupKeys.settingsKey),
-           sharedUserDefaults.data(forKey: AppGroupKeys.settingsKey) == nil {
-            sharedUserDefaults.set(settingsData, forKey: AppGroupKeys.settingsKey)
-            migrationCount += 1
-            debugLog("[AppData] Migrated app settings")
-        }
-        
-        // Migrate visits
-        if let visitsData = standardDefaults.data(forKey: AppGroupKeys.visitsKey),
-           sharedUserDefaults.data(forKey: AppGroupKeys.visitsKey) == nil {
-            sharedUserDefaults.set(visitsData, forKey: AppGroupKeys.visitsKey)
-            migrationCount += 1
-            debugLog("[AppData] Migrated office visits history")
-        }
-        
-        // Migrate current visit
-        if let currentVisitData = standardDefaults.data(forKey: AppGroupKeys.currentVisitKey),
-           sharedUserDefaults.data(forKey: AppGroupKeys.currentVisitKey) == nil {
-            sharedUserDefaults.set(currentVisitData, forKey: AppGroupKeys.currentVisitKey)
-            migrationCount += 1
-            debugLog("[AppData] Migrated current visit state")
-        }
-        
-        // Migrate office status
-        if standardDefaults.object(forKey: "IsCurrentlyInOffice") != nil,
-           sharedUserDefaults.object(forKey: AppGroupKeys.isCurrentlyInOfficeKey) == nil {
-            let isInOffice = standardDefaults.bool(forKey: "IsCurrentlyInOffice")
-            sharedUserDefaults.set(isInOffice, forKey: AppGroupKeys.isCurrentlyInOfficeKey)
-            migrationCount += 1
-            debugLog("[AppData] Migrated office status: \(isInOffice)")
-        }
-        
-        // Mark migration as complete
-        sharedUserDefaults.set(true, forKey: migrationKey)
-        
-        debugLog("[AppData] Migration completed! Migrated \(migrationCount) data items")
-        
-        if migrationCount > 0 {
-            debugLog("[AppData] ✅ Your previous app data has been restored!")
-        }
-    }
-    
-    /// Migrate single office location to multiple office locations array (v1.9.0)
     // MARK: - Public Migration Helper
-    
+
     /// Force migration of office locations if data is inconsistent
     func ensureOfficeLocationConsistency() {
-        if settings.officeLocation != nil && settings.officeLocations.isEmpty {
-            debugLog("[AppData] Forcing office location migration due to inconsistent data...")
-            // Reset migration flag to force it to run
-            let migrationKey = "DataMigratedToMultipleLocations_v1.9.0_v2"
-            sharedUserDefaults.set(false, forKey: migrationKey)
-            migrateToMultipleOfficeLocations()
-        }
-    }
-    
-    private func migrateToMultipleOfficeLocations() {
-        // Use v2 key since original migration had a bug (ran before settings were loaded)
-        let migrationKey = "DataMigratedToMultipleLocations_v1.9.0_v2"
-        
-        // Check if migration already completed
-        let migrationCompleted = sharedUserDefaults.bool(forKey: migrationKey)
-        
-        // Also check for data consistency - if we have a legacy location but no new locations,
-        // force migration even if marked as complete
-        let hasLegacyLocation = settings.officeLocation != nil
-        let hasNewLocations = !settings.officeLocations.isEmpty
-        let needsForcedMigration = hasLegacyLocation && !hasNewLocations
-        
-        if migrationCompleted && !needsForcedMigration {
-            return
-        }
-        
-        if needsForcedMigration {
-            debugLog("[AppData] Detected inconsistent office location data - forcing migration...")
-        } else {
-            debugLog("[AppData] Starting v1.9.0 office location migration...")
-        }
-        
-        // If user has an existing single office location but no office locations array
-        if let existingLocation = settings.officeLocation,
-           settings.officeLocations.isEmpty {
-            let migratedLocation = OfficeLocation(
-                name: "Office",
-                coordinate: existingLocation,
-                address: settings.officeAddress,
-                detectionRadius: settings.detectionRadius,
-                isPrimary: true
-            )
-            settings.officeLocations = [migratedLocation]
-            saveSettings()
-            debugLog("[AppData] Migrated single office location to locations array")
-        }
-        
-        // Mark migration as complete
-        sharedUserDefaults.set(true, forKey: migrationKey)
-        debugLog("[AppData] v1.9.0 migration completed!")
+        migrationRunner.ensureOfficeLocationConsistency(currentSettings: settings)
     }
     
     // MARK: - Multiple Office Location Helpers
