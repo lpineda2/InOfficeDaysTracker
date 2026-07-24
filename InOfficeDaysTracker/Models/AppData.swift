@@ -80,27 +80,29 @@ class AppData: ObservableObject {
         // Note: AppDataAccess removed in simplification
         
         // CRITICAL: Clean up any duplicate entries on startup
-        let (cleanedVisits, _) = duplicateCleanupRunner.cleanupDuplicateEntries(from: visits)
+        let (cleanedVisits, duplicatesRemoved) = duplicateCleanupRunner.cleanupDuplicateEntries(from: visits)
         visits = cleanedVisits
 
         // Repair historical sessions (one-time migration for v1.15.0)
-        let (repairedVisits, _) = historicalRepairRunner.triggerForegroundRepair(visits: visits)
+        let (repairedVisits, repairCount) = historicalRepairRunner.triggerForegroundRepair(visits: visits)
         visits = repairedVisits
-        if cleanedVisits.count != visits.count || repairedVisits.count != visits.count {
+        if duplicatesRemoved > 0 || repairCount > 0 {
             saveVisits()
         }
         
         // Validate current visit consistency
-        let (validatedVisits, validatedCurrentVisit, validatedInOffice) = visitSessionValidator.validateCurrentVisitConsistency(
+        let (validatedVisits, validatedCurrentVisit, validatedInOffice, visitWasCleared, anyChangesApplied) = visitSessionValidator.validateCurrentVisitConsistency(
             currentVisit: currentVisit,
             visits: visits,
             isCurrentlyInOffice: isCurrentlyInOffice
         )
-        if validatedVisits.count != visits.count || validatedCurrentVisit !== currentVisit || validatedInOffice != isCurrentlyInOffice {
-            visits = validatedVisits
-            currentVisit = validatedCurrentVisit
-            isCurrentlyInOffice = validatedInOffice
+        visits = validatedVisits
+        currentVisit = validatedCurrentVisit
+        isCurrentlyInOffice = validatedInOffice
+        if visitWasCleared {
             clearCurrentVisit()
+        }
+        if anyChangesApplied {
             saveVisits()
         }
         

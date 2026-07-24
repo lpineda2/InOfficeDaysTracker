@@ -13,15 +13,15 @@ final class VisitSessionValidator {
     ///   - currentVisit: Current active visit, if any
     ///   - visits: Array of all office visits
     ///   - isCurrentlyInOffice: Current in-office status
-    /// - Returns: Tuple of (validated visits, validated currentVisit, validated isCurrentlyInOffice)
+    /// - Returns: Tuple of (validated visits, validated currentVisit, validated isCurrentlyInOffice, visitWasCleared, anyChangesApplied)
     func validateCurrentVisitConsistency(
         currentVisit: OfficeVisit?,
         visits: [OfficeVisit],
         isCurrentlyInOffice: Bool
-    ) -> (visits: [OfficeVisit], currentVisit: OfficeVisit?, isCurrentlyInOffice: Bool) {
+    ) -> (visits: [OfficeVisit], currentVisit: OfficeVisit?, isCurrentlyInOffice: Bool, visitWasCleared: Bool, anyChangesApplied: Bool) {
         guard let currentVisit = currentVisit else {
             debugLog("[AppData] No current visit to validate")
-            return (visits, nil, false)
+            return (visits, nil, false, false, false)
         }
 
         let calendar = Calendar.current
@@ -30,7 +30,7 @@ final class VisitSessionValidator {
         // Check if current visit is from today
         if !calendar.isDate(currentVisit.date, inSameDayAs: today) {
             debugLog("[AppData] Current visit is from wrong day, clearing it")
-            return (visits, nil, false)
+            return (visits, nil, false, true, true)
         }
 
         // Check if there's a matching visit in the array
@@ -45,15 +45,15 @@ final class VisitSessionValidator {
                 updatedVisit.startNewSession()
                 var updatedVisits = visits
                 updatedVisits[matchingIndex] = updatedVisit
-                return (updatedVisits, updatedVisit, true)
+                return (updatedVisits, updatedVisit, true, false, true)
             }
 
-            return (visits, currentVisit, isCurrentlyInOffice)
+            return (visits, currentVisit, isCurrentlyInOffice, false, false)
         } else {
             debugLog("[AppData] Current visit not found in visits array, adding it")
             var updatedVisits = visits
             updatedVisits.append(currentVisit)
-            return (updatedVisits, currentVisit, isCurrentlyInOffice)
+            return (updatedVisits, currentVisit, isCurrentlyInOffice, false, true)
         }
     }
 }
