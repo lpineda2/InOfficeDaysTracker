@@ -446,7 +446,7 @@ struct AppDataTests {
         
         // Verify data structure - each element should be a tuple with date and count
         for (date, count) in trendData {
-            #expect(date is Date) // date should be a Date
+            #expect(!Calendar.current.isDateInToday(date) || date <= Date()) // date should be valid
             #expect(count >= 0) // count should be non-negative
         }
         

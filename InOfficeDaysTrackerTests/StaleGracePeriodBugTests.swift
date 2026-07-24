@@ -70,8 +70,7 @@ struct StaleGracePeriodBugTests {
         locationService.pendingExitRegion = createTestRegion()
 
         // Simulate: User re-enters within grace period (same day, 2 minutes later)
-        let reEntryTime = exitTime.addingTimeInterval(120)  // 2 minutes
-        let currentTimeBackup = Date()  // Save current time for restoration
+        _ = exitTime.addingTimeInterval(120)  // 2 minutes (grace period window)
 
         // Create mock clock context by simulating the entry with grace period state active
         // The test validates the logic without needing to mock Date()
@@ -103,7 +102,6 @@ struct StaleGracePeriodBugTests {
 
         // Simulate: User enters office on Day 1
         appData.startVisit(at: office.coordinate!)
-        let day1VisitId = appData.currentVisit?.id
 
         // Simulate: User exits office on Day 1 at 5:18 PM
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
@@ -145,8 +143,6 @@ struct StaleGracePeriodBugTests {
 
         // Now simulate: Day 2 morning entry
         // The stale grace period should not prevent handleRegionEntry from calling startVisit
-        let day2VisitCountBefore = appData.visits.count
-
         // Grace period state should already be cleared by restoreExitGracePeriodIfNeeded above
         #expect(locationService.pendingExitRegion == nil, "pendingExitRegion should be nil at Day 2 entry")
 
@@ -263,7 +259,7 @@ struct StaleGracePeriodBugTests {
         // Simulate entry with malformed state
         // Should NOT crash, should clear the invalid state
 
-        guard let exitTime = locationService.exitTime else {
+        if locationService.exitTime == nil {
             // This is the malformed case - should be handled gracefully
             locationService.clearExitGracePeriodState(reason: "pending region exists without exit time")
 
@@ -271,13 +267,11 @@ struct StaleGracePeriodBugTests {
                     "Malformed pendingRegion should be cleared")
             #expect(locationService.exitTime == nil,
                     "exitTime should remain nil")
-
-            // Allow normal entry to proceed (fall through would happen in real code)
             return
         }
 
-        // Should not reach this if test is working correctly
-        #expect(false, "Should have handled missing exitTime case")
+        // exitTime is non-nil here, which shouldn't happen in this test
+        #expect(false, "Should not have exitTime in malformed state case")
     }
 
     // MARK: - Concurrent Entry During Restoration (Race Condition)
