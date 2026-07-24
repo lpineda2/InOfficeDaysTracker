@@ -14,6 +14,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     // MARK: - Test Setup Helper
 
     /// Creates a clean AppData instance for testing with isolated UserDefaults
+    @MainActor
     func createTestAppData() -> AppData {
         let testSuiteName = "test.autocalculate.\(UUID().uuidString)"
         let testDefaults = UserDefaults(suiteName: testSuiteName)!
