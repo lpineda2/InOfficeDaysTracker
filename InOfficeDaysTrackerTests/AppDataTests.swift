@@ -15,9 +15,13 @@ struct AppDataTests {
     
     // MARK: - Test Setup Helper
     
-    /// Creates a clean AppData instance for testing
+    /// Creates a clean AppData instance for testing with isolated UserDefaults
     func createTestAppData() -> AppData {
-        let appData = AppData()
+        let testSuiteName = "test.appdata.\(UUID().uuidString)"
+        let testDefaults = UserDefaults(suiteName: testSuiteName)!
+        testDefaults.removePersistentDomain(forName: testSuiteName)
+
+        let appData = AppData(sharedUserDefaults: testDefaults)
         appData.visits = [] // Clear any existing visits
         appData.currentVisit = nil
         appData.isCurrentlyInOffice = false

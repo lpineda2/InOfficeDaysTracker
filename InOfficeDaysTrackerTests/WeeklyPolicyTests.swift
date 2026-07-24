@@ -42,6 +42,17 @@ final class WeeklyPolicyTests: XCTestCase {
         )
     }
 
+    // MARK: - Test Setup Helper
+
+    /// Creates a clean AppData instance for testing with isolated UserDefaults
+    func createTestAppData() -> AppData {
+        let testSuiteName = "test.weeklypolicy.\(UUID().uuidString)"
+        let testDefaults = UserDefaults(suiteName: testSuiteName)!
+        testDefaults.removePersistentDomain(forName: testSuiteName)
+
+        return AppData(sharedUserDefaults: testDefaults)
+    }
+
     private func evaluate(
         _ policy: WeeklyPolicy,
         inOffice: [Date],
@@ -273,7 +284,7 @@ final class WeeklyPolicyTests: XCTestCase {
 
     @MainActor
     func testAppDataReturnsNilWeeklyComplianceWhenMonthlyOnly() {
-        let appData = AppData()
+        let appData = createTestAppData()
         var settings = appData.settings
         settings.trackingCadence = .monthly
         appData.updateSettings(settings)
@@ -303,7 +314,7 @@ final class WeeklyPolicyTests: XCTestCase {
 
     @MainActor
     func testAppDataReturnsWeeklyComplianceWhenWeeklyEnabled() {
-        let appData = AppData()
+        let appData = createTestAppData()
         var settings = appData.settings
         settings.trackingCadence = .weekly
         settings.weeklyPolicy = standardPolicy()

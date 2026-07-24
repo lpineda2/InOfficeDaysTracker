@@ -10,7 +10,18 @@ import CoreLocation
 @testable import InOfficeDaysTracker
 
 final class AutoCalculateGoalTests: XCTestCase {
-    
+
+    // MARK: - Test Setup Helper
+
+    /// Creates a clean AppData instance for testing with isolated UserDefaults
+    func createTestAppData() -> AppData {
+        let testSuiteName = "test.autocalculate.\(UUID().uuidString)"
+        let testDefaults = UserDefaults(suiteName: testSuiteName)!
+        testDefaults.removePersistentDomain(forName: testSuiteName)
+
+        return AppData(sharedUserDefaults: testDefaults)
+    }
+
     // MARK: - CompanyPolicy Tests
     
     func testHybrid50PolicyCalculation() {
@@ -1351,7 +1362,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     func testAutoCalculateToggleChangesGoal() async throws {
         throw XCTSkip("Temporarily disabled - calendar calculation discrepancy for February 2026 (expects 10, gets 11). Needs investigation after exit notification deployment.")
         
-        let appData = AppData()
+        let appData = createTestAppData()
         
         // Setup: Configure manual goal and policy
         var settings = appData.settings
@@ -1387,7 +1398,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     /// Tests that updateSettings properly persists the autoCalculateGoal setting
     @MainActor
     func testUpdateSettingsPersistsAutoCalculate() async {
-        let appData = AppData()
+        let appData = createTestAppData()
         
         // Start with auto-calculate OFF
         var settings = appData.settings
@@ -1407,7 +1418,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     /// Tests that getCurrentMonthProgress returns different goals based on autoCalculateGoal
     @MainActor
     func testGetCurrentMonthProgressReflectsSettingChange() async {
-        let appData = AppData()
+        let appData = createTestAppData()
         
         // Setup
         var settings = appData.settings
@@ -1437,7 +1448,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     /// Tests that toggling back to manual restores the manual goal
     @MainActor
     func testToggleBackToManualRestoresGoal() async {
-        let appData = AppData()
+        let appData = createTestAppData()
         
         // Setup with manual goal
         var settings = appData.settings
@@ -1465,7 +1476,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     /// Tests that policy type changes are reflected immediately
     @MainActor
     func testPolicyTypeChangeReflectedImmediately() async {
-        let appData = AppData()
+        let appData = createTestAppData()
         
         // Setup with auto-calculate ON
         var settings = appData.settings
@@ -1489,7 +1500,7 @@ final class AutoCalculateGoalTests: XCTestCase {
     /// Tests multiple rapid setting changes
     @MainActor
     func testRapidSettingChanges() async {
-        let appData = AppData()
+        let appData = createTestAppData()
         
         // Simulate rapid toggles (like a user tapping quickly)
         for i in 1...5 {

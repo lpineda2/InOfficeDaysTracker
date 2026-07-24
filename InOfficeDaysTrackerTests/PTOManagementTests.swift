@@ -14,13 +14,17 @@ struct PTOManagementTests {
     
     // MARK: - Test Setup Helper
     
-    /// Creates a clean AppData instance for testing
+    /// Creates a clean AppData instance for testing with isolated UserDefaults
     func createTestAppData() -> AppData {
-        let appData = AppData()
+        let testSuiteName = "test.ptomanagement.\(UUID().uuidString)"
+        let testDefaults = UserDefaults(suiteName: testSuiteName)!
+        testDefaults.removePersistentDomain(forName: testSuiteName)
+
+        let appData = AppData(sharedUserDefaults: testDefaults)
         appData.visits = []
         appData.currentVisit = nil
         appData.isCurrentlyInOffice = false
-        
+
         // Set up clean settings with auto-calculate enabled
         var settings = AppSettings()
         settings.autoCalculateGoal = true
@@ -29,7 +33,7 @@ struct PTOManagementTests {
         settings.ptoSickDays = [:] // Clear any existing PTO
         settings.holidayCalendar = HolidayCalendar(preset: .none) // Start with no holidays
         appData.updateSettings(settings)
-        
+
         return appData
     }
     
