@@ -57,7 +57,10 @@ struct Provider: TimelineProvider {
                 paceNeeded: widgetData.paceNeeded,
                 lastUpdated: expiryDate,
                 statusMessage: widgetData.statusMessage,
-                daysLeftInMonth: widgetData.daysLeftInMonth
+                daysLeftInMonth: widgetData.daysLeftInMonth,
+                trackingCadence: widgetData.trackingCadence,
+                weeklyResult: widgetData.weeklyResult,
+                weeklyAnchorDescription: widgetData.weeklyAnchorDescription
             )
             let expiryEntry = SimpleEntry(date: expiryDate, widgetData: awayData)
             entries.append(expiryEntry)

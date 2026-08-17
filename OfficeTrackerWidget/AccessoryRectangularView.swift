@@ -10,7 +10,14 @@ import WidgetKit
 
 struct AccessoryRectangularView: View {
     let data: WidgetData
-    
+
+    private var weekly: WeeklyComplianceResult? {
+        data.trackingCadence.includesWeekly ? data.weeklyResult : nil
+    }
+
+    private var displayCurrent: Int { weekly?.officeDaysCompleted ?? data.current }
+    private var displayGoal: Int { weekly?.requiredDays ?? data.goal }
+
     var body: some View {
         HStack(spacing: 8) {
             // Left: App identifier (building icon)
@@ -18,33 +25,33 @@ struct AccessoryRectangularView: View {
                 .font(.system(size: 23, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(width: 27, height: 27)
-            
+
             // Center: Progress text (centered between icon and progress ring)
             Spacer()
-            
+
             VStack(alignment: .center, spacing: 1) {
-                Text("\(data.current) of \(data.goal)")
+                Text("\(displayCurrent) of \(displayGoal)")
                     .font(.system(size: dynamicFontSize, weight: .medium, design: .rounded))
                     .foregroundColor(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .allowsTightening(true)
-                Text("days")
+                Text(weekly != nil ? "this week" : "days")
                     .font(.system(size: dynamicDaysTextSize, weight: .regular, design: .rounded))
                     .foregroundColor(.secondary)
                     .minimumScaleFactor(0.9)
                     .allowsTightening(true)
             }
-            
+
             Spacer()
-            
+
             // Right: Circular progress indicator
             ZStack {
                 // Background circle
                 Circle()
                     .stroke(Color.secondary.opacity(0.3), lineWidth: 3)
                     .frame(width: 31, height: 31)
-                
+
                 // Progress circle
                 Circle()
                     .trim(from: 0, to: progress)
@@ -58,7 +65,7 @@ struct AccessoryRectangularView: View {
                     .frame(width: 31, height: 31)
                     .rotationEffect(.degrees(-90))
                     .animation(.easeInOut(duration: 0.3), value: progress)
-                
+
                 // Center status indicator matching circular widget
                 Image(systemName: statusIcon)
                     .font(.system(size: 13, weight: .semibold))
@@ -68,13 +75,13 @@ struct AccessoryRectangularView: View {
         .padding(.horizontal, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-    
+
     private var progress: Double {
-        guard data.goal > 0 else { return 0.0 }
-        let calculatedProgress = Double(data.current) / Double(data.goal)
+        guard displayGoal > 0 else { return 0.0 }
+        let calculatedProgress = Double(displayCurrent) / Double(displayGoal)
         return min(max(calculatedProgress, 0.0), 1.0)
     }
-    
+
     private var dynamicFontSize: CGFloat {
         let screenWidth = UIScreen.main.bounds.width
         // iPhone 16 Pro: 393px, iPhone 16 Pro Max: 430px
@@ -100,10 +107,16 @@ struct AccessoryRectangularView: View {
     }
     
     private var statusIcon: String {
-        data.isCurrentlyInOffice ? "clock.badge.fill" : "figure.walk"
+        if let weekly {
+            return WeeklyStatusPresentation.icon(for: weekly.status)
+        }
+        return data.isCurrentlyInOffice ? "clock.badge.fill" : "figure.walk"
     }
-    
+
     private var statusColor: Color {
+        if let weekly {
+            return WeeklyStatusPresentation.color(for: weekly.status)
+        }
         if data.isCurrentlyInOffice {
             return .green
         } else if data.current >= data.goal {
@@ -119,4 +132,5 @@ struct AccessoryRectangularView: View {
 } timeline: {
     SimpleEntry(date: .now, widgetData: WidgetData.placeholder)
     SimpleEntry(date: .now, widgetData: WidgetData.sampleProgress)
+    SimpleEntry(date: .now, widgetData: WidgetData.sampleWeekly)
 }

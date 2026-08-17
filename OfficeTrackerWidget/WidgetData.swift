@@ -22,7 +22,17 @@ struct WidgetData: Codable {
     let lastUpdated: Date
     let statusMessage: String
     let daysLeftInMonth: Int
-    
+
+    /// How the user tracks their office-day goal. `.monthly` preserves all
+    /// existing behavior above; `.weekly`/`.both` also populate `weeklyResult`.
+    let trackingCadence: TrackingCadence
+    /// Current-week compliance against `WeeklyPolicy`, present whenever
+    /// `trackingCadence.includesWeekly`; `nil` for monthly-only users.
+    let weeklyResult: WeeklyComplianceResult?
+    /// Human-readable anchor-day rule (e.g. "Monday or Friday"), if the
+    /// active weekly policy defines one.
+    let weeklyAnchorDescription: String?
+
     /// Compute visit duration dynamically based on a given date (for timeline entries)
     func visitDuration(at date: Date) -> TimeInterval? {
         guard isCurrentlyInOffice, let startTime = visitStartTime else { return nil }
@@ -88,9 +98,12 @@ extension WidgetData {
         paceNeeded: "2.0 days/week",
         lastUpdated: Date(),
         statusMessage: "5 more days needed",
-        daysLeftInMonth: 28
+        daysLeftInMonth: 28,
+        trackingCadence: .monthly,
+        weeklyResult: nil,
+        weeklyAnchorDescription: nil
     )
-    
+
     static let sampleProgress = WidgetData(
         current: 15,
         goal: 12,
@@ -105,9 +118,45 @@ extension WidgetData {
         paceNeeded: "Goal complete!",
         lastUpdated: Date(),
         statusMessage: "Goal achieved! 🎉",
-        daysLeftInMonth: 28
+        daysLeftInMonth: 28,
+        trackingCadence: .monthly,
+        weeklyResult: nil,
+        weeklyAnchorDescription: nil
     )
-    
+
+    /// Sample data for a user tracking weekly-only, mid-week, on track.
+    static let sampleWeekly = WidgetData(
+        current: 8,
+        goal: 12,
+        percentage: 0.67,
+        monthName: "October 2025",
+        isCurrentlyInOffice: false,
+        currentVisitDuration: nil,
+        visitStartTime: nil,
+        weeklyProgress: 2,
+        averageDuration: 7.5,
+        daysRemaining: 4,
+        paceNeeded: "2.0 days/week",
+        lastUpdated: Date(),
+        statusMessage: "5 more days needed",
+        daysLeftInMonth: 28,
+        trackingCadence: .weekly,
+        weeklyResult: WeeklyComplianceResult(
+            weekStart: Date(),
+            weekEnd: Date().addingTimeInterval(7 * 86400),
+            isApplicable: true,
+            officeDaysCompleted: 2,
+            requiredDays: 3,
+            weeklyMinimumSatisfied: false,
+            requiredWeekdaysSatisfied: true,
+            anchorDaysSatisfied: true,
+            status: .onTrack,
+            guidanceMessage: "You need 1 more office day this week.",
+            suggestedWeekday: .wednesday
+        ),
+        weeklyAnchorDescription: "Monday or Friday"
+    )
+
     static let noData = WidgetData(
         current: 0,
         goal: 12,
@@ -122,6 +171,9 @@ extension WidgetData {
         paceNeeded: "Open app to start",
         lastUpdated: Date(),
         statusMessage: "12 more days needed",
-        daysLeftInMonth: 28
+        daysLeftInMonth: 28,
+        trackingCadence: .monthly,
+        weeklyResult: nil,
+        weeklyAnchorDescription: nil
     )
 }

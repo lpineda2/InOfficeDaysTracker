@@ -336,4 +336,64 @@ final class WeeklyPolicyTests: XCTestCase {
         let decoded = try JSONDecoder().decode(WeeklyPolicy.self, from: data)
         XCTAssertEqual(policy, decoded)
     }
+
+    /// `WeeklyComplianceResult` is encoded into the widget's shared `WidgetData`
+    /// payload (App Group UserDefaults) so the widget extension can render
+    /// weekly compliance without recomputing it. Guard the round-trip so a
+    /// future field addition doesn't silently break widget decoding.
+    func testWeeklyComplianceResultCodableRoundTrip() throws {
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [monday, tuesday, wednesday],
+            reference: wednesday
+        )
+        let data = try JSONEncoder().encode(result)
+        let decoded = try JSONDecoder().decode(WeeklyComplianceResult.self, from: data)
+        XCTAssertEqual(result, decoded)
+    }
+
+    // MARK: - Widget/app contract
+    //
+    // `WidgetDataManager.getWeeklyComplianceResult(settings:)` (OfficeTrackerWidget
+    // target) independently re-derives the same "in-office dates for this week"
+    // filter that `AppData.getCurrentWeekCompliance()` uses, because the widget
+    // extension cannot share code across the module boundary without a
+    // duplicated file (matching this project's widget duplication convention).
+    // These tests pin down that exact filter contract — `isValidVisit ||
+    // isActiveSession`, restricted to the current `weekOfYear` — so a drift
+    // between the two copies gets caught here instead of silently in the widget.
+
+    @MainActor
+    func testWeeklyInOfficeDatesIncludeCompletedAndActiveVisitsOnly() {
+        let appData = createTestAppData()
+        var settings = appData.settings
+        settings.trackingCadence = .weekly
+        settings.weeklyPolicy = standardPolicy()
+        appData.updateSettings(settings)
+
+        let testCoord = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+
+        // A completed visit long enough to be valid (>= 1 hour).
+        let completedEvent = OfficeEvent(
+            entryTime: monday,
+            exitTime: calendar.date(byAdding: .hour, value: 2, to: monday)
+        )
+        let completedVisit = OfficeVisit(date: monday, events: [completedEvent], coordinate: testCoord)
+
+        // A too-short completed visit (< 1 hour) — must NOT count.
+        let shortEvent = OfficeEvent(
+            entryTime: tuesday,
+            exitTime: calendar.date(byAdding: .minute, value: 10, to: tuesday)
+        )
+        let shortVisit = OfficeVisit(date: tuesday, events: [shortEvent], coordinate: testCoord)
+
+        // An active (in-progress) session with no exit time yet — must count.
+        let activeEvent = OfficeEvent(entryTime: wednesday, exitTime: nil)
+        let activeVisit = OfficeVisit(date: wednesday, events: [activeEvent], coordinate: testCoord)
+
+        appData.visits = [completedVisit, shortVisit, activeVisit]
+
+        let result = appData.getCurrentWeekCompliance(asOf: wednesday)
+        XCTAssertEqual(result?.officeDaysCompleted, 2, "Only the completed valid visit and the active session should count")
+    }
 }

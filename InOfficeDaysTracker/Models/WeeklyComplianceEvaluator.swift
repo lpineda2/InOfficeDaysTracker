@@ -29,7 +29,7 @@ enum WeeklyComplianceStatus: String, Codable {
 }
 
 /// The structured outcome of evaluating a week against a `WeeklyPolicy`.
-struct WeeklyComplianceResult: Equatable {
+struct WeeklyComplianceResult: Equatable, Codable {
     let weekStart: Date
     let weekEnd: Date
 

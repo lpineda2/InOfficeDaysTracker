@@ -134,7 +134,13 @@ class WidgetDataManager {
         
         // Calculate days left in month (weekdays only, matching main app)
         let daysLeftInMonth = getDaysRemainingInMonth()
-        
+
+        // Weekly compliance (only when the user's cadence includes weekly tracking)
+        let settings = getSettings()
+        let trackingCadence = settings?.trackingCadence ?? .monthly
+        let weeklyResult = trackingCadence.includesWeekly ? getWeeklyComplianceResult(settings: settings) : nil
+        let weeklyAnchorDescription = settings?.weeklyPolicy.anchorDaysDescription
+
         return WidgetData(
             current: progressData.current,
             goal: progressData.goal,
@@ -149,7 +155,10 @@ class WidgetDataManager {
             paceNeeded: paceNeeded,
             lastUpdated: Date(),
             statusMessage: statusMessage,
-            daysLeftInMonth: daysLeftInMonth
+            daysLeftInMonth: daysLeftInMonth,
+            trackingCadence: trackingCadence,
+            weeklyResult: weeklyResult,
+            weeklyAnchorDescription: weeklyAnchorDescription
         )
     }
     
@@ -182,7 +191,46 @@ class WidgetDataManager {
         
         return validVisits.count + visitsInProgress.count
     }
-    
+
+    /// Decode the shared `AppSettings`, if present.
+    private func getSettings() -> AppSettings? {
+        guard let userDefaults = sharedDefaults,
+              let settingsData = userDefaults.data(forKey: AppGroupKeys.settingsKey),
+              let settings = try? JSONDecoder().decode(AppSettings.self, from: settingsData) else {
+            return nil
+        }
+        return settings
+    }
+
+    /// Evaluate the current week against the user's `WeeklyPolicy`, mirroring
+    /// `AppData.getCurrentWeekCompliance()` exactly so the widget and app never disagree.
+    private func getWeeklyComplianceResult(settings: AppSettings?) -> WeeklyComplianceResult? {
+        guard let settings, settings.trackingCadence.includesWeekly else { return nil }
+
+        guard let userDefaults = sharedDefaults,
+              let visitsData = userDefaults.data(forKey: AppGroupKeys.visitsKey),
+              let visits = try? JSONDecoder().decode([OfficeVisit].self, from: visitsData) else {
+            return nil
+        }
+
+        let calendar = Calendar.current
+        let now = Date()
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: now) else { return nil }
+
+        // In-office days for this week: completed valid visits plus any active session.
+        let inOfficeDates = visits
+            .filter { $0.date >= week.start && $0.date < week.end && ($0.isValidVisit || $0.isActiveSession) }
+            .map { $0.date }
+
+        return WeeklyComplianceEvaluator.evaluate(
+            policy: settings.weeklyPolicy,
+            weekContaining: now,
+            inOfficeDates: inOfficeDates,
+            evaluationDate: now,
+            calendar: calendar
+        )
+    }
+
     private func calculateAverageDuration() -> Double {
         guard let userDefaults = sharedDefaults,
               let visitsData = userDefaults.data(forKey: AppGroupKeys.visitsKey),
@@ -312,7 +360,10 @@ class WidgetDataManager {
             paceNeeded: "Open app to refresh",
             lastUpdated: staleData.lastUpdated,
             statusMessage: "Data may be outdated",
-            daysLeftInMonth: staleData.daysLeftInMonth
+            daysLeftInMonth: staleData.daysLeftInMonth,
+            trackingCadence: staleData.trackingCadence,
+            weeklyResult: staleData.weeklyResult,
+            weeklyAnchorDescription: staleData.weeklyAnchorDescription
         )
     }
     

@@ -161,39 +161,47 @@ struct StreakMetricCard: View {
     }
 }
 
-/// Specialized card for displaying average duration
+/// Specialized card for displaying average duration.
+///
+/// `isFullWidth` renders a slightly more prominent variant (larger number,
+/// horizontally centered) for contexts where this card appears alone in a
+/// row instead of paired with `StreakMetricCard` — e.g. weekly-only tracking
+/// cadence, where there's no monthly streak to show alongside it.
 struct DurationMetricCard: View {
     let hours: Double
     let minutes: Int
-    
-    init(averageHours: Double) {
+    var isFullWidth: Bool = false
+
+    init(averageHours: Double, isFullWidth: Bool = false) {
         self.hours = averageHours
         self.minutes = Int((averageHours * 60).truncatingRemainder(dividingBy: 60))
+        self.isFullWidth = isFullWidth
     }
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: isFullWidth ? .center : .leading, spacing: 12) {
             HStack {
+                if isFullWidth { Spacer() }
                 Text("Avg Duration")
                     .font(Typography.cardTitle)
                     .foregroundColor(DesignTokens.textPrimary)
-                
                 Spacer()
             }
-            
+
             HStack(spacing: 10) {
                 Image(systemName: "clock.fill")
                     .iconBackground(color: DesignTokens.purpleAccent)
-                
+
                 Text(formattedDuration)
-                    .font(Typography.miniNumber)
+                    .font(isFullWidth ? Typography.statNumber : Typography.miniNumber)
                     .foregroundColor(DesignTokens.textPrimary)
             }
-            
+
             Text("Per office visit")
                 .font(Typography.caption)
                 .foregroundColor(DesignTokens.textSecondary)
         }
+        .frame(maxWidth: .infinity)
         .cardStyle()
     }
     

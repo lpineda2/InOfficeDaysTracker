@@ -27,6 +27,15 @@ struct MainProgressView: View {
         appData.getCurrentWeekCompliance()
     }
 
+    /// Whether the monthly goal engine applies. Only `.monthly`/`.both` show
+    /// monthly-goal UI (ring, pace, streak, goal-progress details) — a
+    /// `.weekly`-only user has no monthly goal configured for that policy, so
+    /// showing it would surface a number unrelated to (and sometimes in
+    /// conflict with) their actual weekly policy.
+    private var showsMonthlyGoal: Bool {
+        appData.settings.trackingCadence.includesMonthly
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: DesignTokens.gridSpacing) {
@@ -41,40 +50,58 @@ struct MainProgressView: View {
                         policy: appData.settings.weeklyPolicy
                     )
 
-                    Text("Monthly Summary")
-                        .font(Typography.sectionHeader)
-                        .foregroundColor(DesignTokens.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
-                        .accessibilityAddTraits(.isHeader)
+                    if showsMonthlyGoal {
+                        Text("Monthly Summary")
+                            .font(Typography.sectionHeader)
+                            .foregroundColor(DesignTokens.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 4)
+                            .accessibilityAddTraits(.isHeader)
+                    }
                 }
 
-                // Hero Progress Card (Macro Ring style) — monthly goal
-                MacroRingCard(
-                    daysCompleted: progressData.current,
-                    daysGoal: progressData.goal,
-                    goalRemaining: max(0, progressData.goal - progressData.current),
-                    workingDaysRemaining: appData.getWorkingDaysRemaining(),
-                    paceNeeded: appData.getPaceNeeded(),
-                    weeksRemaining: appData.getWeeksRemaining(),
-                    isGoalUnreachable: isPaceUnreachable
-                )
+                // Hero Progress Card (Macro Ring style) — monthly goal.
+                // Hidden entirely for weekly-only tracking: there is no
+                // monthly goal to show, and the old CompanyPolicy-derived
+                // numbers would be unrelated to (or contradict) the weekly
+                // policy above.
+                if showsMonthlyGoal {
+                    MacroRingCard(
+                        daysCompleted: progressData.current,
+                        daysGoal: progressData.goal,
+                        goalRemaining: max(0, progressData.goal - progressData.current),
+                        workingDaysRemaining: appData.getWorkingDaysRemaining(),
+                        paceNeeded: appData.getPaceNeeded(),
+                        weeksRemaining: appData.getWeeksRemaining(),
+                        isGoalUnreachable: isPaceUnreachable
+                    )
+                }
 
                 // Status Card (if in office)
                 if appData.isCurrentlyInOffice, let currentVisit = appData.currentVisit {
                     currentStatusCard(visit: currentVisit)
                 }
                 
-                // Mini Metric Cards - 2 column grid
-                LazyVGrid(columns: columns, spacing: DesignTokens.gridSpacing) {
-                    StreakMetricCard(
-                        streakMonths: appData.getMonthlyStreak(),
-                        isOnTrack: appData.isCurrentMonthGoalMet(),
-                        title: weeklyCompliance != nil ? "Monthly Streak" : "Streak"
-                    )
-                    
+                // Mini Metric Cards. Paired 2-column grid when there's a
+                // monthly streak to show alongside duration; otherwise
+                // Avg Duration renders alone at full width so it doesn't
+                // leave a lopsided half-empty row.
+                if showsMonthlyGoal {
+                    LazyVGrid(columns: columns, spacing: DesignTokens.gridSpacing) {
+                        StreakMetricCard(
+                            streakMonths: appData.getMonthlyStreak(),
+                            isOnTrack: appData.isCurrentMonthGoalMet(),
+                            title: weeklyCompliance != nil ? "Monthly Streak" : "Streak"
+                        )
+
+                        DurationMetricCard(
+                            averageHours: getAverageDuration()
+                        )
+                    }
+                } else {
                     DurationMetricCard(
-                        averageHours: getAverageDuration()
+                        averageHours: getAverageDuration(),
+                        isFullWidth: true
                     )
                 }
                 
@@ -90,15 +117,18 @@ struct MainProgressView: View {
                     onSeeAllTapped: { selectedTab = .history }
                 )
                     
-                    // Goal Progress Details
-                    GoalProgressSection(
-                        current: progressData.current,
-                        goal: progressData.goal,
-                        remaining: max(0, progressData.goal - progressData.current),
-                        daysLeft: appData.getWorkingDaysRemaining(),
-                        appData: appData
-                    )
-                    
+                    // Goal Progress Details — monthly-goal breakdown, same
+                    // reasoning as MacroRingCard above.
+                    if showsMonthlyGoal {
+                        GoalProgressSection(
+                            current: progressData.current,
+                            goal: progressData.goal,
+                            remaining: max(0, progressData.goal - progressData.current),
+                            daysLeft: appData.getWorkingDaysRemaining(),
+                            appData: appData
+                        )
+                    }
+
                     Spacer(minLength: 100)
                 }
                 .padding(.horizontal)
