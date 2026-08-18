@@ -34,9 +34,10 @@ final class WeeklyPolicyTests: XCTestCase {
     private var saturday: Date { day(12) }
 
     /// Standard target policy: 3 days/week, anchor Monday-or-Friday.
-    private func standardPolicy(effectiveStart: Date? = nil) -> WeeklyPolicy {
+    private func standardPolicy(effectiveStart: Date? = nil, effectiveEnd: Date? = nil) -> WeeklyPolicy {
         WeeklyPolicy(
             effectiveStartDate: effectiveStart,
+            effectiveEndDate: effectiveEnd,
             weeklyMinimumDays: 3,
             anchorDayGroups: [[.monday, .friday]]
         )
@@ -223,6 +224,142 @@ final class WeeklyPolicyTests: XCTestCase {
         )
         XCTAssertTrue(result.isApplicable)
         XCTAssertTrue(result.anchorDaysSatisfied)
+    }
+
+    // MARK: - Effective end date gating
+
+    func testPolicyAppliesBeforeEffectiveEndDate() {
+        // Effective end far in the future — the Sept 7 week is entirely before it.
+        let effectiveEnd = calendar.date(from: DateComponents(year: 2026, month: 10, day: 1))!
+        let result = evaluate(
+            standardPolicy(effectiveEnd: effectiveEnd),
+            inOffice: [monday, tuesday, wednesday],
+            reference: wednesday
+        )
+        XCTAssertTrue(result.isApplicable)
+        XCTAssertEqual(result.status, .complete)
+    }
+
+    func testPolicyDoesNotApplyAfterEffectiveEndDate() {
+        // Effective end Aug 31, 2026 — the Sept 7 week is entirely after it.
+        let effectiveEnd = calendar.date(from: DateComponents(year: 2026, month: 8, day: 31))!
+        let result = evaluate(
+            standardPolicy(effectiveEnd: effectiveEnd),
+            inOffice: [monday, tuesday, wednesday],
+            reference: wednesday
+        )
+        XCTAssertFalse(result.isApplicable)
+        XCTAssertEqual(result.status, .notApplicable)
+    }
+
+    func testPolicyAppliesExactlyOnEffectiveEndWeek() {
+        // Effective end on Friday of the evaluated week — the whole week is
+        // still within the window, including the end date itself.
+        let result = evaluate(
+            standardPolicy(effectiveEnd: friday),
+            inOffice: [monday, friday],
+            reference: friday,
+            evaluationDate: friday
+        )
+        XCTAssertTrue(result.isApplicable)
+        XCTAssertTrue(result.anchorDaysSatisfied)
+    }
+
+    func testEffectiveEndDateBoundaryIsInclusive() {
+        // Mirrors the effective-start inclusive boundary: the end date itself
+        // must still be eligible, only the following day is excluded.
+        let policy = standardPolicy(effectiveEnd: wednesday)
+        XCTAssertTrue(policy.isEffective(on: wednesday, calendar: calendar),
+                       "The end date itself should still be eligible")
+        XCTAssertFalse(policy.isEffective(on: thursday, calendar: calendar),
+                        "The day after the end date should not be eligible")
+    }
+
+    // MARK: - Effective window straddling a single week
+
+    func testPolicyEligibleDaysStraddleMidWeekEffectiveStartDate() {
+        // Effective starting Wednesday: Monday & Tuesday fall outside the window.
+        let result = evaluate(
+            standardPolicy(effectiveStart: wednesday),
+            inOffice: [monday, tuesday, wednesday, thursday, friday],
+            reference: wednesday,
+            evaluationDate: friday
+        )
+        XCTAssertTrue(result.isApplicable)
+        XCTAssertEqual(result.officeDaysCompleted, 3,
+                        "Only Wed-Fri fall within the effective window")
+        XCTAssertTrue(result.weeklyMinimumSatisfied)
+        XCTAssertTrue(result.anchorDaysSatisfied, "Friday is within the window and satisfies the anchor")
+        XCTAssertEqual(result.status, .complete)
+    }
+
+    func testDaysBeforeMidWeekEffectiveStartDateDoNotCountTowardAnchor() {
+        // Monday & Tuesday are attended but before the effective start, and
+        // Friday (the other anchor day) is not attended at all.
+        let result = evaluate(
+            standardPolicy(effectiveStart: wednesday),
+            inOffice: [monday, tuesday],
+            reference: monday,
+            evaluationDate: monday
+        )
+        XCTAssertEqual(result.officeDaysCompleted, 0,
+                        "Monday/Tuesday are before the effective start and must not count")
+        XCTAssertFalse(result.anchorDaysSatisfied,
+                        "Ineligible Monday attendance must not satisfy the Monday-or-Friday anchor")
+        XCTAssertEqual(result.status, .needsAnchorDay)
+        XCTAssertEqual(result.suggestedWeekday, .friday)
+    }
+
+    func testPolicyEligibleDaysStraddleMidWeekEffectiveEndDate() {
+        // Effective ending Wednesday: Thursday & Friday fall outside the window.
+        let result = evaluate(
+            standardPolicy(effectiveEnd: wednesday),
+            inOffice: [monday, tuesday, wednesday, thursday, friday],
+            reference: wednesday,
+            evaluationDate: friday
+        )
+        XCTAssertTrue(result.isApplicable)
+        XCTAssertEqual(result.officeDaysCompleted, 3,
+                        "Only Mon-Wed fall within the effective window")
+        XCTAssertTrue(result.weeklyMinimumSatisfied)
+        XCTAssertTrue(result.anchorDaysSatisfied, "Monday is within the window and satisfies the anchor")
+        XCTAssertEqual(result.status, .complete)
+    }
+
+    func testDaysAfterMidWeekEffectiveEndDateDoNotCount() {
+        // Only Wednesday (the end date) is within the window; Thursday and
+        // Friday attendance falls outside it and must not count.
+        let result = evaluate(
+            standardPolicy(effectiveEnd: wednesday),
+            inOffice: [wednesday, thursday, friday],
+            reference: wednesday,
+            evaluationDate: friday
+        )
+        XCTAssertEqual(result.officeDaysCompleted, 1,
+                        "Only Wednesday, the inclusive end date, should count")
+        XCTAssertFalse(result.weeklyMinimumSatisfied)
+        XCTAssertFalse(result.anchorDaysSatisfied,
+                        "Friday attendance falls outside the window and must not satisfy the anchor")
+        XCTAssertEqual(result.status, .missed)
+    }
+
+    func testPolicyBoundedByBothStartAndEndDateWithinSameWeek() {
+        // Effective Tuesday through Thursday only; Monday and Friday fall
+        // outside the window on either side.
+        var policy = standardPolicy(effectiveStart: tuesday, effectiveEnd: thursday)
+        policy.anchorDayGroups = [[.tuesday, .thursday]]
+        let result = evaluate(
+            policy,
+            inOffice: [monday, tuesday, wednesday, thursday, friday],
+            reference: wednesday,
+            evaluationDate: friday
+        )
+        XCTAssertTrue(result.isApplicable)
+        XCTAssertEqual(result.officeDaysCompleted, 3,
+                        "Monday (before start) and Friday (after end) must not count")
+        XCTAssertTrue(result.weeklyMinimumSatisfied)
+        XCTAssertTrue(result.anchorDaysSatisfied)
+        XCTAssertEqual(result.status, .complete)
     }
 
     // MARK: - Guidance
