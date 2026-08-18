@@ -1,12 +1,13 @@
-What's New in Version 1.15.0:
+What's New in Version 1.15.1:
 
-Version 1.15.0 adds Weekly Hybrid Policies.
+This update refines the weekly tracking experience introduced in 1.15.0.
 
-You can now track weekly in-office expectations, including a minimum number of office days per week and anchor-day rules such as requiring at least one Monday or Friday. This week's compliance status and next-step guidance appear right on your dashboard.
+• Attendance Trend now matches your tracking cadence. With weekly tracking enabled, the chart groups your office days by week and shows a reference line for your weekly goal, so you can see at a glance how each week compares to your target.
 
-To enable weekly tracking:
-Settings → Goals & Policy → Tracking Cadence → Weekly or Both
+• Average Duration is clearer. Instead of showing "0h" before you've finished your first visit, the card now says when there's nothing to average yet. Weekly trackers also see an all-time average rather than one that resets each month.
 
-Monthly tracking remains the default for existing users, so nothing changes unless you choose to enable weekly tracking.
+• History no longer shows a monthly goal when you're tracking weekly, so your dashboard and history always tell the same story.
+
+Monthly tracking is unchanged.
 
 Thank you for using In Office Days Tracker!
