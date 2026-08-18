@@ -157,4 +157,42 @@ final class TrendChartCardTests: XCTestCase {
             TrendChartCard.aggregatedByWeek(from: data, weeks: 0, now: now, calendar: weeklyCalendar).isEmpty
         )
     }
+
+    // MARK: - X-axis label thinning
+    //
+    // Labeling every week truncates each label to an ellipsis at the card's
+    // width, so only a subset is labeled.
+
+    private func weekPoints(_ count: Int) -> [TrendDataPoint] {
+        (0..<count).map { offset in
+            TrendDataPoint(date: testDate(day: 1).addingTimeInterval(Double(offset) * 604_800), value: 0)
+        }
+    }
+
+    func testAxisLabelsAreThinnedToStayReadable() {
+        // 16 weeks would otherwise produce 16 labels in the width of a card.
+        let labels = TrendChartCard.axisLabelDates(for: weekPoints(16), maxLabels: 5)
+        XCTAssertLessThanOrEqual(labels.count, 5)
+        XCTAssertGreaterThan(labels.count, 1, "Should still give enough labels to orient the reader")
+    }
+
+    func testAxisLabelsAlwaysIncludeMostRecentWeek() throws {
+        let points = weekPoints(12)
+        let labels = TrendChartCard.axisLabelDates(for: points, maxLabels: 5)
+
+        let mostRecent = try XCTUnwrap(points.last?.date)
+        XCTAssertTrue(labels.contains(mostRecent),
+                      "The newest week is what users look at first; it must be labeled")
+    }
+
+    func testAxisLabelsIncludeEveryPointWhenRangeIsSmall() {
+        // Fewer points than the label budget: no thinning needed.
+        let points = weekPoints(4)
+        let labels = TrendChartCard.axisLabelDates(for: points, maxLabels: 5)
+        XCTAssertEqual(labels.count, 4)
+    }
+
+    func testAxisLabelsHandleEmptyInput() {
+        XCTAssertTrue(TrendChartCard.axisLabelDates(for: [], maxLabels: 5).isEmpty)
+    }
 }

@@ -209,8 +209,13 @@ struct TrendChartCard: View {
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
                 AxisTick()
                 if isWeekly {
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                        .foregroundStyle(DesignTokens.textSecondary)
+                    // Only a subset of weeks gets a label — one per week
+                    // truncates to "Ju…" at these widths. Gridlines still mark
+                    // every week, so the shape stays readable.
+                    if let date = value.as(Date.self), labeledWeekDates.contains(date) {
+                        AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
+                            .foregroundStyle(DesignTokens.textSecondary)
+                    }
                 } else {
                     AxisValueLabel(format: .dateTime.month(.abbreviated))
                         .foregroundStyle(DesignTokens.textSecondary)
@@ -233,6 +238,40 @@ struct TrendChartCard: View {
     private var xAxisLabel: String { isWeekly ? "Week" : "Month" }
 
     private var xAxisUnit: Calendar.Component { isWeekly ? .weekOfYear : .month }
+
+    /// Target number of X-axis labels in weekly mode. Roughly what fits across
+    /// a card's width without truncating at standard text sizes.
+    private static let maxWeeklyAxisLabels = 5
+
+    /// The subset of week points that should carry a visible axis label.
+    ///
+    /// Labeling all 8–16 weeks overflows the available width and every label
+    /// truncates to an ellipsis, so this strides through the buckets and
+    /// always anchors the most recent week (the one users look at first).
+    private var labeledWeekDates: Set<Date> {
+        guard isWeekly else { return [] }
+        return Self.axisLabelDates(for: aggregatedData)
+    }
+
+    /// Picks which week buckets get a visible axis label. Exposed for testing.
+    static func axisLabelDates(
+        for points: [TrendDataPoint],
+        maxLabels: Int = maxWeeklyAxisLabels
+    ) -> Set<Date> {
+        guard !points.isEmpty, maxLabels > 0 else { return [] }
+
+        let stride = max(1, Int(ceil(Double(points.count) / Double(maxLabels))))
+
+        // Walk backwards from the most recent bucket so the newest week is
+        // always labeled, regardless of how the stride divides the range.
+        var labeled: Set<Date> = []
+        var index = points.count - 1
+        while index >= 0 {
+            labeled.insert(points[index].date)
+            index -= stride
+        }
+        return labeled
+    }
 
     /// Spoken summary of the chart contents, since the plotted marks themselves
     /// aren't meaningfully navigable by VoiceOver.
