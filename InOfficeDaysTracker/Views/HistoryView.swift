@@ -90,18 +90,30 @@ struct HistoryView: View {
                 .disabled(Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month))
             }
             
-            // Month stats
+            // Month stats. Goal/Progress are monthly-goal concepts, so they're
+            // hidden for weekly-only tracking — showing a monthly target the
+            // user never configured would contradict the weekly compliance
+            // shown on the dashboard. The visit count stays: it's a plain
+            // factual count of the selected month, independent of any goal.
             HStack(spacing: 32) {
                 StatView(title: "Visits", value: "\(appData.getValidVisits(for: selectedMonth).count)")
-                StatView(title: "Goal", value: "\(appData.getGoalForMonth(selectedMonth))")
-                StatView(title: "Progress", value: progressPercentage)
+                if showsMonthlyGoal {
+                    StatView(title: "Goal", value: "\(appData.getGoalForMonth(selectedMonth))")
+                    StatView(title: "Progress", value: progressPercentage)
+                }
             }
         }
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(16)
     }
-    
+
+    /// Whether the monthly goal engine applies to this user. Mirrors the same
+    /// gate used by `MainProgressView`.
+    private var showsMonthlyGoal: Bool {
+        appData.settings.trackingCadence.includesMonthly
+    }
+
     private var progressPercentage: String {
         let visits = appData.getValidVisits(for: selectedMonth).count
         let goal = appData.getGoalForMonth(selectedMonth)
