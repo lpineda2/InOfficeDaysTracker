@@ -45,7 +45,8 @@ struct MainProgressView: View {
 
     /// Widest weekly range the chart offers, used for the "enough data" check
     /// so the overlay reflects the full window a user could select.
-    private var weeklyTrendWeeks: Int { 16 }
+    /// Keep in sync with `TrendChartCard.WeeklyTrendRange`.
+    private var weeklyTrendWeeks: Int { 8 }
 
     /// Clarifies which window the average covers, since it differs by cadence.
     private var durationSubtitle: String {

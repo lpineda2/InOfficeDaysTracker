@@ -48,16 +48,17 @@ struct TrendChartCard: View {
         }
     }
 
+    /// Weekly ranges are deliberately short. A weekly tracker's question is
+    /// "am I keeping up right now?", which is answerable over the last month
+    /// or two — longer windows showed the same story while crowding the axis.
     enum WeeklyTrendRange: Int, CaseIterable {
+        case fourWeeks = 4
         case eightWeeks = 8
-        case twelveWeeks = 12
-        case sixteenWeeks = 16
 
         var label: String {
             switch self {
+            case .fourWeeks: return "4W"
             case .eightWeeks: return "8W"
-            case .twelveWeeks: return "12W"
-            case .sixteenWeeks: return "16W"
             }
         }
     }
@@ -164,30 +165,43 @@ struct TrendChartCard: View {
     private var chartView: some View {
         Chart {
             ForEach(aggregatedData) { point in
-                // Area fill
-                AreaMark(
-                    x: .value(xAxisLabel, point.date, unit: xAxisUnit),
-                    y: .value("Days", point.value)
-                )
-                .foregroundStyle(DesignTokens.chartFill)
-                .interpolationMethod(.catmullRom)
+                if isWeekly {
+                    // Bars, not a smoothed line: weekly counts are small
+                    // integers (typically 0...5), so interpolating between
+                    // them would draw values that don't exist. Bars also make
+                    // each week directly comparable to the goal line.
+                    BarMark(
+                        x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                        y: .value("Days", point.value)
+                    )
+                    .foregroundStyle(DesignTokens.chartLine)
+                    .cornerRadius(4)
+                } else {
+                    // Area fill
+                    AreaMark(
+                        x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                        y: .value("Days", point.value)
+                    )
+                    .foregroundStyle(DesignTokens.chartFill)
+                    .interpolationMethod(.catmullRom)
 
-                // Line
-                LineMark(
-                    x: .value(xAxisLabel, point.date, unit: xAxisUnit),
-                    y: .value("Days", point.value)
-                )
-                .foregroundStyle(DesignTokens.chartLine)
-                .interpolationMethod(.catmullRom)
-                .lineStyle(StrokeStyle(lineWidth: 2))
+                    // Line
+                    LineMark(
+                        x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                        y: .value("Days", point.value)
+                    )
+                    .foregroundStyle(DesignTokens.chartLine)
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
 
-                // Points
-                PointMark(
-                    x: .value(xAxisLabel, point.date, unit: xAxisUnit),
-                    y: .value("Days", point.value)
-                )
-                .foregroundStyle(DesignTokens.chartLine)
-                .symbolSize(30)
+                    // Points
+                    PointMark(
+                        x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                        y: .value("Days", point.value)
+                    )
+                    .foregroundStyle(DesignTokens.chartLine)
+                    .symbolSize(30)
+                }
             }
 
             // Weekly minimum reference line. Dashed + annotated so the target is
@@ -209,13 +223,15 @@ struct TrendChartCard: View {
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
                 AxisTick()
                 if isWeekly {
-                    // Only a subset of weeks gets a label — one per week
-                    // truncates to "Ju…" at these widths. Gridlines still mark
-                    // every week, so the shape stays readable.
-                    if let date = value.as(Date.self), labeledWeekDates.contains(date) {
-                        AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
-                            .foregroundStyle(DesignTokens.textSecondary)
-                    }
+                    // 4W/8W are short enough that every bucket can carry a
+                    // label without crowding. `.automatic` lets Charts drop
+                    // labels itself if space is ever tighter than expected
+                    // (larger Dynamic Type, narrower devices).
+                    AxisValueLabel(
+                        format: .dateTime.month(.defaultDigits).day(),
+                        centered: true
+                    )
+                    .foregroundStyle(DesignTokens.textSecondary)
                 } else {
                     AxisValueLabel(format: .dateTime.month(.abbreviated))
                         .foregroundStyle(DesignTokens.textSecondary)
@@ -238,40 +254,6 @@ struct TrendChartCard: View {
     private var xAxisLabel: String { isWeekly ? "Week" : "Month" }
 
     private var xAxisUnit: Calendar.Component { isWeekly ? .weekOfYear : .month }
-
-    /// Target number of X-axis labels in weekly mode. Roughly what fits across
-    /// a card's width without truncating at standard text sizes.
-    private static let maxWeeklyAxisLabels = 5
-
-    /// The subset of week points that should carry a visible axis label.
-    ///
-    /// Labeling all 8–16 weeks overflows the available width and every label
-    /// truncates to an ellipsis, so this strides through the buckets and
-    /// always anchors the most recent week (the one users look at first).
-    private var labeledWeekDates: Set<Date> {
-        guard isWeekly else { return [] }
-        return Self.axisLabelDates(for: aggregatedData)
-    }
-
-    /// Picks which week buckets get a visible axis label. Exposed for testing.
-    static func axisLabelDates(
-        for points: [TrendDataPoint],
-        maxLabels: Int = maxWeeklyAxisLabels
-    ) -> Set<Date> {
-        guard !points.isEmpty, maxLabels > 0 else { return [] }
-
-        let stride = max(1, Int(ceil(Double(points.count) / Double(maxLabels))))
-
-        // Walk backwards from the most recent bucket so the newest week is
-        // always labeled, regardless of how the stride divides the range.
-        var labeled: Set<Date> = []
-        var index = points.count - 1
-        while index >= 0 {
-            labeled.insert(points[index].date)
-            index -= stride
-        }
-        return labeled
-    }
 
     /// Spoken summary of the chart contents, since the plotted marks themselves
     /// aren't meaningfully navigable by VoiceOver.
@@ -474,7 +456,7 @@ struct TrendChartCard: View {
     let calendar = Calendar.current
     let today = Date()
 
-    let sampleData: [TrendDataPoint] = (0..<120).compactMap { dayOffset in
+    let sampleData: [TrendDataPoint] = (0..<70).compactMap { dayOffset in
         guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { return nil }
         let weekday = calendar.component(.weekday, from: date)
         let isWeekday = weekday >= 2 && weekday <= 6
