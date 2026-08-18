@@ -991,6 +991,63 @@ class AppData: ObservableObject {
         let daysWithData = trendData.filter { $0.count > 0 }.count
         return daysWithData >= 7
     }
+
+    /// Week-based visit trend helper for weekly tracking cadence.
+    ///
+    /// Returns daily points (like the day/month variants); bucketing into weeks
+    /// happens in `TrendChartCard`. The window starts at the beginning of the
+    /// week containing "N weeks ago" so the first bucket is a whole week rather
+    /// than a partial one.
+    /// - Parameter weeks: Number of weeks to look back (includes the current week)
+    /// - Returns: Array of (date, visitCount) tuples for chart visualization (daily points)
+    func getVisitTrend(weeks: Int) -> [(date: Date, count: Int)] {
+        guard weeks > 0 else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        // Start at the beginning of the week containing (weeks - 1) weeks ago, so
+        // the range covers `weeks` whole weeks up to and including the current one.
+        guard let weeksAgo = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: today),
+              let startDate = calendar.dateInterval(of: .weekOfYear, for: weeksAgo)?.start else {
+            return []
+        }
+
+        var visitsByDate: [Date: Int] = [:]
+        for visit in visits where visit.isValidVisit {
+            let visitDate = calendar.startOfDay(for: visit.date)
+            visitsByDate[visitDate, default: 0] += 1
+        }
+
+        var result: [(date: Date, count: Int)] = []
+        var current = startDate
+        while current <= today {
+            let count = visitsByDate[current] ?? 0
+            result.append((date: current, count: count))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+
+        return result
+    }
+
+    /// Week-based wrapper to check if there's enough data for chart visualization.
+    ///
+    /// Uses a lower, proportional threshold than the month-based variant: a
+    /// weekly window is far shorter, so requiring 7 days with data would leave
+    /// new weekly users permanently under the "limited data" overlay.
+    /// - Parameter weeks: Number of weeks to inspect
+    /// - Returns: True if at least 2 distinct weeks contain visit data
+    func hasEnoughChartData(weeks: Int) -> Bool {
+        let calendar = Calendar.current
+        let trendData = getVisitTrend(weeks: weeks)
+
+        let weeksWithData = Set(
+            trendData
+                .filter { $0.count > 0 }
+                .compactMap { calendar.dateInterval(of: .weekOfYear, for: $0.date)?.start }
+        )
+        return weeksWithData.count >= 2
+    }
     
     /// Calculate monthly streak - consecutive months meeting the goal
     /// Includes current month if goal is already met

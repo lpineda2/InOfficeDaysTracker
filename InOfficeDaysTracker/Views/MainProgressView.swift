@@ -36,6 +36,22 @@ struct MainProgressView: View {
         appData.settings.trackingCadence.includesMonthly
     }
 
+    /// Weekly tracking with no monthly goal alongside it. Historical stats
+    /// (trend chart, average duration) switch to weekly/all-time framing here,
+    /// since a calendar-month window is meaningless to these users.
+    private var isWeeklyOnly: Bool {
+        appData.settings.trackingCadence == .weekly
+    }
+
+    /// Widest weekly range the chart offers, used for the "enough data" check
+    /// so the overlay reflects the full window a user could select.
+    private var weeklyTrendWeeks: Int { 16 }
+
+    /// Clarifies which window the average covers, since it differs by cadence.
+    private var durationSubtitle: String {
+        isWeeklyOnly ? "Per office visit (all time)" : "Per office visit"
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: DesignTokens.gridSpacing) {
@@ -95,21 +111,32 @@ struct MainProgressView: View {
                         )
 
                         DurationMetricCard(
-                            averageHours: getAverageDuration()
+                            averageHours: getAverageDuration(),
+                            subtitle: durationSubtitle
                         )
                     }
                 } else {
                     DurationMetricCard(
                         averageHours: getAverageDuration(),
-                        isFullWidth: true
+                        isFullWidth: true,
+                        subtitle: durationSubtitle
                     )
                 }
-                
-                // Trend Chart
-                TrendChartCard(
-                    data: getTrendData(),
-                    hasEnoughData: appData.hasEnoughChartData(months: 9)
-                )
+
+                // Trend Chart — weekly buckets for weekly-only cadence, monthly otherwise
+                if isWeeklyOnly {
+                    TrendChartCard(
+                        data: getWeeklyTrendData(),
+                        hasEnoughData: appData.hasEnoughChartData(weeks: weeklyTrendWeeks),
+                        isWeekly: true,
+                        weeklyMinimumDays: appData.settings.weeklyPolicy.weeklyMinimumDays
+                    )
+                } else {
+                    TrendChartCard(
+                        data: getTrendData(),
+                        hasEnoughData: appData.hasEnoughChartData(months: 9)
+                    )
+                }
                 
                 // Recent Visits - tapping "See All" switches to History tab
                 RecentVisitsList(
@@ -248,10 +275,24 @@ struct MainProgressView: View {
         return validVisits.count + visitsInProgress.count
     }
     
-    private func getAverageDuration() -> Double {
-        let validVisits = appData.getValidVisits(for: Date())
-        guard !validVisits.isEmpty else { return 0.0 }
-        
+    /// Average completed-visit length in hours, or `nil` when no completed
+    /// visits exist in the relevant window.
+    ///
+    /// Window depends on cadence: weekly-only users get an all-time average
+    /// (a calendar-month window is meaningless to them, and short windows
+    /// frequently render empty), while monthly/both keep the current-month
+    /// window that has always been shown.
+    ///
+    /// Returning `nil` rather than `0.0` lets the card distinguish "nothing
+    /// completed yet" from a genuine zero — the former is common (a first
+    /// visit still in progress) and previously displayed as a confusing "0h".
+    private func getAverageDuration() -> Double? {
+        let validVisits = isWeeklyOnly
+            ? appData.visits.filter { $0.isValidVisit }
+            : appData.getValidVisits(for: Date())
+
+        guard !validVisits.isEmpty else { return nil }
+
         // Cap individual visit durations at 18 hours (64,800 seconds) to filter out
         // stale/test visits that were never properly ended or have timestamp anomalies
         let maxReasonableDuration: TimeInterval = 18 * 3600
@@ -259,13 +300,20 @@ struct MainProgressView: View {
             guard let duration = visit.duration else { return nil }
             return min(duration, maxReasonableDuration)
         }
-        
-        guard !cappedDurations.isEmpty else { return 0.0 }
-        
+
+        guard !cappedDurations.isEmpty else { return nil }
+
         let totalDuration = cappedDurations.reduce(0, +)
         let average = (totalDuration / Double(cappedDurations.count)) / 3600 // Convert to hours
-        guard !average.isNaN && !average.isInfinite else { return 0.0 }
+        guard !average.isNaN && !average.isInfinite else { return nil }
         return average
+    }
+
+    /// Daily trend points covering the widest weekly range the chart offers.
+    /// `TrendChartCard` buckets these into weeks for the selected range.
+    private func getWeeklyTrendData() -> [TrendDataPoint] {
+        let trend = appData.getVisitTrend(weeks: weeklyTrendWeeks)
+        return trend.map { TrendDataPoint(date: $0.date, value: $0.count) }
     }
     
     private func getRecentVisits() -> [OfficeVisit] {

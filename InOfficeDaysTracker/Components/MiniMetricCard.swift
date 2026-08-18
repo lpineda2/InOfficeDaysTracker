@@ -168,14 +168,18 @@ struct StreakMetricCard: View {
 /// row instead of paired with `StreakMetricCard` — e.g. weekly-only tracking
 /// cadence, where there's no monthly streak to show alongside it.
 struct DurationMetricCard: View {
-    let hours: Double
-    let minutes: Int
+    /// Average visit length in hours. `nil` means "no completed visits yet" —
+    /// distinct from a genuine average of zero, so the card can say so instead
+    /// of rendering a bare "0h" that reads as broken.
+    let averageHours: Double?
     var isFullWidth: Bool = false
+    /// Describes the window the average covers (e.g. "Per office visit (all time)").
+    var subtitle: String = "Per office visit"
 
-    init(averageHours: Double, isFullWidth: Bool = false) {
-        self.hours = averageHours
-        self.minutes = Int((averageHours * 60).truncatingRemainder(dividingBy: 60))
+    init(averageHours: Double?, isFullWidth: Bool = false, subtitle: String = "Per office visit") {
+        self.averageHours = averageHours
         self.isFullWidth = isFullWidth
+        self.subtitle = subtitle
     }
 
     var body: some View {
@@ -193,20 +197,37 @@ struct DurationMetricCard: View {
                     .iconBackground(color: DesignTokens.purpleAccent)
 
                 Text(formattedDuration)
-                    .font(isFullWidth ? Typography.statNumber : Typography.miniNumber)
-                    .foregroundColor(DesignTokens.textPrimary)
+                    .font(hasData ? (isFullWidth ? Typography.statNumber : Typography.miniNumber) : Typography.bodySecondary)
+                    .foregroundColor(hasData ? DesignTokens.textPrimary : DesignTokens.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Per office visit")
+            Text(hasData ? subtitle : "Finish a visit to see your average")
                 .font(Typography.caption)
                 .foregroundColor(DesignTokens.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
         .cardStyle()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
     }
-    
+
+    private var hasData: Bool { averageHours != nil }
+
+    private var accessibilityLabel: String {
+        guard hasData else {
+            return "Average duration. No completed visits yet. Finish a visit to see your average."
+        }
+        return "Average duration, \(formattedDuration). \(subtitle)."
+    }
+
     private var formattedDuration: String {
-        let wholeHours = Int(hours)
+        guard let averageHours else { return "No completed visits yet" }
+
+        let wholeHours = Int(averageHours)
+        let minutes = Int((averageHours * 60).truncatingRemainder(dividingBy: 60))
+
         if wholeHours > 0 && minutes > 0 {
             return "\(wholeHours)h \(minutes)m"
         } else if wholeHours > 0 {
@@ -228,12 +249,25 @@ struct DurationMetricCard: View {
                 StreakMetricCard(streakMonths: 5, isOnTrack: true)
                 DurationMetricCard(averageHours: 7.5)
             }
-            
+
             HStack(spacing: 12) {
                 StreakMetricCard(streakMonths: 0, isOnTrack: false)
-                DurationMetricCard(averageHours: 0)
+                DurationMetricCard(averageHours: nil)
             }
-            
+
+            // Weekly cadence: full-width, all-time window, and the empty state
+            DurationMetricCard(
+                averageHours: 8.2,
+                isFullWidth: true,
+                subtitle: "Per office visit (all time)"
+            )
+
+            DurationMetricCard(
+                averageHours: nil,
+                isFullWidth: true,
+                subtitle: "Per office visit (all time)"
+            )
+
             MiniMetricCard(
                 title: "This Week",
                 value: "3 days",

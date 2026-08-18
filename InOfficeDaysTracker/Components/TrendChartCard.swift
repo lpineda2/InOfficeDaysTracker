@@ -16,13 +16,23 @@ struct TrendDataPoint: Identifiable {
     let value: Int
 }
 
-/// A card displaying attendance trends over time using Swift Charts
-/// Features a segmented picker for 30/60/90 day ranges
+/// A card displaying attendance trends over time using Swift Charts.
+///
+/// Two modes, driven by `isWeekly`:
+/// - Monthly (default): 3M/6M/9M ranges, bucketed by calendar month, excluding
+///   the current (incomplete) month.
+/// - Weekly: 8W/12W/16W ranges, bucketed by `weekOfYear`, **including** the
+///   current partial week, with a reference line at the weekly minimum.
 struct TrendChartCard: View {
     let data: [TrendDataPoint]
     let hasEnoughData: Bool
-    
+    /// When true, bucket by week instead of month (weekly tracking cadence).
+    var isWeekly: Bool = false
+    /// Weekly minimum office days, drawn as a reference line in weekly mode.
+    var weeklyMinimumDays: Int? = nil
+
     @State private var selectedRange: TrendRange = .threeMonths
+    @State private var selectedWeeklyRange: WeeklyTrendRange = .eightWeeks
 
     enum TrendRange: Int, CaseIterable {
         case threeMonths = 3
@@ -37,7 +47,21 @@ struct TrendChartCard: View {
             }
         }
     }
-    
+
+    enum WeeklyTrendRange: Int, CaseIterable {
+        case eightWeeks = 8
+        case twelveWeeks = 12
+        case sixteenWeeks = 16
+
+        var label: String {
+            switch self {
+            case .eightWeeks: return "8W"
+            case .twelveWeeks: return "12W"
+            case .sixteenWeeks: return "16W"
+            }
+        }
+    }
+
     private var filteredData: [TrendDataPoint] {
         // Use month-aligned cutoff and exclude the current month.
         guard let info = monthRange() else { return [] }
@@ -49,6 +73,13 @@ struct TrendChartCard: View {
     }
     
     private var aggregatedData: [TrendDataPoint] {
+        if isWeekly {
+            return Self.aggregatedByWeek(from: data, weeks: selectedWeeklyRange.rawValue)
+        }
+        return aggregatedMonthlyData
+    }
+
+    private var aggregatedMonthlyData: [TrendDataPoint] {
         // Aggregate by month and ensure months with zero values are present
         guard let info = monthRange() else { return [] }
         let calendar = info.calendar
@@ -87,13 +118,23 @@ struct TrendChartCard: View {
                 
                 Spacer()
                 
-                Picker("Range", selection: $selectedRange) {
-                    ForEach(TrendRange.allCases, id: \.self) { range in
-                        Text(range.label).tag(range)
+                if isWeekly {
+                    Picker("Range", selection: $selectedWeeklyRange) {
+                        ForEach(WeeklyTrendRange.allCases, id: \.self) { range in
+                            Text(range.label).tag(range)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
+                } else {
+                    Picker("Range", selection: $selectedRange) {
+                        ForEach(TrendRange.allCases, id: \.self) { range in
+                            Text(range.label).tag(range)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 150)
             }
             
             // Chart area
@@ -112,6 +153,8 @@ struct TrendChartCard: View {
                 }
             }
             .frame(height: 180)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(chartAccessibilityLabel)
         }
         .cardStyle()
     }
@@ -119,39 +162,59 @@ struct TrendChartCard: View {
     // MARK: - Chart View
     
     private var chartView: some View {
-        Chart(aggregatedData) { point in
-            // Area fill
-            AreaMark(
-                x: .value("Month", point.date, unit: .month),
-                y: .value("Days", point.value)
-            )
-            .foregroundStyle(DesignTokens.chartFill)
-            .interpolationMethod(.catmullRom)
-            
-            // Line
-            LineMark(
-                x: .value("Month", point.date, unit: .month),
-                y: .value("Days", point.value)
-            )
-            .foregroundStyle(DesignTokens.chartLine)
-            .interpolationMethod(.catmullRom)
-            .lineStyle(StrokeStyle(lineWidth: 2))
-            
-            // Points
-            PointMark(
-                x: .value("Month", point.date, unit: .month),
-                y: .value("Days", point.value)
-            )
-            .foregroundStyle(DesignTokens.chartLine)
-            .symbolSize(30)
+        Chart {
+            ForEach(aggregatedData) { point in
+                // Area fill
+                AreaMark(
+                    x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                    y: .value("Days", point.value)
+                )
+                .foregroundStyle(DesignTokens.chartFill)
+                .interpolationMethod(.catmullRom)
+
+                // Line
+                LineMark(
+                    x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                    y: .value("Days", point.value)
+                )
+                .foregroundStyle(DesignTokens.chartLine)
+                .interpolationMethod(.catmullRom)
+                .lineStyle(StrokeStyle(lineWidth: 2))
+
+                // Points
+                PointMark(
+                    x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                    y: .value("Days", point.value)
+                )
+                .foregroundStyle(DesignTokens.chartLine)
+                .symbolSize(30)
+            }
+
+            // Weekly minimum reference line. Dashed + annotated so the target is
+            // conveyed by shape and text, not by color alone.
+            if isWeekly, let minimum = weeklyMinimumDays, minimum > 0 {
+                RuleMark(y: .value("Weekly minimum", minimum))
+                    .foregroundStyle(DesignTokens.textSecondary)
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: .top, alignment: .leading) {
+                        Text("Goal: \(minimum)")
+                            .font(Typography.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+            }
         }
         .chartXAxis {
             AxisMarks(values: aggregatedData.map { $0.date }) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(DesignTokens.chartGrid.opacity(0.5))
                 AxisTick()
-                AxisValueLabel(format: .dateTime.month(.abbreviated))
-                    .foregroundStyle(DesignTokens.textSecondary)
+                if isWeekly {
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                } else {
+                    AxisValueLabel(format: .dateTime.month(.abbreviated))
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
             }
         }
         .chartYAxis {
@@ -165,6 +228,33 @@ struct TrendChartCard: View {
         .chartYScale(domain: 0...maxYValue)
     }
     
+    // MARK: - Axis Configuration
+
+    private var xAxisLabel: String { isWeekly ? "Week" : "Month" }
+
+    private var xAxisUnit: Calendar.Component { isWeekly ? .weekOfYear : .month }
+
+    /// Spoken summary of the chart contents, since the plotted marks themselves
+    /// aren't meaningfully navigable by VoiceOver.
+    private var chartAccessibilityLabel: String {
+        guard !aggregatedData.isEmpty else {
+            return "Attendance trend. No data yet."
+        }
+
+        let period = isWeekly ? "week" : "month"
+        let rangeLabel = isWeekly ? selectedWeeklyRange.label : selectedRange.label
+        let values = aggregatedData.map { "\($0.value)" }.joined(separator: ", ")
+
+        var label = "Attendance trend, last \(rangeLabel). Office days per \(period): \(values)."
+        if isWeekly, let minimum = weeklyMinimumDays, minimum > 0 {
+            label += " Weekly goal: \(minimum) days."
+        }
+        if !hasEnoughData {
+            label += " Limited data available."
+        }
+        return label
+    }
+
     // MARK: - Date Helpers
 
     private func monthRange() -> (calendar: Calendar, currentMonthStart: Date, cutoffDate: Date)? {
@@ -217,9 +307,58 @@ struct TrendChartCard: View {
         }
     }
     
+    /// Aggregate daily data into week buckets for the last `weeks` weeks.
+    ///
+    /// Unlike the month-based aggregator, this **includes the current partial
+    /// week**: a weekly tracker cares most about the week they're actively
+    /// working on, so hiding it would defeat the purpose of the chart.
+    ///
+    /// Week boundaries use `Calendar.dateInterval(of: .weekOfYear:)` — the same
+    /// definition `WeeklyComplianceEvaluator` uses — so this chart and the
+    /// weekly compliance card can never disagree about where a week starts.
+    static func aggregatedByWeek(
+        from data: [TrendDataPoint],
+        weeks: Int,
+        now: Date = Date(),
+        calendar: Calendar = Calendar.current
+    ) -> [TrendDataPoint] {
+        guard weeks > 0 else { return [] }
+        guard let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else {
+            return []
+        }
+        guard let cutoffWeekStart = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: currentWeekStart) else {
+            return []
+        }
+
+        // Bucket points by the start of their containing week.
+        var weeklyData: [Date: Int] = [:]
+        for point in data {
+            guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: point.date)?.start else { continue }
+            guard weekStart >= cutoffWeekStart && weekStart <= currentWeekStart else { continue }
+            weeklyData[weekStart, default: 0] += point.value
+        }
+
+        // Build a contiguous, zero-filled run of week starts through the current week.
+        var weekStarts: [Date] = []
+        var iter = cutoffWeekStart
+        while iter <= currentWeekStart {
+            weekStarts.append(iter)
+            guard let next = calendar.date(byAdding: .weekOfYear, value: 1, to: iter) else { break }
+            iter = next
+        }
+
+        return weekStarts.map { weekStart in
+            // Plot mid-week so the point aligns with its axis label.
+            let midDate = calendar.date(byAdding: .day, value: 3, to: weekStart) ?? weekStart
+            return TrendDataPoint(date: midDate, value: weeklyData[weekStart] ?? 0)
+        }
+    }
+
     private var maxYValue: Int {
         let maxValue = aggregatedData.map(\.value).max() ?? 5
-        return max(maxValue + 1, 5) // At least 5 for nice scale
+        // In weekly mode keep the weekly minimum reference line on-screen.
+        let floorValue = isWeekly ? max(weeklyMinimumDays ?? 0, 5) : 5
+        return max(maxValue + 1, floorValue)
     }
     
     // MARK: - Empty State
@@ -286,6 +425,28 @@ struct TrendChartCard: View {
             TrendChartCard(data: sampleData, hasEnoughData: true)
             TrendChartCard(data: Array(sampleData.prefix(5)), hasEnoughData: false)
             TrendChartCard(data: [], hasEnoughData: false)
+        }
+        .padding()
+    }
+    .background(DesignTokens.appBackground)
+}
+
+#Preview("Trend Chart Card - Weekly") {
+    let calendar = Calendar.current
+    let today = Date()
+
+    let sampleData: [TrendDataPoint] = (0..<120).compactMap { dayOffset in
+        guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { return nil }
+        let weekday = calendar.component(.weekday, from: date)
+        let isWeekday = weekday >= 2 && weekday <= 6
+        let attended = isWeekday && Bool.random()
+        return TrendDataPoint(date: date, value: attended ? 1 : 0)
+    }
+
+    ScrollView {
+        VStack(spacing: 20) {
+            TrendChartCard(data: sampleData, hasEnoughData: true, isWeekly: true, weeklyMinimumDays: 3)
+            TrendChartCard(data: [], hasEnoughData: false, isWeekly: true, weeklyMinimumDays: 3)
         }
         .padding()
     }
