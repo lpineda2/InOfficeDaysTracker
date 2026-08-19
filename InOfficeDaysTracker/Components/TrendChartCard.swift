@@ -170,12 +170,26 @@ struct TrendChartCard: View {
                     // integers (typically 0...5), so interpolating between
                     // them would draw values that don't exist. Bars also make
                     // each week directly comparable to the goal line.
-                    BarMark(
-                        x: .value(xAxisLabel, point.date, unit: xAxisUnit),
-                        y: .value("Days", point.value)
-                    )
-                    .foregroundStyle(DesignTokens.chartLine)
-                    .cornerRadius(4)
+                    if point.value == 0 {
+                        // A zero-value BarMark has no height and renders as
+                        // nothing, which reads as "no data" rather than "no
+                        // office days". Draw a flat stub at the baseline so
+                        // every week in the range stays visible.
+                        RectangleMark(
+                            x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                            y: .value("Days", 0),
+                            height: .fixed(zeroWeekStubHeight)
+                        )
+                        .foregroundStyle(DesignTokens.chartLine.opacity(0.25))
+                        .cornerRadius(2)
+                    } else {
+                        BarMark(
+                            x: .value(xAxisLabel, point.date, unit: xAxisUnit),
+                            y: .value("Days", point.value)
+                        )
+                        .foregroundStyle(DesignTokens.chartLine)
+                        .cornerRadius(4)
+                    }
                 } else {
                     // Area fill
                     AreaMark(
@@ -254,6 +268,10 @@ struct TrendChartCard: View {
     private var xAxisLabel: String { isWeekly ? "Week" : "Month" }
 
     private var xAxisUnit: Calendar.Component { isWeekly ? .weekOfYear : .month }
+
+    /// Height of the baseline stub drawn for weeks with no office days. Tall
+    /// enough to be visible, short enough not to be mistaken for a count of 1.
+    private var zeroWeekStubHeight: CGFloat { 3 }
 
     /// Spoken summary of the chart contents, since the plotted marks themselves
     /// aren't meaningfully navigable by VoiceOver.
