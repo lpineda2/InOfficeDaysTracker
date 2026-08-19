@@ -111,4 +111,59 @@ final class TimeAwayPromptTests: XCTestCase {
     func testFreshSettingsHaveNotSeenThePrompt() {
         XCTAssertFalse(AppSettings().hasSeenTimeAwayPrompt)
     }
+
+    // MARK: - Enabling from the prompt
+
+    /// Mirrors `MainProgressView.enableTimeAwayHandling`.
+    private func enableFromPrompt(_ settings: inout AppSettings) {
+        settings.weeklyPolicy.honorsHolidaysAndPTO = true
+        settings.hasSeenTimeAwayPrompt = true
+    }
+
+    func testEnablingFromThePromptTurnsOnTheFeature() {
+        var settings = AppSettings()
+        settings.trackingCadence = .weekly
+        XCTAssertTrue(shouldShowPrompt(settings))
+
+        enableFromPrompt(&settings)
+
+        XCTAssertTrue(settings.weeklyPolicy.honorsHolidaysAndPTO,
+                      "One tap should be enough to turn it on")
+        XCTAssertFalse(shouldShowPrompt(settings),
+                       "The prompt shouldn't return after enabling")
+    }
+
+    func testEnablingFromThePromptLeavesOtherPolicySettingsAlone() {
+        var settings = AppSettings()
+        settings.trackingCadence = .weekly
+        settings.weeklyPolicy.weeklyMinimumDays = 4
+        settings.weeklyPolicy.anchorDayGroups = [[.tuesday]]
+        settings.weeklyPolicy.unavailabilityAllowance = 0
+        settings.weeklyPolicy.waivesAnchorDaysOnHolidayWeeks = false
+
+        enableFromPrompt(&settings)
+
+        // The prompt turns on the headline behavior only; anything else the
+        // user configured stays as they left it.
+        XCTAssertEqual(settings.weeklyPolicy.weeklyMinimumDays, 4)
+        XCTAssertEqual(settings.weeklyPolicy.anchorDayGroups, [[.tuesday]])
+        XCTAssertEqual(settings.weeklyPolicy.unavailabilityAllowance, 0)
+        XCTAssertFalse(settings.weeklyPolicy.waivesAnchorDaysOnHolidayWeeks)
+    }
+
+    @MainActor
+    func testEnablingFromThePromptPersists() throws {
+        let appData = makeAppData()
+
+        var settings = appData.settings
+        settings.trackingCadence = .weekly
+        enableFromPrompt(&settings)
+        appData.updateSettings(settings)
+
+        let data = try JSONEncoder().encode(appData.settings)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+
+        XCTAssertTrue(decoded.weeklyPolicy.honorsHolidaysAndPTO)
+        XCTAssertTrue(decoded.hasSeenTimeAwayPrompt)
+    }
 }

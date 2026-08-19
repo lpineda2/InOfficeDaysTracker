@@ -13,6 +13,9 @@ struct MainProgressView: View {
     @Binding var selectedTab: MainTabView.Tab
     
     @State private var currentTime = Date()
+    /// Keeps the time-away prompt visible through its confirmation state after
+    /// the user enables the feature from it. Resets when the view reappears.
+    @State private var justEnabledTimeAway = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -58,13 +61,31 @@ struct MainProgressView: View {
     /// Only for weekly users who haven't enabled the feature and haven't
     /// dismissed the prompt. Weekly tracking shipped before this existed, so
     /// those users would otherwise never discover it.
+    ///
+    /// `justEnabledTimeAway` keeps the card on screen after the user turns the
+    /// feature on from it, so they see the confirmation instead of the card
+    /// disappearing the instant they tap.
     private var showsTimeAwayPrompt: Bool {
-        appData.settings.trackingCadence.includesWeekly
-            && !appData.settings.weeklyPolicy.honorsHolidaysAndPTO
+        guard appData.settings.trackingCadence.includesWeekly else { return false }
+        if justEnabledTimeAway { return true }
+
+        return !appData.settings.weeklyPolicy.honorsHolidaysAndPTO
             && !appData.settings.hasSeenTimeAwayPrompt
     }
 
+    /// Enables time-away handling directly from the dashboard prompt.
+    private func enableTimeAwayHandling() {
+        justEnabledTimeAway = true
+
+        var settings = appData.settings
+        settings.weeklyPolicy.honorsHolidaysAndPTO = true
+        settings.hasSeenTimeAwayPrompt = true
+        appData.updateSettings(settings)
+    }
+
     private func dismissTimeAwayPrompt() {
+        justEnabledTimeAway = false
+
         var settings = appData.settings
         settings.hasSeenTimeAwayPrompt = true
         appData.updateSettings(settings)
@@ -86,14 +107,12 @@ struct MainProgressView: View {
 
                     if showsTimeAwayPrompt {
                         TimeAwayPromptCard(
-                            onSetUp: {
-                                // Mark seen either way: the user has been shown
-                                // where the setting lives, so re-nagging on
-                                // return would be noise.
+                            onEnable: enableTimeAwayHandling,
+                            onDismiss: dismissTimeAwayPrompt,
+                            onOpenSettings: {
                                 dismissTimeAwayPrompt()
                                 selectedTab = .settings
-                            },
-                            onDismiss: dismissTimeAwayPrompt
+                            }
                         )
                     }
 
@@ -196,6 +215,9 @@ struct MainProgressView: View {
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 currentTime = Date()
+                // The confirmation state is per-visit; returning to the
+                // dashboard later shouldn't resurrect the card.
+                justEnabledTimeAway = false
             }
             .onReceive(timer) { _ in
                 if appData.isCurrentlyInOffice {

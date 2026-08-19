@@ -7,30 +7,37 @@
 
 import SwiftUI
 
-/// Tells weekly-tracking users that their goal can adjust for time off.
+/// Tells weekly-tracking users that their goal can adjust for time off, and
+/// lets them turn it on without leaving the dashboard.
 ///
 /// Weekly tracking shipped before this capability existed, so users who
 /// already enabled it have no reason to revisit their policy settings. This
 /// surfaces the option where they actually look, and disappears for good once
-/// dismissed or acted on.
+/// enabled or dismissed.
 struct TimeAwayPromptCard: View {
-    /// Opens the weekly policy settings.
-    let onSetUp: () -> Void
+    /// Enables time-away handling.
+    let onEnable: () -> Void
     /// Permanently dismisses the prompt.
     let onDismiss: () -> Void
+    /// Opens weekly policy settings for fine-tuning after enabling.
+    let onOpenSettings: () -> Void
+
+    /// Set once the user enables from here, so the card confirms what changed
+    /// rather than vanishing and leaving them unsure whether it worked.
+    @State private var didEnable = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "calendar.badge.minus")
-                    .iconBackground(color: DesignTokens.cyanAccent)
+                Image(systemName: didEnable ? "checkmark.circle.fill" : "calendar.badge.minus")
+                    .iconBackground(color: didEnable ? DesignTokens.successGreen : DesignTokens.cyanAccent)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Taking time off?")
+                    Text(didEnable ? "Time off now lowers your goal" : "Taking time off?")
                         .font(Typography.cardTitle)
                         .foregroundColor(DesignTokens.textPrimary)
 
-                    Text("Your weekly goal can drop for PTO, sick days, and holidays instead of counting them against you.")
+                    Text(bodyText)
                         .font(Typography.caption)
                         .foregroundColor(DesignTokens.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -39,36 +46,71 @@ struct TimeAwayPromptCard: View {
                 Spacer(minLength: 0)
             }
 
-            HStack(spacing: 12) {
-                Button(action: onSetUp) {
-                    Text("Set Up")
-                        .font(Typography.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(DesignTokens.cyanAccent)
-                }
-                .buttonStyle(.plain)
+            HStack(spacing: 16) {
+                if didEnable {
+                    Button(action: onOpenSettings) {
+                        Text("Adjust Settings")
+                            .font(Typography.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(DesignTokens.cyanAccent)
+                    }
+                    .buttonStyle(.plain)
 
-                Button(action: onDismiss) {
-                    Text("Not Now")
-                        .font(Typography.caption)
-                        .foregroundColor(DesignTokens.textSecondary)
+                    Button(action: onDismiss) {
+                        Text("Done")
+                            .font(Typography.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button(action: enable) {
+                        Text("Turn On")
+                            .font(Typography.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(DesignTokens.cyanAccent)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onDismiss) {
+                        Text("Not Now")
+                            .font(Typography.caption)
+                            .foregroundColor(DesignTokens.textSecondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Spacer()
             }
         }
         .cardStyle()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Taking time off? Your weekly goal can drop for PTO, sick days, and holidays.")
+        .accessibilityLabel(didEnable
+            ? "Time off now lowers your goal. \(bodyText)"
+            : "Taking time off? \(bodyText)")
+    }
+
+    private var bodyText: String {
+        didEnable
+            ? "PTO, sick days, and holidays will lower that week's goal. Fine-tune how much in Weekly Policy."
+            : "Your weekly goal can drop for PTO, sick days, and holidays instead of counting them against you."
+    }
+
+    private func enable() {
+        withAnimation {
+            didEnable = true
+        }
+        onEnable()
+
+        let feedback = UINotificationFeedbackGenerator()
+        feedback.notificationOccurred(.success)
     }
 }
 
 // MARK: - Preview
 
 #Preview("Time Away Prompt") {
-    VStack {
-        TimeAwayPromptCard(onSetUp: {}, onDismiss: {})
+    VStack(spacing: 16) {
+        TimeAwayPromptCard(onEnable: {}, onDismiss: {}, onOpenSettings: {})
         Spacer()
     }
     .padding()

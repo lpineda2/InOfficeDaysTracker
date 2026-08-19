@@ -40,7 +40,6 @@ struct WeeklyPolicySettingsView: View {
 
     var body: some View {
         Form {
-            presetSection
             minimumDaysSection
             anchorDaySection
             requiredDaysSection
@@ -61,44 +60,6 @@ struct WeeklyPolicySettingsView: View {
     }
 
     // MARK: - Sections
-
-    private var presetSection: some View {
-        Section {
-            ForEach(WeeklyPolicyPreset.allCases) { preset in
-                Button {
-                    apply(preset)
-                } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(preset.title)
-                                .font(.body)
-                                .foregroundColor(DesignTokens.textPrimary)
-                            Text(preset.detail)
-                                .font(Typography.caption)
-                                .foregroundColor(DesignTokens.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-
-                        Spacer()
-
-                        if matchesCurrentPolicy(preset) {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(DesignTokens.cyanAccent)
-                                .accessibilityHidden(true)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(preset.title)
-                .accessibilityHint(preset.detail)
-                .accessibilityAddTraits(matchesCurrentPolicy(preset) ? [.isButton, .isSelected] : .isButton)
-            }
-        } header: {
-            Text("Quick Setup")
-        } footer: {
-            Text("Pick a starting point, then adjust anything below. Your current settings are replaced.")
-        }
-    }
 
     private var minimumDaysSection: some View {
         Section {
@@ -240,48 +201,6 @@ struct WeeklyPolicySettingsView: View {
                  ? "The weekly policy applies on and after this date."
                  : "The weekly policy applies immediately.")
         }
-    }
-
-    // MARK: - Presets
-
-    /// The policy the current on-screen state represents, used to show which
-    /// preset (if any) is active.
-    private var currentPolicy: WeeklyPolicy {
-        var policy = appData.settings.weeklyPolicy
-        policy.weeklyMinimumDays = weeklyMinimumDays
-        policy.anchorDayGroups = (requireAnchorDay && !anchorWeekdays.isEmpty)
-            ? [anchorWeekdays.sorted()]
-            : []
-        policy.requiredWeekdays = requiredWeekdays.sorted()
-        policy.honorsHolidaysAndPTO = honorsHolidaysAndPTO
-        policy.unavailabilityAllowance = unavailabilityAllowance
-        policy.waivesAnchorDaysOnHolidayWeeks = waivesAnchorDaysOnHolidayWeeks
-        return policy
-    }
-
-    private func matchesCurrentPolicy(_ preset: WeeklyPolicyPreset) -> Bool {
-        preset.matches(currentPolicy)
-    }
-
-    /// Applies a preset to the on-screen controls. Each assignment triggers the
-    /// matching `onChange`, which persists the policy.
-    private func apply(_ preset: WeeklyPolicyPreset) {
-        let policy = preset.policy(basedOn: appData.settings.weeklyPolicy)
-
-        withAnimation {
-            weeklyMinimumDays = policy.weeklyMinimumDays
-            requireAnchorDay = !policy.anchorDayGroups.isEmpty
-            if let group = policy.anchorDayGroups.first, !group.isEmpty {
-                anchorWeekdays = Set(group)
-            }
-            requiredWeekdays = Set(policy.requiredWeekdays)
-            honorsHolidaysAndPTO = policy.honorsHolidaysAndPTO
-            unavailabilityAllowance = policy.unavailabilityAllowance
-            waivesAnchorDaysOnHolidayWeeks = policy.waivesAnchorDaysOnHolidayWeeks
-        }
-
-        let impact = UIImpactFeedbackGenerator(style: .light)
-        impact.impactOccurred()
     }
 
     // MARK: - Save
