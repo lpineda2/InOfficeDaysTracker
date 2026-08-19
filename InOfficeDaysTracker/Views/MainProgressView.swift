@@ -53,6 +53,23 @@ struct MainProgressView: View {
         isWeeklyOnly ? "Per office visit (all time)" : "Per office visit"
     }
 
+    /// Whether to offer the one-time nudge about reducing goals for time away.
+    ///
+    /// Only for weekly users who haven't enabled the feature and haven't
+    /// dismissed the prompt. Weekly tracking shipped before this existed, so
+    /// those users would otherwise never discover it.
+    private var showsTimeAwayPrompt: Bool {
+        appData.settings.trackingCadence.includesWeekly
+            && !appData.settings.weeklyPolicy.honorsHolidaysAndPTO
+            && !appData.settings.hasSeenTimeAwayPrompt
+    }
+
+    private func dismissTimeAwayPrompt() {
+        var settings = appData.settings
+        settings.hasSeenTimeAwayPrompt = true
+        appData.updateSettings(settings)
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: DesignTokens.gridSpacing) {
@@ -66,6 +83,19 @@ struct MainProgressView: View {
                         result: weeklyCompliance,
                         policy: appData.settings.weeklyPolicy
                     )
+
+                    if showsTimeAwayPrompt {
+                        TimeAwayPromptCard(
+                            onSetUp: {
+                                // Mark seen either way: the user has been shown
+                                // where the setting lives, so re-nagging on
+                                // return would be noise.
+                                dismissTimeAwayPrompt()
+                                selectedTab = .settings
+                            },
+                            onDismiss: dismissTimeAwayPrompt
+                        )
+                    }
 
                     if showsMonthlyGoal {
                         Text("Monthly Summary")

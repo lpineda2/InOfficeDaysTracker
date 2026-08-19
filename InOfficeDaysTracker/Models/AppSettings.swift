@@ -21,6 +21,12 @@ struct AppSettings: Codable {
     // Calendar Integration (v1.8.0)
     var calendarSettings: CalendarSettings = CalendarSettings.default
     var hasSeenCalendarSetup: Bool = false
+
+    /// Whether the user has dismissed (or acted on) the dashboard prompt
+    /// offering to reduce weekly goals for PTO and holidays. Weekly tracking
+    /// shipped before that capability existed, so existing users need a nudge
+    /// they can permanently dismiss.
+    var hasSeenTimeAwayPrompt: Bool = false
     
     // Auto-Calculate Goal Feature (v1.9.0)
     var autoCalculateGoal: Bool = false  // Default OFF - manual goal is default
@@ -55,7 +61,7 @@ struct AppSettings: Codable {
     enum CodingKeys: String, CodingKey {
         case officeAddress, detectionRadius, trackingDays, officeHours, monthlyGoal, notificationsEnabled, isSetupComplete
         case officeLatitude, officeLongitude
-        case calendarSettings, hasSeenCalendarSetup
+        case calendarSettings, hasSeenCalendarSetup, hasSeenTimeAwayPrompt
         // Auto-Calculate Goal Feature (v1.9.0)
         case autoCalculateGoal, companyPolicy, holidayCalendar, officeLocations, ptoSickDays, lockedMonthlyGoals
         // Weekly Hybrid Policy (v1.10.0)
@@ -85,6 +91,7 @@ struct AppSettings: Codable {
         // Calendar settings (added in v1.8.0)
         calendarSettings = try container.decodeIfPresent(CalendarSettings.self, forKey: .calendarSettings) ?? CalendarSettings.default
         hasSeenCalendarSetup = try container.decodeIfPresent(Bool.self, forKey: .hasSeenCalendarSetup) ?? false
+        hasSeenTimeAwayPrompt = try container.decodeIfPresent(Bool.self, forKey: .hasSeenTimeAwayPrompt) ?? false
         
         // Auto-Calculate Goal Feature (v1.9.0)
         autoCalculateGoal = try container.decodeIfPresent(Bool.self, forKey: .autoCalculateGoal) ?? false
@@ -120,6 +127,7 @@ struct AppSettings: Codable {
         // Calendar settings (added in v1.8.0)
         try container.encode(calendarSettings, forKey: .calendarSettings)
         try container.encode(hasSeenCalendarSetup, forKey: .hasSeenCalendarSetup)
+        try container.encode(hasSeenTimeAwayPrompt, forKey: .hasSeenTimeAwayPrompt)
         
         // Auto-Calculate Goal Feature (v1.9.0)
         try container.encode(autoCalculateGoal, forKey: .autoCalculateGoal)

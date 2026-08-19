@@ -10,6 +10,63 @@ import WhatsNewKit
 
 struct WhatsNewConfiguration {
 
+    // MARK: - Version 1.16.0: Time Away
+
+    /// The WhatsNew instance for version 1.16.0 PTO/holiday handling.
+    ///
+    /// Weekly tracking shipped in 1.15.0 without any notion of time off, so
+    /// existing weekly users have no reason to revisit their policy settings.
+    /// This is the main way they'll learn the capability exists.
+    static var weeklyTimeAway: WhatsNew {
+        WhatsNew(
+            version: "1.16.0",
+            title: WhatsNew.Title(
+                text: "Weekly Goals Understand Time Off",
+                foregroundColor: DesignTokens.textPrimary
+            ),
+            features: [
+                // Goal reduction
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "calendar.badge.minus",
+                        foregroundColor: DesignTokens.cyanAccent
+                    ),
+                    title: "PTO Lowers Your Weekly Goal",
+                    subtitle: "Vacation, sick days, and company holidays can reduce that week's office-day goal instead of counting against you"
+                ),
+
+                // Anchor-day excusal
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "flag.slash.fill",
+                        foregroundColor: DesignTokens.orangeAccent
+                    ),
+                    title: "Anchor Days Are Excused",
+                    subtitle: "Away on your anchor day? The app expects the other one—or waives the rule if you're out for both"
+                ),
+
+                // Where to turn it on
+                WhatsNew.Feature(
+                    image: WhatsNew.Feature.Image(
+                        systemName: "slider.horizontal.3",
+                        foregroundColor: DesignTokens.successGreen
+                    ),
+                    title: "Off Until You Turn It On",
+                    subtitle: "Your goals don't change unless you enable this. Find it in Settings → Goals & Policy → Weekly Policy → PTO & Holidays"
+                )
+            ],
+            primaryAction: WhatsNew.PrimaryAction(
+                title: "Got It",
+                backgroundColor: .accentColor,
+                foregroundColor: .white,
+                hapticFeedback: .notification(.success),
+                onDismiss: {
+                    debugLog("✅", "[WhatsNew] Weekly time-away showcase dismissed")
+                }
+            )
+        )
+    }
+
     // MARK: - Version 1.15.0: Weekly Hybrid Policies
 
     /// The WhatsNew instance for version 1.15.0 weekly hybrid policy support
@@ -257,6 +314,7 @@ extension InOfficeDaysTrackerApp: WhatsNewCollectionProvider {
     
     /// Provide all WhatsNew instances for different versions
     var whatsNewCollection: WhatsNewCollection {
+        WhatsNewConfiguration.weeklyTimeAway              // 1.16.0
         WhatsNewConfiguration.weeklyHybridPolicy         // 1.15.0
         WhatsNewConfiguration.ptoManagementAndRounding  // 1.13.0
         WhatsNewConfiguration.autoCalculateGoal          // 1.9.0
