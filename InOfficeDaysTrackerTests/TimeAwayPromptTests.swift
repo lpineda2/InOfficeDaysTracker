@@ -190,6 +190,49 @@ final class TimeAwayPromptTests: XCTestCase {
         XCTAssertEqual(appData.settings.weeklyPolicy.weeklyMinimumDays, 4)
     }
 
+    // MARK: - Inline controls
+
+    @MainActor
+    func testInlineAllowanceWritesThroughToTheStoredPolicy() {
+        // The prompt's stepper edits the policy directly rather than keeping a
+        // local copy, so the settings screen always agrees with it.
+        let appData = makeAppData()
+
+        var settings = appData.settings
+        settings.trackingCadence = .weekly
+        settings.weeklyPolicy.honorsHolidaysAndPTO = true
+        appData.updateSettings(settings)
+
+        // Mirrors timeAwayAllowanceBinding's setter.
+        var updated = appData.settings
+        updated.weeklyPolicy.unavailabilityAllowance = max(0, 2)
+        appData.updateSettings(updated)
+
+        XCTAssertEqual(appData.settings.weeklyPolicy.unavailabilityAllowance, 2)
+    }
+
+    @MainActor
+    func testInlineAllowanceClampsNegativeValues() {
+        let appData = makeAppData()
+
+        var updated = appData.settings
+        updated.weeklyPolicy.unavailabilityAllowance = max(0, -1)
+        appData.updateSettings(updated)
+
+        XCTAssertEqual(appData.settings.weeklyPolicy.unavailabilityAllowance, 0)
+    }
+
+    @MainActor
+    func testInlineHolidayWaiverWritesThroughToTheStoredPolicy() {
+        let appData = makeAppData()
+
+        var updated = appData.settings
+        updated.weeklyPolicy.waivesAnchorDaysOnHolidayWeeks = true
+        appData.updateSettings(updated)
+
+        XCTAssertTrue(appData.settings.weeklyPolicy.waivesAnchorDaysOnHolidayWeeks)
+    }
+
     // MARK: - Recovery
 
     func testTurningTheFeatureOffMakesThePromptEligibleAgain() {

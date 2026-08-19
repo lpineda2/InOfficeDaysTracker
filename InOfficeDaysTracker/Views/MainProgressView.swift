@@ -73,6 +73,30 @@ struct MainProgressView: View {
             && !appData.settings.hasSeenTimeAwayPrompt
     }
 
+    /// Writes straight through to the stored policy so the prompt's inline
+    /// controls and the settings screen can't disagree.
+    private var timeAwayAllowanceBinding: Binding<Int> {
+        Binding(
+            get: { appData.settings.weeklyPolicy.unavailabilityAllowance },
+            set: { newValue in
+                var settings = appData.settings
+                settings.weeklyPolicy.unavailabilityAllowance = max(0, newValue)
+                appData.updateSettings(settings)
+            }
+        )
+    }
+
+    private var holidayAnchorWaiverBinding: Binding<Bool> {
+        Binding(
+            get: { appData.settings.weeklyPolicy.waivesAnchorDaysOnHolidayWeeks },
+            set: { newValue in
+                var settings = appData.settings
+                settings.weeklyPolicy.waivesAnchorDaysOnHolidayWeeks = newValue
+                appData.updateSettings(settings)
+            }
+        )
+    }
+
     /// Enables time-away handling directly from the dashboard prompt.
     ///
     /// Deliberately does *not* set `hasSeenTimeAwayPrompt`. Enabling already
@@ -114,10 +138,9 @@ struct MainProgressView: View {
                         TimeAwayPromptCard(
                             onEnable: enableTimeAwayHandling,
                             onDismiss: dismissTimeAwayPrompt,
-                            onOpenSettings: {
-                                dismissTimeAwayPrompt()
-                                selectedTab = .settings
-                            }
+                            unavailabilityAllowance: timeAwayAllowanceBinding,
+                            waivesAnchorDaysOnHolidayWeeks: holidayAnchorWaiverBinding,
+                            hasAnchorDay: !appData.settings.weeklyPolicy.anchorDayGroups.isEmpty
                         )
                     }
 
