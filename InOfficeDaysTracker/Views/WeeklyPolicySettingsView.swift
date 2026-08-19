@@ -215,9 +215,18 @@ struct WeeklyPolicySettingsView: View {
             : []
         policy.requiredWeekdays = requiredWeekdays.sorted()
         policy.effectiveStartDate = hasEffectiveDate ? effectiveDate : nil
+        let wasEnabled = policy.honorsHolidaysAndPTO
         policy.honorsHolidaysAndPTO = honorsHolidaysAndPTO
         policy.unavailabilityAllowance = unavailabilityAllowance
         policy.waivesAnchorDaysOnHolidayWeeks = waivesAnchorDaysOnHolidayWeeks
+
+        // Turning the feature off puts the user back in the state the dashboard
+        // prompt exists for, so make it eligible again. Without this, a
+        // dismissal is permanent and there's no way to see the explanation
+        // again — a poor property for a discovery affordance.
+        if wasEnabled && !honorsHolidaysAndPTO {
+            newSettings.hasSeenTimeAwayPrompt = false
+        }
 
         newSettings.weeklyPolicy = policy
         appData.updateSettings(newSettings)

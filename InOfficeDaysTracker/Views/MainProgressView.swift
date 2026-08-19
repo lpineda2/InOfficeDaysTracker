@@ -74,12 +74,17 @@ struct MainProgressView: View {
     }
 
     /// Enables time-away handling directly from the dashboard prompt.
+    ///
+    /// Deliberately does *not* set `hasSeenTimeAwayPrompt`. Enabling already
+    /// suppresses the prompt via the `honorsHolidaysAndPTO` check, so writing
+    /// the flag too would permanently suppress it even if the user later turns
+    /// the feature back off — leaving them with no way to see the explanation
+    /// again. "Seen" is reserved for an explicit dismissal.
     private func enableTimeAwayHandling() {
         justEnabledTimeAway = true
 
         var settings = appData.settings
         settings.weeklyPolicy.honorsHolidaysAndPTO = true
-        settings.hasSeenTimeAwayPrompt = true
         appData.updateSettings(settings)
     }
 

@@ -114,10 +114,19 @@ final class TimeAwayPromptTests: XCTestCase {
 
     // MARK: - Enabling from the prompt
 
-    /// Mirrors `MainProgressView.enableTimeAwayHandling`.
+    /// Mirrors `MainProgressView.enableTimeAwayHandling`, which deliberately
+    /// does not mark the prompt seen.
     private func enableFromPrompt(_ settings: inout AppSettings) {
         settings.weeklyPolicy.honorsHolidaysAndPTO = true
-        settings.hasSeenTimeAwayPrompt = true
+    }
+
+    /// Mirrors the flag reset in `WeeklyPolicySettingsView.savePolicy`.
+    private func setFeatureEnabled(_ enabled: Bool, in settings: inout AppSettings) {
+        let wasEnabled = settings.weeklyPolicy.honorsHolidaysAndPTO
+        settings.weeklyPolicy.honorsHolidaysAndPTO = enabled
+        if wasEnabled && !enabled {
+            settings.hasSeenTimeAwayPrompt = false
+        }
     }
 
     func testEnablingFromThePromptTurnsOnTheFeature() {
@@ -131,6 +140,59 @@ final class TimeAwayPromptTests: XCTestCase {
                       "One tap should be enough to turn it on")
         XCTAssertFalse(shouldShowPrompt(settings),
                        "The prompt shouldn't return after enabling")
+    }
+
+    func testEnablingDoesNotMarkThePromptSeen() {
+        var settings = AppSettings()
+        settings.trackingCadence = .weekly
+
+        enableFromPrompt(&settings)
+
+        // Enabling already hides the prompt. Also writing "seen" would make the
+        // suppression permanent, so turning the feature back off would leave no
+        // way to see the explanation again.
+        XCTAssertFalse(settings.hasSeenTimeAwayPrompt)
+    }
+
+    // MARK: - Recovery
+
+    func testTurningTheFeatureOffMakesThePromptEligibleAgain() {
+        var settings = AppSettings()
+        settings.trackingCadence = .weekly
+        settings.weeklyPolicy.honorsHolidaysAndPTO = true
+        settings.hasSeenTimeAwayPrompt = true
+        XCTAssertFalse(shouldShowPrompt(settings))
+
+        setFeatureEnabled(false, in: &settings)
+
+        XCTAssertTrue(shouldShowPrompt(settings),
+                      "Disabling returns the user to the state the prompt is for")
+    }
+
+    func testTurningTheFeatureOnDoesNotClearTheSeenFlag() {
+        var settings = AppSettings()
+        settings.trackingCadence = .weekly
+        settings.hasSeenTimeAwayPrompt = true
+
+        setFeatureEnabled(true, in: &settings)
+
+        XCTAssertTrue(settings.hasSeenTimeAwayPrompt,
+                      "Only the off transition should reset it")
+    }
+
+    func testSavingWithTheFeatureAlreadyOffLeavesTheSeenFlagAlone() {
+        // A user who dismissed the prompt and then edits unrelated policy
+        // settings shouldn't have it reappear.
+        var settings = AppSettings()
+        settings.trackingCadence = .weekly
+        settings.weeklyPolicy.honorsHolidaysAndPTO = false
+        settings.hasSeenTimeAwayPrompt = true
+
+        setFeatureEnabled(false, in: &settings)
+
+        XCTAssertTrue(settings.hasSeenTimeAwayPrompt,
+                      "No transition occurred, so nothing should change")
+        XCTAssertFalse(shouldShowPrompt(settings))
     }
 
     func testEnablingFromThePromptLeavesOtherPolicySettingsAlone() {
@@ -164,6 +226,7 @@ final class TimeAwayPromptTests: XCTestCase {
         let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
 
         XCTAssertTrue(decoded.weeklyPolicy.honorsHolidaysAndPTO)
-        XCTAssertTrue(decoded.hasSeenTimeAwayPrompt)
+        XCTAssertFalse(shouldShowPrompt(decoded),
+                       "Enabling suppresses the prompt without needing the seen flag")
     }
 }
