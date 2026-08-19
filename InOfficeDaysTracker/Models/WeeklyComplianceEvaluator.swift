@@ -72,8 +72,13 @@ enum WeeklyComplianceEvaluator {
     ///     ideal for planning. Pass the actual current date for live status.
     ///   - unavailableDates: Days the user can't be in the office (PTO, sick
     ///     days, company holidays). When the policy honors them, these reduce
-    ///     the weekly requirement and are removed from the days still
-    ///     achievable. Ignored when `policy.honorsHolidaysAndPTO` is false.
+    ///     the weekly requirement, excuse anchor/required days that fall on
+    ///     them, and are removed from the days still achievable. Ignored when
+    ///     `policy.honorsHolidaysAndPTO` is false.
+    ///   - holidayDates: The subset of `unavailableDates` that are company
+    ///     holidays. Only needed for `policy.waivesAnchorDaysOnHolidayWeeks`,
+    ///     which drops anchor rules for the whole week when a holiday is
+    ///     present. Pass holidays here *and* in `unavailableDates`.
     ///   - calendar: Calendar used for all date math.
     static func evaluate(
         policy: WeeklyPolicy,
@@ -81,6 +86,7 @@ enum WeeklyComplianceEvaluator {
         inOfficeDates: [Date],
         evaluationDate: Date? = nil,
         unavailableDates: [Date] = [],
+        holidayDates: [Date] = [],
         calendar: Calendar = .current
     ) -> WeeklyComplianceResult {
 
@@ -129,18 +135,37 @@ enum WeeklyComplianceEvaluator {
         // to satisfy — including anchor days. Without this, a week spent
         // entirely on PTO would report "0 days required" and "missed" at the
         // same time, because no anchor day was attendable.
-        //
-        // Narrower cases (some anchor days away, others not) are deliberately
-        // not handled here — see the anchor-excusal work tracked separately.
         let requirementWaived = requiredDays == 0
+
+        // Optional stricter rule: a holiday anywhere in the week drops anchor
+        // rules entirely, not just on the holiday's own weekday.
+        let holidayStarts = Set(holidayDates.map { calendar.startOfDay(for: $0) })
+            .intersection(eligibleStarts)
+        let anchorsWaivedByHoliday = policy.honorsHolidaysAndPTO
+            && policy.waivesAnchorDaysOnHolidayWeeks
+            && !holidayStarts.isEmpty
+
+        // Weekdays the user can't attend, used to excuse anchor and required
+        // days rather than failing them.
+        let unavailableWeekdays: Set<PolicyWeekday> = Set(unavailableStarts.compactMap {
+            PolicyWeekday(rawValue: calendar.component(.weekday, from: $0))
+        })
+
+        /// A weekday counts as excused when the user was unavailable that day,
+        /// or when a holiday in the week waives anchors outright.
+        func isExcused(_ weekday: PolicyWeekday) -> Bool {
+            anchorsWaivedByHoliday || unavailableWeekdays.contains(weekday)
+        }
 
         // Requirement checks.
         let minSatisfied = officeDaysCompleted >= requiredDays
         let requiredSatisfied = requirementWaived || policy.requiredWeekdays.allSatisfy {
-            completedWeekdays.contains($0)
+            completedWeekdays.contains($0) || isExcused($0)
         }
+        // A group is satisfied if any day in it was attended, or if every day
+        // in it was excused — the user cannot attend a day they're away.
         let anchorSatisfied = requirementWaived || policy.anchorDayGroups.allSatisfy { group in
-            group.contains { completedWeekdays.contains($0) }
+            group.contains { completedWeekdays.contains($0) } || group.allSatisfy(isExcused)
         }
 
         // Remaining achievable days: eligible, not yet attended, today or later,
@@ -162,12 +187,17 @@ enum WeeklyComplianceEvaluator {
         // Feasibility: can the week still be completed from here?
         let maxAchievable = officeDaysCompleted + remainingDays.count
         let minFeasible = maxAchievable >= requiredDays
+        // Excused days count as feasible: a week isn't "missed" because the
+        // user couldn't attend an anchor day they were away for.
         let anchorFeasible = policy.anchorDayGroups.allSatisfy { group in
             group.contains { completedWeekdays.contains($0) } ||
-            group.contains { remainingWeekdaysOrdered.contains($0) }
+            group.contains { remainingWeekdaysOrdered.contains($0) } ||
+            group.allSatisfy(isExcused)
         }
         let requiredFeasible = policy.requiredWeekdays.allSatisfy { weekday in
-            completedWeekdays.contains(weekday) || remainingWeekdaysOrdered.contains(weekday)
+            completedWeekdays.contains(weekday)
+                || remainingWeekdaysOrdered.contains(weekday)
+                || isExcused(weekday)
         }
         let feasible = minFeasible && anchorFeasible && requiredFeasible
 
@@ -194,6 +224,7 @@ enum WeeklyComplianceEvaluator {
             officeDaysCompleted: officeDaysCompleted,
             requiredDays: requiredDays,
             todayWeekday: todayWeekday,
+            isExcused: isExcused,
             calendar: calendar
         )
 
@@ -222,6 +253,7 @@ enum WeeklyComplianceEvaluator {
         officeDaysCompleted: Int,
         requiredDays: Int,
         todayWeekday: PolicyWeekday?,
+        isExcused: (PolicyWeekday) -> Bool,
         calendar: Calendar
     ) -> (message: String, suggested: PolicyWeekday?) {
 
@@ -257,9 +289,11 @@ enum WeeklyComplianceEvaluator {
         case .missed:
             // If an anchor group is unsatisfied and no anchor day remains this
             // week, call that out specifically (e.g. after Friday has passed).
+            // A fully excused group isn't "missed" — the user couldn't attend.
             let anchorMissed = policy.anchorDayGroups.contains { group in
                 !group.contains { completedWeekdays.contains($0) } &&
-                !group.contains { remainingWeekdaysOrdered.contains($0) }
+                !group.contains { remainingWeekdaysOrdered.contains($0) } &&
+                !group.allSatisfy(isExcused)
             }
             if anchorMissed {
                 return ("This week's anchor-day requirement was missed.", nil)
@@ -268,9 +302,10 @@ enum WeeklyComplianceEvaluator {
 
         case .needsAnchorDay:
             // First unsatisfied anchor group, and the anchor days within it that
-            // are still achievable (today or later), in date order.
+            // are still achievable (today or later), in date order. Skip groups
+            // that are fully excused — those aren't asking anything of the user.
             let unsatisfied = policy.anchorDayGroups.first { group in
-                !group.contains { completedWeekdays.contains($0) }
+                !group.contains { completedWeekdays.contains($0) } && !group.allSatisfy(isExcused)
             } ?? policy.anchorDayGroups.first ?? []
             let remainingAnchorDays = remainingWeekdaysOrdered.filter { unsatisfied.contains($0) }
             let suggested = remainingAnchorDays.first
@@ -286,14 +321,21 @@ enum WeeklyComplianceEvaluator {
                 }
                 return ("You need an office day on \(only.fullName) to meet your anchor-day requirement.", suggested)
             } else {
-                // No anchor day remains — defensive; feasibility routes this to .missed.
-                let names = unsatisfied.map(\.fullName).joined(separator: " or ")
+                // No anchor day remains — defensive; feasibility routes this to
+                // .missed. Never name a day the user is away for.
+                let attendable = unsatisfied.filter { !isExcused($0) }
+                let names = (attendable.isEmpty ? unsatisfied : attendable)
+                    .map(\.fullName)
+                    .joined(separator: " or ")
                 return ("You need an office day on \(names) to meet your anchor-day requirement.", nil)
             }
 
         case .needsOfficeDays, .onTrack:
-            // A mandatory specific weekday takes priority in the message.
-            let pendingRequired = policy.requiredWeekdays.first { !completedWeekdays.contains($0) }
+            // A mandatory specific weekday takes priority in the message —
+            // unless it's a day the user is away, which is already excused.
+            let pendingRequired = policy.requiredWeekdays.first {
+                !completedWeekdays.contains($0) && !isExcused($0)
+            }
             if let pendingRequired {
                 return (
                     "You have a required office day on \(pendingRequired.fullName).",

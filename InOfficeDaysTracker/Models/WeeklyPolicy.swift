@@ -160,6 +160,17 @@ struct WeeklyPolicy: Codable, Equatable {
     /// Only consulted when `honorsHolidaysAndPTO` is true.
     var unavailabilityAllowance: Int
 
+    /// When true, any company holiday in the week waives anchor-day rules for
+    /// that whole week, regardless of which weekday the holiday falls on.
+    ///
+    /// This is stricter than the day-level excusal that always applies when
+    /// `honorsHolidaysAndPTO` is on (where only the specific anchor days you're
+    /// away are excused). Some policies drop the anchor requirement entirely in
+    /// a short week; others keep it. Off by default since it isn't universal.
+    ///
+    /// Only consulted when `honorsHolidaysAndPTO` is true.
+    var waivesAnchorDaysOnHolidayWeeks: Bool
+
     // MARK: - Init
 
     init(
@@ -171,7 +182,8 @@ struct WeeklyPolicy: Codable, Equatable {
         anchorDayGroups: [[PolicyWeekday]] = [[.monday, .friday]],
         excludedWeekdays: [PolicyWeekday] = PolicyWeekday.weekend,
         honorsHolidaysAndPTO: Bool = false,
-        unavailabilityAllowance: Int = 0
+        unavailabilityAllowance: Int = 0,
+        waivesAnchorDaysOnHolidayWeeks: Bool = false
     ) {
         self.effectiveStartDate = effectiveStartDate
         self.effectiveEndDate = effectiveEndDate
@@ -182,6 +194,7 @@ struct WeeklyPolicy: Codable, Equatable {
         self.excludedWeekdays = excludedWeekdays
         self.honorsHolidaysAndPTO = honorsHolidaysAndPTO
         self.unavailabilityAllowance = max(0, unavailabilityAllowance)
+        self.waivesAnchorDaysOnHolidayWeeks = waivesAnchorDaysOnHolidayWeeks
     }
 
     // MARK: - Codable (forward/backward compatible)
@@ -191,6 +204,7 @@ struct WeeklyPolicy: Codable, Equatable {
         case weeklyMinimumDays, monthlyMinimumDays
         case requiredWeekdays, anchorDayGroups, excludedWeekdays
         case honorsHolidaysAndPTO, unavailabilityAllowance
+        case waivesAnchorDaysOnHolidayWeeks
     }
 
     init(from decoder: Decoder) throws {
@@ -206,6 +220,7 @@ struct WeeklyPolicy: Codable, Equatable {
         excludedWeekdays = try container.decodeIfPresent([PolicyWeekday].self, forKey: .excludedWeekdays) ?? PolicyWeekday.weekend
         honorsHolidaysAndPTO = try container.decodeIfPresent(Bool.self, forKey: .honorsHolidaysAndPTO) ?? false
         unavailabilityAllowance = max(0, try container.decodeIfPresent(Int.self, forKey: .unavailabilityAllowance) ?? 0)
+        waivesAnchorDaysOnHolidayWeeks = try container.decodeIfPresent(Bool.self, forKey: .waivesAnchorDaysOnHolidayWeeks) ?? false
     }
 
     // MARK: - Derived configuration

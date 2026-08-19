@@ -222,12 +222,15 @@ class WidgetDataManager {
             .filter { $0.date >= week.start && $0.date < week.end && ($0.isValidVisit || $0.isActiveSession) }
             .map { $0.date }
 
+        let timeAway = getUnavailableDays(inWeekOf: now, settings: settings, calendar: calendar)
+
         return WeeklyComplianceEvaluator.evaluate(
             policy: settings.weeklyPolicy,
             weekContaining: now,
             inOfficeDates: inOfficeDates,
             evaluationDate: now,
-            unavailableDates: getUnavailableDays(inWeekOf: now, settings: settings, calendar: calendar),
+            unavailableDates: timeAway.unavailable,
+            holidayDates: timeAway.holidays,
             calendar: calendar
         )
     }
@@ -238,8 +241,12 @@ class WidgetDataManager {
     /// `ptoSickDays` is keyed by "YYYY-MM" but weeks straddle months, so every
     /// month the week touches is read. Holidays come from the year-scoped
     /// calendar and are limited to tracking days.
-    private func getUnavailableDays(inWeekOf date: Date, settings: AppSettings, calendar: Calendar) -> [Date] {
-        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return [] }
+    private func getUnavailableDays(
+        inWeekOf date: Date,
+        settings: AppSettings,
+        calendar: Calendar
+    ) -> (unavailable: [Date], holidays: [Date]) {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return ([], []) }
 
         let monthKeyFormatter = DateFormatter()
         monthKeyFormatter.dateFormat = "yyyy-MM"
@@ -267,7 +274,8 @@ class WidgetDataManager {
             }
 
         // Deduplicate by calendar day so PTO booked on a holiday counts once.
-        return Set((pto + holidays).map { calendar.startOfDay(for: $0) }).sorted()
+        let unavailable = Set((pto + holidays).map { calendar.startOfDay(for: $0) }).sorted()
+        return (unavailable, holidays)
     }
 
     private func calculateAverageDuration() -> Double {

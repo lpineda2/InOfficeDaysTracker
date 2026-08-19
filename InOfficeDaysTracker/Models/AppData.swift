@@ -494,6 +494,7 @@ class AppData: ObservableObject {
             inOfficeDates: inOfficeDates,
             evaluationDate: date,
             unavailableDates: getUnavailableDays(inWeekOf: date, calendar: calendar),
+            holidayDates: getHolidays(inWeekOf: date, calendar: calendar),
             calendar: calendar
         )
     }

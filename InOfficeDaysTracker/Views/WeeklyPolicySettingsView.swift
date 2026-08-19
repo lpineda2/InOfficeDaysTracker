@@ -18,6 +18,7 @@ struct WeeklyPolicySettingsView: View {
     @State private var effectiveDate: Date
     @State private var honorsHolidaysAndPTO: Bool
     @State private var unavailabilityAllowance: Int
+    @State private var waivesAnchorDaysOnHolidayWeeks: Bool
 
     /// Weekdays offered for selection (eligible, non-weekend by default).
     private let selectableWeekdays = PolicyWeekday.weekdays
@@ -34,6 +35,7 @@ struct WeeklyPolicySettingsView: View {
         _effectiveDate = State(initialValue: policy.effectiveStartDate ?? Date())
         _honorsHolidaysAndPTO = State(initialValue: policy.honorsHolidaysAndPTO)
         _unavailabilityAllowance = State(initialValue: policy.unavailabilityAllowance)
+        _waivesAnchorDaysOnHolidayWeeks = State(initialValue: policy.waivesAnchorDaysOnHolidayWeeks)
     }
 
     var body: some View {
@@ -54,6 +56,7 @@ struct WeeklyPolicySettingsView: View {
         .onChange(of: effectiveDate) { _, _ in savePolicy() }
         .onChange(of: honorsHolidaysAndPTO) { _, _ in savePolicy() }
         .onChange(of: unavailabilityAllowance) { _, _ in savePolicy() }
+        .onChange(of: waivesAnchorDaysOnHolidayWeeks) { _, _ in savePolicy() }
     }
 
     // MARK: - Sections
@@ -130,6 +133,10 @@ struct WeeklyPolicySettingsView: View {
                 }
                 .accessibilityLabel("Days away before the goal is reduced")
                 .accessibilityValue("\(unavailabilityAllowance)")
+
+                if requireAnchorDay {
+                    Toggle("Skip anchor day on holiday weeks", isOn: $waivesAnchorDaysOnHolidayWeeks)
+                }
             }
         } header: {
             Text("PTO & Holidays")
@@ -142,12 +149,28 @@ struct WeeklyPolicySettingsView: View {
         guard honorsHolidaysAndPTO else {
             return "Your weekly goal stays the same regardless of PTO, sick days, or company holidays."
         }
+
+        var lines: [String] = []
+
         if unavailabilityAllowance == 0 {
-            return "Each PTO, sick, or holiday day in a week lowers that week's goal by one."
+            lines.append("Each PTO, sick, or holiday day in a week lowers that week's goal by one.")
+        } else {
+            let dayWord = unavailabilityAllowance == 1 ? "day" : "days"
+            lines.append(
+                "The first \(unavailabilityAllowance) \(dayWord) away each week won't change your goal. "
+                + "Beyond that, each additional day lowers that week's goal by one."
+            )
         }
-        let dayWord = unavailabilityAllowance == 1 ? "day" : "days"
-        return "The first \(unavailabilityAllowance) \(dayWord) away each week won't change your goal. "
-             + "Beyond that, each additional day lowers that week's goal by one."
+
+        // Day-level excusal always applies when the feature is on; the toggle
+        // only controls the broader whole-week waiver.
+        if requireAnchorDay {
+            lines.append(waivesAnchorDaysOnHolidayWeeks
+                ? "Any week with a company holiday skips the anchor-day rule entirely."
+                : "Anchor days you're away for are excused automatically.")
+        }
+
+        return lines.joined(separator: "\n\n")
     }
 
     private var effectiveDateSection: some View {
@@ -184,6 +207,7 @@ struct WeeklyPolicySettingsView: View {
         policy.effectiveStartDate = hasEffectiveDate ? effectiveDate : nil
         policy.honorsHolidaysAndPTO = honorsHolidaysAndPTO
         policy.unavailabilityAllowance = unavailabilityAllowance
+        policy.waivesAnchorDaysOnHolidayWeeks = waivesAnchorDaysOnHolidayWeeks
 
         newSettings.weeklyPolicy = policy
         appData.updateSettings(newSettings)
