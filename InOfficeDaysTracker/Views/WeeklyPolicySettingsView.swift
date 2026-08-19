@@ -18,6 +18,7 @@ struct WeeklyPolicySettingsView: View {
     @State private var effectiveDate: Date
     @State private var honorsHolidaysAndPTO: Bool
     @State private var unavailabilityAllowance: Int
+    @State private var holidayAllowance: Int
     @State private var waivesAnchorDaysOnHolidayWeeks: Bool
 
     /// Weekdays offered for selection (eligible, non-weekend by default).
@@ -39,6 +40,7 @@ struct WeeklyPolicySettingsView: View {
         _effectiveDate = State(initialValue: policy.effectiveStartDate ?? Date())
         _honorsHolidaysAndPTO = State(initialValue: policy.honorsHolidaysAndPTO)
         _unavailabilityAllowance = State(initialValue: policy.unavailabilityAllowance)
+        _holidayAllowance = State(initialValue: policy.holidayAllowance)
         _waivesAnchorDaysOnHolidayWeeks = State(initialValue: policy.waivesAnchorDaysOnHolidayWeeks)
     }
 
@@ -66,6 +68,7 @@ struct WeeklyPolicySettingsView: View {
         .onChange(of: effectiveDate) { _, _ in savePolicy() }
         .onChange(of: honorsHolidaysAndPTO) { _, _ in savePolicy() }
         .onChange(of: unavailabilityAllowance) { _, _ in savePolicy() }
+        .onChange(of: holidayAllowance) { _, _ in savePolicy() }
         .onChange(of: waivesAnchorDaysOnHolidayWeeks) { _, _ in savePolicy() }
     }
 
@@ -133,7 +136,7 @@ struct WeeklyPolicySettingsView: View {
             if honorsHolidaysAndPTO {
                 Stepper(value: $unavailabilityAllowance, in: 0...selectableWeekdays.count) {
                     HStack {
-                        Text("Days away before reducing")
+                        Text("PTO days before reducing")
                             .font(.body)
                         Spacer()
                         Text("\(unavailabilityAllowance)")
@@ -141,8 +144,21 @@ struct WeeklyPolicySettingsView: View {
                             .fontWeight(.medium)
                     }
                 }
-                .accessibilityLabel("Days away before the goal is reduced")
+                .accessibilityLabel("PTO days before the goal is reduced")
                 .accessibilityValue("\(unavailabilityAllowance)")
+
+                Stepper(value: $holidayAllowance, in: 0...selectableWeekdays.count) {
+                    HStack {
+                        Text("Holidays before reducing")
+                            .font(.body)
+                        Spacer()
+                        Text("\(holidayAllowance)")
+                            .foregroundColor(DesignTokens.cyanAccent)
+                            .fontWeight(.medium)
+                    }
+                }
+                .accessibilityLabel("Holidays before the goal is reduced")
+                .accessibilityValue("\(holidayAllowance)")
 
                 if requireAnchorDay {
                     Toggle("Waive anchor day in holiday weeks", isOn: $waivesAnchorDaysOnHolidayWeeks)
@@ -155,6 +171,23 @@ struct WeeklyPolicySettingsView: View {
         }
     }
 
+    /// Describes one allowance in plain language. PTO and holidays each get
+    /// their own sentence, since they can be configured independently.
+    private func allowanceSentence(for allowance: Int, singular: String, plural: String) -> String {
+        switch allowance {
+        case 0:
+            return "Each \(singular) in a week lowers that week's goal by one."
+        case 1:
+            // "The first 1 day" is grammatical but reads badly; English drops
+            // the numeral at one.
+            return "The first \(singular) each week won't change your goal; "
+                 + "each one after that lowers it by one."
+        default:
+            return "The first \(allowance) \(plural) each week won't change your goal; "
+                 + "each one after that lowers it by one."
+        }
+    }
+
     private var timeAwayFooter: String {
         guard honorsHolidaysAndPTO else {
             return "Your weekly goal stays the same regardless of PTO, sick days, or company holidays."
@@ -162,19 +195,16 @@ struct WeeklyPolicySettingsView: View {
 
         var lines: [String] = []
 
-        if unavailabilityAllowance == 0 {
-            lines.append("Each PTO, sick, or holiday day in a week lowers that week's goal by one.")
-        } else {
-            // "The first 1 day" is grammatical but reads badly; English drops
-            // the numeral at one.
-            let prefix = unavailabilityAllowance == 1
-                ? "The first day away each week"
-                : "The first \(unavailabilityAllowance) days away each week"
-            lines.append(
-                "\(prefix) won't change your goal. "
-                + "Beyond that, each additional day lowers that week's goal by one."
-            )
-        }
+        lines.append(allowanceSentence(
+            for: unavailabilityAllowance,
+            singular: "PTO or sick day",
+            plural: "PTO and sick days"
+        ))
+        lines.append(allowanceSentence(
+            for: holidayAllowance,
+            singular: "company holiday",
+            plural: "company holidays"
+        ))
 
         // Day-level excusal always applies when the feature is on, so state it
         // unconditionally. The toggle adds a broader whole-week waiver on top;
@@ -242,6 +272,7 @@ struct WeeklyPolicySettingsView: View {
         }
         honorsHolidaysAndPTO = policy.honorsHolidaysAndPTO
         unavailabilityAllowance = policy.unavailabilityAllowance
+        holidayAllowance = policy.holidayAllowance
         waivesAnchorDaysOnHolidayWeeks = policy.waivesAnchorDaysOnHolidayWeeks
     }
 
@@ -264,6 +295,7 @@ struct WeeklyPolicySettingsView: View {
         let wasEnabled = policy.honorsHolidaysAndPTO
         policy.honorsHolidaysAndPTO = honorsHolidaysAndPTO
         policy.unavailabilityAllowance = unavailabilityAllowance
+        policy.holidayAllowance = holidayAllowance
         policy.waivesAnchorDaysOnHolidayWeeks = waivesAnchorDaysOnHolidayWeeks
 
         // Turning the feature off puts the user back in the state the dashboard

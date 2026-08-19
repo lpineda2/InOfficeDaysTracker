@@ -149,16 +149,30 @@ struct WeeklyPolicy: Codable, Equatable {
     /// holidays falling in the week, per `unavailabilityAllowance`.
     var honorsHolidaysAndPTO: Bool
 
-    /// Number of unavailable days (PTO, sick, holidays) tolerated in a week
-    /// before the weekly minimum starts to drop.
+    /// Number of PTO/sick days tolerated in a week before the weekly minimum
+    /// starts to drop.
     ///
     /// Employers differ here: some reduce the requirement from the first day
     /// away, others absorb a day or two before adjusting. A value of 0 means
-    /// every unavailable day reduces the requirement; 2 means the first two
-    /// are absorbed and the third begins reducing it.
+    /// every PTO day reduces the requirement; 2 means the first two are
+    /// absorbed and the third begins reducing it.
     ///
     /// Only consulted when `honorsHolidaysAndPTO` is true.
     var unavailabilityAllowance: Int
+
+    /// Number of company holidays tolerated in a week before the weekly
+    /// minimum starts to drop.
+    ///
+    /// Tracked separately from `unavailabilityAllowance` because policies
+    /// commonly treat the two differently — absorbing a couple of PTO days
+    /// while reducing the goal on the very first holiday. Pooling them made
+    /// such a policy impossible to express: an allowance high enough for PTO
+    /// left holiday weeks unreduced, and one low enough for holidays wrongly
+    /// reduced the goal on a single PTO day.
+    ///
+    /// Defaults to 0, so each holiday reduces the requirement immediately.
+    /// Only consulted when `honorsHolidaysAndPTO` is true.
+    var holidayAllowance: Int
 
     /// When true, any company holiday in the week waives anchor-day rules for
     /// that whole week, regardless of which weekday the holiday falls on.
@@ -183,6 +197,7 @@ struct WeeklyPolicy: Codable, Equatable {
         excludedWeekdays: [PolicyWeekday] = PolicyWeekday.weekend,
         honorsHolidaysAndPTO: Bool = false,
         unavailabilityAllowance: Int = 0,
+        holidayAllowance: Int = 0,
         waivesAnchorDaysOnHolidayWeeks: Bool = false
     ) {
         self.effectiveStartDate = effectiveStartDate
@@ -194,6 +209,7 @@ struct WeeklyPolicy: Codable, Equatable {
         self.excludedWeekdays = excludedWeekdays
         self.honorsHolidaysAndPTO = honorsHolidaysAndPTO
         self.unavailabilityAllowance = max(0, unavailabilityAllowance)
+        self.holidayAllowance = max(0, holidayAllowance)
         self.waivesAnchorDaysOnHolidayWeeks = waivesAnchorDaysOnHolidayWeeks
     }
 
@@ -203,7 +219,7 @@ struct WeeklyPolicy: Codable, Equatable {
         case effectiveStartDate, effectiveEndDate
         case weeklyMinimumDays, monthlyMinimumDays
         case requiredWeekdays, anchorDayGroups, excludedWeekdays
-        case honorsHolidaysAndPTO, unavailabilityAllowance
+        case honorsHolidaysAndPTO, unavailabilityAllowance, holidayAllowance
         case waivesAnchorDaysOnHolidayWeeks
     }
 
@@ -220,6 +236,7 @@ struct WeeklyPolicy: Codable, Equatable {
         excludedWeekdays = try container.decodeIfPresent([PolicyWeekday].self, forKey: .excludedWeekdays) ?? PolicyWeekday.weekend
         honorsHolidaysAndPTO = try container.decodeIfPresent(Bool.self, forKey: .honorsHolidaysAndPTO) ?? false
         unavailabilityAllowance = max(0, try container.decodeIfPresent(Int.self, forKey: .unavailabilityAllowance) ?? 0)
+        holidayAllowance = max(0, try container.decodeIfPresent(Int.self, forKey: .holidayAllowance) ?? 0)
         waivesAnchorDaysOnHolidayWeeks = try container.decodeIfPresent(Bool.self, forKey: .waivesAnchorDaysOnHolidayWeeks) ?? false
     }
 
@@ -238,13 +255,17 @@ struct WeeklyPolicy: Codable, Equatable {
     /// `honorsHolidaysAndPTO` is off, so existing users see no change.
     ///
     /// - Parameter unavailableDayCount: Distinct unavailable days in the week.
-    func adjustedWeeklyMinimum(unavailableDayCount: Int) -> Int {
-        guard honorsHolidaysAndPTO, unavailableDayCount > 0 else {
-            return weeklyMinimumDays
-        }
+    func adjustedWeeklyMinimum(ptoDayCount: Int, holidayCount: Int = 0) -> Int {
+        guard honorsHolidaysAndPTO else { return weeklyMinimumDays }
 
-        let reducingDays = max(0, unavailableDayCount - unavailabilityAllowance)
-        return max(0, weeklyMinimumDays - reducingDays)
+        // Each kind is measured against its own allowance, then the surpluses
+        // are summed. Pooling the counts first would let a policy's PTO
+        // allowance absorb holidays (or vice versa), which is exactly the case
+        // a single shared allowance couldn't express.
+        let reducingPTO = max(0, ptoDayCount - unavailabilityAllowance)
+        let reducingHolidays = max(0, holidayCount - holidayAllowance)
+
+        return max(0, weeklyMinimumDays - reducingPTO - reducingHolidays)
     }
 
     /// Whether the policy is in effect on a specific calendar day.

@@ -128,8 +128,19 @@ enum WeeklyComplianceEvaluator {
                 .subtracting(completedStarts)
             : []
 
+        // Split the unavailable days by kind so each is measured against its
+        // own allowance. A day that is both PTO and a holiday counts once, as
+        // a holiday — holidays are typically the stricter of the two, so
+        // attributing the overlap there avoids inflating the PTO count.
+        let holidayStartsInWeek = Set(holidayDates.map { calendar.startOfDay(for: $0) })
+            .intersection(unavailableStarts)
+        let ptoStartsInWeek = unavailableStarts.subtracting(holidayStartsInWeek)
+
         // The requirement for this specific week, reduced for time away.
-        let requiredDays = policy.adjustedWeeklyMinimum(unavailableDayCount: unavailableStarts.count)
+        let requiredDays = policy.adjustedWeeklyMinimum(
+            ptoDayCount: ptoStartsInWeek.count,
+            holidayCount: holidayStartsInWeek.count
+        )
 
         // When time away reduces the requirement to zero there is nothing left
         // to satisfy — including anchor days. Without this, a week spent

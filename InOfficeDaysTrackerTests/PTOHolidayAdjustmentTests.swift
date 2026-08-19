@@ -68,34 +68,160 @@ final class PTOHolidayAdjustmentTests: XCTestCase {
         policy.honorsHolidaysAndPTO = false
 
         // Even a full week away leaves the requirement untouched.
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 5), 3)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 5), 3)
     }
 
     func testEachUnavailableDayReducesRequirementWithNoAllowance() {
         let policy = adjustingPolicy(allowance: 0)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 0), 3)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 1), 2)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 2), 1)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 3), 0)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 0), 3)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 1), 2)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 2), 1)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 3), 0)
     }
 
     func testAllowanceAbsorbsFirstDaysBeforeReducing() {
         let policy = adjustingPolicy(allowance: 2)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 1), 3, "Within allowance")
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 2), 3, "Still within allowance")
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 3), 2)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 4), 1)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 5), 0)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 1), 3, "Within allowance")
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 2), 3, "Still within allowance")
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 3), 2)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 4), 1)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 5), 0)
     }
 
     func testRequirementNeverGoesNegative() {
         let policy = adjustingPolicy(allowance: 0)
-        XCTAssertEqual(policy.adjustedWeeklyMinimum(unavailableDayCount: 10), 0)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 10), 0)
     }
 
     func testNegativeAllowanceIsClampedToZero() {
         let policy = WeeklyPolicy(honorsHolidaysAndPTO: true, unavailabilityAllowance: -5)
         XCTAssertEqual(policy.unavailabilityAllowance, 0)
+    }
+
+    func testNegativeHolidayAllowanceIsClampedToZero() {
+        let policy = WeeklyPolicy(honorsHolidaysAndPTO: true, holidayAllowance: -3)
+        XCTAssertEqual(policy.holidayAllowance, 0)
+    }
+
+    // MARK: - Separate PTO and holiday allowances
+    //
+    // Policies commonly absorb a couple of PTO days before reducing the goal
+    // while reducing on the very first holiday. A single pooled allowance
+    // couldn't express that: high enough for PTO left holiday weeks unreduced,
+    // low enough for holidays wrongly reduced on one PTO day.
+
+    private func splitPolicy(pto: Int, holiday: Int) -> WeeklyPolicy {
+        WeeklyPolicy(
+            weeklyMinimumDays: 3,
+            honorsHolidaysAndPTO: true,
+            unavailabilityAllowance: pto,
+            holidayAllowance: holiday
+        )
+    }
+
+    func testPTOAndHolidaysUseTheirOwnAllowances() {
+        // Absorb two PTO days, but reduce on the first holiday.
+        let policy = splitPolicy(pto: 2, holiday: 0)
+
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 1), 3, "PTO within allowance")
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 2), 3, "PTO still within allowance")
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 3), 2, "Third PTO day reduces")
+
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 0, holidayCount: 1), 2,
+                       "A single holiday reduces immediately")
+    }
+
+    func testTheTwoAllowancesDoNotAbsorbEachOther() {
+        // With a pooled count, one PTO day plus one holiday would fall inside a
+        // combined allowance of 2 and reduce nothing. Measured separately, the
+        // holiday still reduces because its own allowance is 0.
+        let policy = splitPolicy(pto: 2, holiday: 0)
+
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 1, holidayCount: 1), 2,
+                       "The PTO day is absorbed; the holiday is not")
+    }
+
+    func testSurplusesFromBothKindsAccumulate() {
+        let policy = splitPolicy(pto: 1, holiday: 0)
+
+        // 2 PTO (1 over) + 1 holiday (1 over) = 2 reducing days.
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 2, holidayCount: 1), 1)
+    }
+
+    func testHolidayAllowanceCanAbsorbHolidaysToo() {
+        // A policy that tolerates a holiday without changing the goal.
+        let policy = splitPolicy(pto: 0, holiday: 1)
+
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 0, holidayCount: 1), 3)
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 0, holidayCount: 2), 2)
+    }
+
+    func testHolidayCountIsIgnoredWhenFeatureIsOff() {
+        var policy = splitPolicy(pto: 0, holiday: 0)
+        policy.honorsHolidaysAndPTO = false
+
+        XCTAssertEqual(policy.adjustedWeeklyMinimum(ptoDayCount: 3, holidayCount: 2), 3)
+    }
+
+    func testHolidayAllowanceSurvivesCodableRoundTrip() throws {
+        let policy = splitPolicy(pto: 2, holiday: 1)
+
+        let data = try JSONEncoder().encode(policy)
+        let decoded = try JSONDecoder().decode(WeeklyPolicy.self, from: data)
+
+        XCTAssertEqual(decoded.holidayAllowance, 1)
+        XCTAssertEqual(decoded.unavailabilityAllowance, 2)
+    }
+
+    func testHolidayAllowanceDefaultsToZeroOnOlderPayloads() throws {
+        // Written before the field existed: holidays should reduce immediately
+        // rather than silently gaining an allowance.
+        let legacy = """
+        {"weeklyMinimumDays":3,"honorsHolidaysAndPTO":true,"unavailabilityAllowance":2}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WeeklyPolicy.self, from: legacy)
+        XCTAssertEqual(decoded.holidayAllowance, 0)
+    }
+
+    // MARK: - Evaluator splits the counts
+
+    func testEvaluatorAttributesHolidaysSeparatelyFromPTO() {
+        // Tuesday is PTO, Wednesday is a holiday. With a PTO allowance of 1 the
+        // PTO day is absorbed, but the holiday still reduces the goal.
+        var policy = splitPolicy(pto: 1, holiday: 0)
+        policy.anchorDayGroups = []
+
+        let result = WeeklyComplianceEvaluator.evaluate(
+            policy: policy,
+            weekContaining: monday,
+            inOfficeDates: [],
+            evaluationDate: monday,
+            unavailableDates: [tuesday, wednesday],
+            holidayDates: [wednesday],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(result.requiredDays, 2, "3 minus the one holiday over allowance")
+    }
+
+    func testADayThatIsBothPTOAndHolidayCountsOnce() {
+        // Same date passed as both. It should be attributed to the holiday
+        // bucket only, not counted twice.
+        var policy = splitPolicy(pto: 0, holiday: 0)
+        policy.anchorDayGroups = []
+
+        let result = WeeklyComplianceEvaluator.evaluate(
+            policy: policy,
+            weekContaining: monday,
+            inOfficeDates: [],
+            evaluationDate: monday,
+            unavailableDates: [tuesday],
+            holidayDates: [tuesday],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(result.requiredDays, 2, "One day away, not two")
     }
 
     // MARK: - Evaluator integration
