@@ -23,6 +23,10 @@ struct WeeklyPolicySettingsView: View {
     /// Weekdays offered for selection (eligible, non-weekend by default).
     private let selectableWeekdays = PolicyWeekday.weekdays
 
+    /// Suppresses `savePolicy()` while `syncFromSettings()` assigns to the
+    /// `@State` mirrors, so resyncing doesn't write the values straight back.
+    @State private var isSyncing = false
+
     init(appData: AppData) {
         self.appData = appData
         let policy = appData.settings.weeklyPolicy
@@ -48,6 +52,12 @@ struct WeeklyPolicySettingsView: View {
         }
         .navigationTitle("Weekly Policy")
         .navigationBarTitleDisplayMode(.inline)
+        // SwiftUI only uses @State initial values the first time it creates the
+        // view, so these mirrors go stale if the policy changes elsewhere (for
+        // example the dashboard's time-away prompt). Without this, returning
+        // here would show old values and the next edit would write them back,
+        // silently reverting the change.
+        .onAppear { syncFromSettings() }
         .onChange(of: weeklyMinimumDays) { _, _ in savePolicy() }
         .onChange(of: requireAnchorDay) { _, _ in savePolicy() }
         .onChange(of: anchorWeekdays) { _, _ in savePolicy() }
@@ -203,9 +213,45 @@ struct WeeklyPolicySettingsView: View {
         }
     }
 
+    // MARK: - Sync
+
+    /// Refreshes the `@State` mirrors from the stored policy.
+    ///
+    /// Needed because `@State` initial values are captured once at first
+    /// creation; anything that changes the policy elsewhere would otherwise be
+    /// invisible here, and the next edit would overwrite it.
+    private func syncFromSettings() {
+        let policy = appData.settings.weeklyPolicy
+
+        // Cleared asynchronously rather than with `defer`: SwiftUI delivers the
+        // onChange callbacks these assignments trigger after this function
+        // returns, so an immediate reset would come too early to suppress them.
+        isSyncing = true
+        defer {
+            DispatchQueue.main.async { isSyncing = false }
+        }
+
+        weeklyMinimumDays = policy.weeklyMinimumDays
+        requireAnchorDay = !policy.anchorDayGroups.isEmpty
+        let firstAnchorGroup = policy.anchorDayGroups.first ?? []
+        anchorWeekdays = Set(firstAnchorGroup.isEmpty ? [.monday, .friday] : firstAnchorGroup)
+        requiredWeekdays = Set(policy.requiredWeekdays)
+        hasEffectiveDate = policy.effectiveStartDate != nil
+        if let start = policy.effectiveStartDate {
+            effectiveDate = start
+        }
+        honorsHolidaysAndPTO = policy.honorsHolidaysAndPTO
+        unavailabilityAllowance = policy.unavailabilityAllowance
+        waivesAnchorDaysOnHolidayWeeks = policy.waivesAnchorDaysOnHolidayWeeks
+    }
+
     // MARK: - Save
 
     private func savePolicy() {
+        // Assignments made by syncFromSettings() trigger onChange; writing them
+        // back would be a no-op at best and could clobber a concurrent change.
+        guard !isSyncing else { return }
+
         var newSettings = appData.settings
         var policy = newSettings.weeklyPolicy
 

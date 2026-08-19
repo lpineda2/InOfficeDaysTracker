@@ -154,6 +154,42 @@ final class TimeAwayPromptTests: XCTestCase {
         XCTAssertFalse(settings.hasSeenTimeAwayPrompt)
     }
 
+    // MARK: - Cross-screen consistency
+
+    @MainActor
+    func testEnablingFromTheDashboardIsVisibleToTheSettingsScreen() {
+        // Regression: WeeklyPolicySettingsView mirrors the policy into @State,
+        // whose initial values SwiftUI captures only at first creation. When
+        // the dashboard prompt enabled the feature, a previously-created
+        // settings view still held the old value and wrote it back on the next
+        // edit, silently reverting the change. The view now resyncs on appear;
+        // this pins that AppData is the source of truth either way.
+        let appData = makeAppData()
+
+        var settings = appData.settings
+        settings.trackingCadence = .weekly
+        settings.weeklyPolicy.honorsHolidaysAndPTO = false
+        appData.updateSettings(settings)
+
+        // Dashboard prompt enables it.
+        var enabled = appData.settings
+        enabled.weeklyPolicy.honorsHolidaysAndPTO = true
+        appData.updateSettings(enabled)
+
+        // What the settings screen reads when it resyncs.
+        XCTAssertTrue(appData.settings.weeklyPolicy.honorsHolidaysAndPTO,
+                      "The settings screen must see the dashboard's change")
+
+        // An unrelated edit made from the settings screen must not revert it.
+        var edited = appData.settings
+        edited.weeklyPolicy.weeklyMinimumDays = 4
+        appData.updateSettings(edited)
+
+        XCTAssertTrue(appData.settings.weeklyPolicy.honorsHolidaysAndPTO,
+                      "Editing another field shouldn't turn the feature back off")
+        XCTAssertEqual(appData.settings.weeklyPolicy.weeklyMinimumDays, 4)
+    }
+
     // MARK: - Recovery
 
     func testTurningTheFeatureOffMakesThePromptEligibleAgain() {
