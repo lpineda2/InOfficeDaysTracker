@@ -155,9 +155,13 @@ struct WeeklyPolicySettingsView: View {
         if unavailabilityAllowance == 0 {
             lines.append("Each PTO, sick, or holiday day in a week lowers that week's goal by one.")
         } else {
-            let dayWord = unavailabilityAllowance == 1 ? "day" : "days"
+            // "The first 1 day" is grammatical but reads badly; English drops
+            // the numeral at one.
+            let prefix = unavailabilityAllowance == 1
+                ? "The first day away each week"
+                : "The first \(unavailabilityAllowance) days away each week"
             lines.append(
-                "The first \(unavailabilityAllowance) \(dayWord) away each week won't change your goal. "
+                "\(prefix) won't change your goal. "
                 + "Beyond that, each additional day lowers that week's goal by one."
             )
         }
