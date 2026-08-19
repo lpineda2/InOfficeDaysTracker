@@ -227,8 +227,47 @@ class WidgetDataManager {
             weekContaining: now,
             inOfficeDates: inOfficeDates,
             evaluationDate: now,
+            unavailableDates: getUnavailableDays(inWeekOf: now, settings: settings, calendar: calendar),
             calendar: calendar
         )
+    }
+
+    /// PTO/sick days and company holidays in the week containing `date`,
+    /// mirroring `AppData.getUnavailableDays(inWeekOf:)`.
+    ///
+    /// `ptoSickDays` is keyed by "YYYY-MM" but weeks straddle months, so every
+    /// month the week touches is read. Holidays come from the year-scoped
+    /// calendar and are limited to tracking days.
+    private func getUnavailableDays(inWeekOf date: Date, settings: AppSettings, calendar: Calendar) -> [Date] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return [] }
+
+        let monthKeyFormatter = DateFormatter()
+        monthKeyFormatter.dateFormat = "yyyy-MM"
+
+        var monthKeys = Set<String>()
+        var years = Set<Int>()
+        var cursor = calendar.startOfDay(for: week.start)
+        while cursor < week.end {
+            monthKeys.insert(monthKeyFormatter.string(from: cursor))
+            years.insert(calendar.component(.year, from: cursor))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+
+        let pto = monthKeys
+            .flatMap { settings.ptoSickDays[$0] ?? [] }
+            .filter { $0 >= week.start && $0 < week.end }
+
+        let trackingDays = Set(settings.trackingDays)
+        let holidays = years
+            .flatMap { settings.holidayCalendar.getHolidays(for: $0) }
+            .filter { holiday in
+                guard holiday >= week.start && holiday < week.end else { return false }
+                return trackingDays.contains(calendar.component(.weekday, from: holiday))
+            }
+
+        // Deduplicate by calendar day so PTO booked on a holiday counts once.
+        return Set((pto + holidays).map { calendar.startOfDay(for: $0) }).sorted()
     }
 
     private func calculateAverageDuration() -> Double {

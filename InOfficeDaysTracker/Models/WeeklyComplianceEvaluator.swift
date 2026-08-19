@@ -70,12 +70,17 @@ enum WeeklyComplianceEvaluator {
     ///     in the future (and therefore still achievable). Defaults to
     ///     `referenceDate`, which treats the whole week as still ahead and is
     ///     ideal for planning. Pass the actual current date for live status.
+    ///   - unavailableDates: Days the user can't be in the office (PTO, sick
+    ///     days, company holidays). When the policy honors them, these reduce
+    ///     the weekly requirement and are removed from the days still
+    ///     achievable. Ignored when `policy.honorsHolidaysAndPTO` is false.
     ///   - calendar: Calendar used for all date math.
     static func evaluate(
         policy: WeeklyPolicy,
         weekContaining referenceDate: Date,
         inOfficeDates: [Date],
         evaluationDate: Date? = nil,
+        unavailableDates: [Date] = [],
         calendar: Calendar = .current
     ) -> WeeklyComplianceResult {
 
@@ -108,17 +113,47 @@ enum WeeklyComplianceEvaluator {
             PolicyWeekday(rawValue: calendar.component(.weekday, from: $0))
         })
 
+        // Days the user is unavailable (PTO, sick, holidays), limited to
+        // eligible days of this week. A day already attended isn't counted as
+        // unavailable — being in the office beats a PTO booking on the same day.
+        let unavailableStarts: Set<Date> = policy.honorsHolidaysAndPTO
+            ? Set(unavailableDates.map { calendar.startOfDay(for: $0) })
+                .intersection(eligibleStarts)
+                .subtracting(completedStarts)
+            : []
+
+        // The requirement for this specific week, reduced for time away.
+        let requiredDays = policy.adjustedWeeklyMinimum(unavailableDayCount: unavailableStarts.count)
+
+        // When time away reduces the requirement to zero there is nothing left
+        // to satisfy — including anchor days. Without this, a week spent
+        // entirely on PTO would report "0 days required" and "missed" at the
+        // same time, because no anchor day was attendable.
+        //
+        // Narrower cases (some anchor days away, others not) are deliberately
+        // not handled here — see the anchor-excusal work tracked separately.
+        let requirementWaived = requiredDays == 0
+
         // Requirement checks.
-        let minSatisfied = officeDaysCompleted >= policy.weeklyMinimumDays
-        let requiredSatisfied = policy.requiredWeekdays.allSatisfy { completedWeekdays.contains($0) }
-        let anchorSatisfied = policy.anchorDayGroups.allSatisfy { group in
+        let minSatisfied = officeDaysCompleted >= requiredDays
+        let requiredSatisfied = requirementWaived || policy.requiredWeekdays.allSatisfy {
+            completedWeekdays.contains($0)
+        }
+        let anchorSatisfied = requirementWaived || policy.anchorDayGroups.allSatisfy { group in
             group.contains { completedWeekdays.contains($0) }
         }
 
-        // Remaining achievable days: eligible, not yet attended, today or later.
+        // Remaining achievable days: eligible, not yet attended, today or later,
+        // and not a day the user is away — you can't be told to come in on a
+        // day you're on PTO.
         let evalDayStart = calendar.startOfDay(for: evalDate)
         let remainingDays: [Date] = eligibleDays
-            .filter { calendar.startOfDay(for: $0) >= evalDayStart && !completedStarts.contains(calendar.startOfDay(for: $0)) }
+            .filter { day in
+                let start = calendar.startOfDay(for: day)
+                return start >= evalDayStart
+                    && !completedStarts.contains(start)
+                    && !unavailableStarts.contains(start)
+            }
             .sorted()
         let remainingWeekdaysOrdered: [PolicyWeekday] = remainingDays.compactMap {
             PolicyWeekday(rawValue: calendar.component(.weekday, from: $0))
@@ -126,7 +161,7 @@ enum WeeklyComplianceEvaluator {
 
         // Feasibility: can the week still be completed from here?
         let maxAchievable = officeDaysCompleted + remainingDays.count
-        let minFeasible = maxAchievable >= policy.weeklyMinimumDays
+        let minFeasible = maxAchievable >= requiredDays
         let anchorFeasible = policy.anchorDayGroups.allSatisfy { group in
             group.contains { completedWeekdays.contains($0) } ||
             group.contains { remainingWeekdaysOrdered.contains($0) }
@@ -144,7 +179,7 @@ enum WeeklyComplianceEvaluator {
             if !anchorSatisfied { return .needsAnchorDay }
             if !requiredSatisfied { return .needsOfficeDays }
             // Only the minimum remains unmet.
-            let needed = policy.weeklyMinimumDays - officeDaysCompleted
+            let needed = requiredDays - officeDaysCompleted
             let slack = remainingDays.count - needed
             return slack > 0 ? .onTrack : .needsOfficeDays
         }()
@@ -157,6 +192,7 @@ enum WeeklyComplianceEvaluator {
             completedWeekdays: completedWeekdays,
             remainingWeekdaysOrdered: remainingWeekdaysOrdered,
             officeDaysCompleted: officeDaysCompleted,
+            requiredDays: requiredDays,
             todayWeekday: todayWeekday,
             calendar: calendar
         )
@@ -166,7 +202,7 @@ enum WeeklyComplianceEvaluator {
             weekEnd: weekEnd,
             isApplicable: isApplicable,
             officeDaysCompleted: officeDaysCompleted,
-            requiredDays: policy.weeklyMinimumDays,
+            requiredDays: requiredDays,
             weeklyMinimumSatisfied: minSatisfied,
             requiredWeekdaysSatisfied: requiredSatisfied,
             anchorDaysSatisfied: anchorSatisfied,
@@ -184,6 +220,7 @@ enum WeeklyComplianceEvaluator {
         completedWeekdays: Set<PolicyWeekday>,
         remainingWeekdaysOrdered: [PolicyWeekday],
         officeDaysCompleted: Int,
+        requiredDays: Int,
         todayWeekday: PolicyWeekday?,
         calendar: Calendar
     ) -> (message: String, suggested: PolicyWeekday?) {
@@ -202,6 +239,11 @@ enum WeeklyComplianceEvaluator {
 
         switch status {
         case .complete:
+            // A requirement reduced to zero means time away covered the whole
+            // week — saying "complete" alone would imply they earned it.
+            if requiredDays == 0 && officeDaysCompleted == 0 {
+                return ("No office days required this week.", nil)
+            }
             return ("This week is complete.", nil)
 
         case .notApplicable:
@@ -258,7 +300,7 @@ enum WeeklyComplianceEvaluator {
                     pendingRequired
                 )
             }
-            let needed = max(0, policy.weeklyMinimumDays - officeDaysCompleted)
+            let needed = max(0, requiredDays - officeDaysCompleted)
             let dayWord = needed == 1 ? "day" : "days"
             let suggested = firstRemaining()
             return (

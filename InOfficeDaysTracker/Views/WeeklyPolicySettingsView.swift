@@ -16,6 +16,8 @@ struct WeeklyPolicySettingsView: View {
     @State private var requiredWeekdays: Set<PolicyWeekday>
     @State private var hasEffectiveDate: Bool
     @State private var effectiveDate: Date
+    @State private var honorsHolidaysAndPTO: Bool
+    @State private var unavailabilityAllowance: Int
 
     /// Weekdays offered for selection (eligible, non-weekend by default).
     private let selectableWeekdays = PolicyWeekday.weekdays
@@ -30,6 +32,8 @@ struct WeeklyPolicySettingsView: View {
         _requiredWeekdays = State(initialValue: Set(policy.requiredWeekdays))
         _hasEffectiveDate = State(initialValue: policy.effectiveStartDate != nil)
         _effectiveDate = State(initialValue: policy.effectiveStartDate ?? Date())
+        _honorsHolidaysAndPTO = State(initialValue: policy.honorsHolidaysAndPTO)
+        _unavailabilityAllowance = State(initialValue: policy.unavailabilityAllowance)
     }
 
     var body: some View {
@@ -37,6 +41,7 @@ struct WeeklyPolicySettingsView: View {
             minimumDaysSection
             anchorDaySection
             requiredDaysSection
+            timeAwaySection
             effectiveDateSection
         }
         .navigationTitle("Weekly Policy")
@@ -47,6 +52,8 @@ struct WeeklyPolicySettingsView: View {
         .onChange(of: requiredWeekdays) { _, _ in savePolicy() }
         .onChange(of: hasEffectiveDate) { _, _ in savePolicy() }
         .onChange(of: effectiveDate) { _, _ in savePolicy() }
+        .onChange(of: honorsHolidaysAndPTO) { _, _ in savePolicy() }
+        .onChange(of: unavailabilityAllowance) { _, _ in savePolicy() }
     }
 
     // MARK: - Sections
@@ -106,6 +113,43 @@ struct WeeklyPolicySettingsView: View {
         }
     }
 
+    private var timeAwaySection: some View {
+        Section {
+            Toggle("Reduce goal for time away", isOn: $honorsHolidaysAndPTO)
+
+            if honorsHolidaysAndPTO {
+                Stepper(value: $unavailabilityAllowance, in: 0...selectableWeekdays.count) {
+                    HStack {
+                        Text("Days away before reducing")
+                            .font(.body)
+                        Spacer()
+                        Text("\(unavailabilityAllowance)")
+                            .foregroundColor(DesignTokens.cyanAccent)
+                            .fontWeight(.medium)
+                    }
+                }
+                .accessibilityLabel("Days away before the goal is reduced")
+                .accessibilityValue("\(unavailabilityAllowance)")
+            }
+        } header: {
+            Text("PTO & Holidays")
+        } footer: {
+            Text(timeAwayFooter)
+        }
+    }
+
+    private var timeAwayFooter: String {
+        guard honorsHolidaysAndPTO else {
+            return "Your weekly goal stays the same regardless of PTO, sick days, or company holidays."
+        }
+        if unavailabilityAllowance == 0 {
+            return "Each PTO, sick, or holiday day in a week lowers that week's goal by one."
+        }
+        let dayWord = unavailabilityAllowance == 1 ? "day" : "days"
+        return "The first \(unavailabilityAllowance) \(dayWord) away each week won't change your goal. "
+             + "Beyond that, each additional day lowers that week's goal by one."
+    }
+
     private var effectiveDateSection: some View {
         Section {
             Toggle("Set an effective date", isOn: $hasEffectiveDate)
@@ -138,6 +182,8 @@ struct WeeklyPolicySettingsView: View {
             : []
         policy.requiredWeekdays = requiredWeekdays.sorted()
         policy.effectiveStartDate = hasEffectiveDate ? effectiveDate : nil
+        policy.honorsHolidaysAndPTO = honorsHolidaysAndPTO
+        policy.unavailabilityAllowance = unavailabilityAllowance
 
         newSettings.weeklyPolicy = policy
         appData.updateSettings(newSettings)

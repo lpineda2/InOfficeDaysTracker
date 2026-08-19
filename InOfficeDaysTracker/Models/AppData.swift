@@ -493,6 +493,7 @@ class AppData: ObservableObject {
             weekContaining: date,
             inOfficeDates: inOfficeDates,
             evaluationDate: date,
+            unavailableDates: getUnavailableDays(inWeekOf: date, calendar: calendar),
             calendar: calendar
         )
     }
@@ -567,6 +568,63 @@ class AppData: ObservableObject {
     func getPTODays(for month: Date) -> [Date] {
         let monthKey = monthKeyString(for: month)
         return settings.ptoSickDays[monthKey] ?? []
+    }
+
+    /// PTO/sick days falling within the week containing `date`.
+    ///
+    /// `ptoSickDays` is bucketed by "YYYY-MM", but weeks straddle month
+    /// boundaries (e.g. Mon Aug 31 - Fri Sep 4), so this reads every month
+    /// bucket the week touches rather than just the reference date's month.
+    func getPTODays(inWeekOf date: Date, calendar: Calendar = .current) -> [Date] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return [] }
+
+        // Collect the distinct months this week spans (at most two).
+        var monthKeys = Set<String>()
+        var cursor = calendar.startOfDay(for: week.start)
+        while cursor < week.end {
+            monthKeys.insert(monthKeyString(for: cursor))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+
+        let candidates = monthKeys.flatMap { settings.ptoSickDays[$0] ?? [] }
+        return candidates.filter { $0 >= week.start && $0 < week.end }
+    }
+
+    /// Company holidays falling within the week containing `date`, limited to
+    /// tracking days (a holiday on a non-tracking day doesn't reduce anything).
+    func getHolidays(inWeekOf date: Date, calendar: Calendar = .current) -> [Date] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return [] }
+
+        // Pull by year rather than month so a week spanning Dec 31 / Jan 1
+        // still sees both years' holidays.
+        var years = Set<Int>()
+        var cursor = calendar.startOfDay(for: week.start)
+        while cursor < week.end {
+            years.insert(calendar.component(.year, from: cursor))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+
+        let candidates = years.flatMap { settings.holidayCalendar.getHolidays(for: $0) }
+        return candidates.filter { holiday in
+            guard holiday >= week.start && holiday < week.end else { return false }
+            let weekday = calendar.component(.weekday, from: holiday)
+            return settings.trackingDays.contains(weekday)
+        }
+    }
+
+    /// Distinct days in the week the user is unavailable for office work,
+    /// combining PTO/sick days and company holidays.
+    ///
+    /// Deduplicated by calendar day so a PTO day booked on a holiday counts
+    /// once, not twice.
+    func getUnavailableDays(inWeekOf date: Date, calendar: Calendar = .current) -> [Date] {
+        let combined = getPTODays(inWeekOf: date, calendar: calendar)
+            + getHolidays(inWeekOf: date, calendar: calendar)
+
+        let distinctDays = Set(combined.map { calendar.startOfDay(for: $0) })
+        return distinctDays.sorted()
     }
     
     /// Add a PTO/sick day for a specific month
