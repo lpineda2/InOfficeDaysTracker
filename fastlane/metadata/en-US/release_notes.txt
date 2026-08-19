@@ -1,13 +1,13 @@
-What's New in Version 1.15.1:
+What's New in Version 1.16.0:
 
-This update refines the weekly tracking experience introduced in 1.15.0.
+Weekly tracking now understands time off.
 
-• Attendance Trend now matches your tracking cadence. With weekly tracking enabled, the chart groups your office days by week and shows a reference line for your weekly goal, so you can see at a glance how each week compares to your target.
+• Your weekly goal can adjust for time away. Turn on "Reduce goal for time away" in your weekly policy settings, and PTO, sick days, and company holidays will lower that week's office-day goal instead of counting against you.
 
-• Average Duration is clearer. Instead of showing "0h" before you've finished your first visit, the card now says when there's nothing to average yet. Weekly trackers also see an all-time average rather than one that resets each month.
+• Anchor days you're away for are excused. If your policy requires a Monday or Friday and you're on PTO that day, the app expects the other one — and if you're away for both, the requirement is waived. You'll never be told to come in on a day you're off.
 
-• History no longer shows a monthly goal when you're tracking weekly, so your dashboard and history always tell the same story.
+• Optional holiday handling. Weeks with a company holiday can skip the anchor-day rule entirely, if that's how your policy works.
 
-Monthly tracking is unchanged.
+These settings are off by default, so nothing changes unless you turn them on. Find them under Settings → Goals & Policy → Weekly Policy.
 
 Thank you for using In Office Days Tracker!
