@@ -277,6 +277,115 @@ final class PTOHolidayAdjustmentTests: XCTestCase {
         XCTAssertEqual(found.count, 1)
     }
 
+    // MARK: - Persistence
+    //
+    // WeeklyPolicy has a hand-written init(from:), so a missed decodeIfPresent
+    // would silently reset these settings on every launch rather than failing
+    // loudly. Round-trip them explicitly.
+
+    func testNewPolicyFieldsSurviveCodableRoundTrip() throws {
+        var policy = WeeklyPolicy(
+            weeklyMinimumDays: 3,
+            anchorDayGroups: [[.monday, .friday]],
+            honorsHolidaysAndPTO: true,
+            unavailabilityAllowance: 2
+        )
+        policy.waivesAnchorDaysOnHolidayWeeks = true
+
+        let data = try JSONEncoder().encode(policy)
+        let decoded = try JSONDecoder().decode(WeeklyPolicy.self, from: data)
+
+        XCTAssertEqual(decoded.honorsHolidaysAndPTO, true)
+        XCTAssertEqual(decoded.unavailabilityAllowance, 2)
+        XCTAssertEqual(decoded.waivesAnchorDaysOnHolidayWeeks, true)
+        XCTAssertEqual(decoded, policy)
+    }
+
+    func testPolicyDecodedFromOlderPayloadUsesSafeDefaults() throws {
+        // A payload written before these fields existed must decode with the
+        // feature off, not crash or enable it.
+        let legacy = """
+        {"weeklyMinimumDays":3,"requiredWeekdays":[],"anchorDayGroups":[[2,6]],"excludedWeekdays":[7,1]}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WeeklyPolicy.self, from: legacy)
+
+        XCTAssertFalse(decoded.honorsHolidaysAndPTO)
+        XCTAssertEqual(decoded.unavailabilityAllowance, 0)
+        XCTAssertFalse(decoded.waivesAnchorDaysOnHolidayWeeks)
+        XCTAssertEqual(decoded.weeklyMinimumDays, 3, "Existing fields still decode")
+    }
+
+    func testNegativeAllowanceIsClampedOnDecode() throws {
+        let payload = """
+        {"weeklyMinimumDays":3,"honorsHolidaysAndPTO":true,"unavailabilityAllowance":-3}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WeeklyPolicy.self, from: payload)
+        XCTAssertEqual(decoded.unavailabilityAllowance, 0,
+                       "A negative allowance would otherwise inflate the requirement")
+    }
+
+    // MARK: - Year-boundary weeks
+
+    @MainActor
+    func testPTOQueryFindsDaysAcrossAYearBoundary() {
+        let appData = makeAppData()
+
+        // Week containing Wed Dec 30, 2026 spans Dec 2026 and Jan 2027.
+        let dec30 = calendar.date(from: DateComponents(year: 2026, month: 12, day: 30))!
+        let jan1 = calendar.date(from: DateComponents(year: 2027, month: 1, day: 1))!
+
+        var settings = appData.settings
+        settings.ptoSickDays = [
+            "2026-12": [dec30],
+            "2027-01": [jan1]
+        ]
+        appData.updateSettings(settings)
+
+        let found = appData.getPTODays(inWeekOf: dec30, calendar: calendar)
+        XCTAssertEqual(found.count, 2,
+                       "A week spanning a year boundary must read both month buckets")
+    }
+
+    @MainActor
+    func testHolidayQueryFindsDaysAcrossAYearBoundary() {
+        let appData = makeAppData()
+
+        // Holidays are fetched per-year, so a Dec/Jan week must query both.
+        let dec30 = calendar.date(from: DateComponents(year: 2026, month: 12, day: 30))!
+        let holidays = appData.getHolidays(inWeekOf: dec30, calendar: calendar)
+
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: dec30) else {
+            return XCTFail("Could not resolve the week interval")
+        }
+        for holiday in holidays {
+            XCTAssertTrue(holiday >= week.start && holiday < week.end,
+                          "Returned holidays must fall inside the requested week")
+        }
+
+        // New Year's Day is a default holiday and lands in this week.
+        let containsNewYears = holidays.contains { calendar.component(.month, from: $0) == 1 }
+        XCTAssertTrue(containsNewYears,
+                      "Should find January holidays for a week that crosses into the next year")
+    }
+
+    @MainActor
+    func testHolidayQueryExcludesNonTrackingDays() {
+        let appData = makeAppData()
+
+        var settings = appData.settings
+        settings.trackingDays = [2, 3, 4, 5, 6] // Mon-Fri
+        appData.updateSettings(settings)
+
+        let holidays = appData.getHolidays(inWeekOf: monday, calendar: calendar)
+        for holiday in holidays {
+            let weekday = calendar.component(.weekday, from: holiday)
+            XCTAssertTrue(settings.trackingDays.contains(weekday),
+                          "A holiday on a non-tracking day shouldn't reduce anything")
+        }
+    }
+
     @MainActor
     func testUnavailableDaysDeduplicatesPTOOnAHoliday() throws {
         let appData = makeAppData()
