@@ -4,6 +4,8 @@ Weekly tracking now understands time off.
 
 • Your weekly goal can adjust for time away. Turn on "Reduce goal for time away" in your weekly policy settings, and PTO, sick days, and company holidays will lower that week's office-day goal instead of counting against you.
 
+• Match your own policy. PTO and holidays have separate settings, so if your workplace absorbs a couple of PTO days before adjusting but reduces the goal on the first holiday, you can set that up exactly.
+
 • Anchor days you're away for are excused. If your policy requires a Monday or Friday and you're on PTO that day, the app expects the other one — and if you're away for both, the requirement is waived. You'll never be told to come in on a day you're off.
 
 • Optional holiday handling. Weeks with a company holiday can skip the anchor-day rule entirely, if that's how your policy works.
