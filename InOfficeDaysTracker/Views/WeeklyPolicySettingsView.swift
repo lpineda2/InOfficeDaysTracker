@@ -136,7 +136,7 @@ struct WeeklyPolicySettingsView: View {
             if honorsHolidaysAndPTO {
                 Stepper(value: $unavailabilityAllowance, in: 0...selectableWeekdays.count) {
                     HStack {
-                        Text("PTO days before reducing")
+                        Text("PTO/sick days allowed per week")
                             .font(.body)
                         Spacer()
                         Text("\(unavailabilityAllowance)")
@@ -144,12 +144,12 @@ struct WeeklyPolicySettingsView: View {
                             .fontWeight(.medium)
                     }
                 }
-                .accessibilityLabel("PTO days before the goal is reduced")
+                .accessibilityLabel("PTO or sick days allowed per week before the goal is reduced")
                 .accessibilityValue("\(unavailabilityAllowance)")
 
                 Stepper(value: $holidayAllowance, in: 0...selectableWeekdays.count) {
                     HStack {
-                        Text("Holidays before reducing")
+                        Text("Holidays allowed per week")
                             .font(.body)
                         Spacer()
                         Text("\(holidayAllowance)")
@@ -157,7 +157,7 @@ struct WeeklyPolicySettingsView: View {
                             .fontWeight(.medium)
                     }
                 }
-                .accessibilityLabel("Holidays before the goal is reduced")
+                .accessibilityLabel("Holidays allowed per week before the goal is reduced")
                 .accessibilityValue("\(holidayAllowance)")
 
                 if requireAnchorDay {
