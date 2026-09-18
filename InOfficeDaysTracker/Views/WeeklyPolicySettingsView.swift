@@ -21,7 +21,9 @@ struct WeeklyPolicySettingsView: View {
     @State private var holidayAllowance: Int
     @State private var waivesAnchorDaysOnHolidayWeeks: Bool
 
-    /// Weekdays offered for selection (eligible, non-weekend by default).
+    /// Weekdays offered for anchor/required-day selection: always Monday–Friday,
+    /// regardless of the user's "Tracking Days" choice in Settings. These pickers
+    /// choose which office days a policy requires, not which days the app tracks.
     private let selectableWeekdays = PolicyWeekday.weekdays
 
     /// Suppresses `savePolicy()` while `syncFromSettings()` assigns to the
@@ -127,7 +129,9 @@ struct WeeklyPolicySettingsView: View {
         } footer: {
             Text("Selected weekdays must always be office days. Unlike anchor days, "
                  + "every day selected here is mandatory each week — not just one of "
-                 + "them. Leave empty if none.")
+                 + "them. Leave empty if none. This is separate from the \"Tracking "
+                 + "Days\" you chose in Settings, which controls which weekdays the "
+                 + "app tracks at all.")
         }
     }
 
