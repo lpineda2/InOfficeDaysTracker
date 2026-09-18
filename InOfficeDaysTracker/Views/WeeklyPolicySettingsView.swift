@@ -125,7 +125,9 @@ struct WeeklyPolicySettingsView: View {
         } header: {
             Text("Always Required (Optional)")
         } footer: {
-            Text("Selected weekdays must always be office days. Leave empty if none.")
+            Text("Selected weekdays must always be office days. Unlike anchor days, "
+                 + "every day selected here is mandatory each week — not just one of "
+                 + "them. Leave empty if none.")
         }
     }
 
@@ -212,12 +214,13 @@ struct WeeklyPolicySettingsView: View {
         if requireAnchorDay {
             lines.append("Anchor days you're away for are excused automatically.")
 
-            if waivesAnchorDaysOnHolidayWeeks {
-                lines.append(
-                    "A company holiday anywhere in the week waives the anchor-day rule, "
-                    + "even if the holiday isn't an anchor day."
-                )
-            }
+            lines.append(waivesAnchorDaysOnHolidayWeeks
+                ? "A company holiday anywhere in the week also waives the anchor-day "
+                  + "rule entirely, even if the holiday isn't an anchor day."
+                : "Turning on \"Waive anchor day in holiday weeks\" would drop the "
+                  + "anchor-day rule for the whole week whenever any holiday falls in "
+                  + "it, not just on an anchor day."
+            )
         }
 
         return lines.joined(separator: "\n\n")
