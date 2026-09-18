@@ -168,7 +168,11 @@ struct PolicySettingsView: View {
                             .foregroundColor(DesignTokens.cyanAccent)
                             .fontWeight(.medium)
                     }
-                    
+
+                    Text("Percentage of business days in the month you're required to be in the office.")
+                        .font(.caption)
+                        .foregroundColor(DesignTokens.textSecondary)
+
                     Slider(value: Binding(
                         get: { Double(customPercentage) },
                         set: { customPercentage = Int($0) }

@@ -21,7 +21,9 @@ struct WeeklyPolicySettingsView: View {
     @State private var holidayAllowance: Int
     @State private var waivesAnchorDaysOnHolidayWeeks: Bool
 
-    /// Weekdays offered for selection (eligible, non-weekend by default).
+    /// Weekdays offered for anchor/required-day selection: always Monday–Friday,
+    /// regardless of the user's "Tracking Days" choice in Settings. These pickers
+    /// choose which office days a policy requires, not which days the app tracks.
     private let selectableWeekdays = PolicyWeekday.weekdays
 
     /// Suppresses `savePolicy()` while `syncFromSettings()` assigns to the
@@ -125,7 +127,11 @@ struct WeeklyPolicySettingsView: View {
         } header: {
             Text("Always Required (Optional)")
         } footer: {
-            Text("Selected weekdays must always be office days. Leave empty if none.")
+            Text("Selected weekdays must always be office days. Unlike anchor days, "
+                 + "every day selected here is mandatory each week — not just one of "
+                 + "them. Leave empty if none. This is separate from the \"Tracking "
+                 + "Days\" you chose in Settings, which controls which weekdays the "
+                 + "app tracks at all.")
         }
     }
 
@@ -136,7 +142,7 @@ struct WeeklyPolicySettingsView: View {
             if honorsHolidaysAndPTO {
                 Stepper(value: $unavailabilityAllowance, in: 0...selectableWeekdays.count) {
                     HStack {
-                        Text("PTO days before reducing")
+                        Text("PTO/sick days allowed per week")
                             .font(.body)
                         Spacer()
                         Text("\(unavailabilityAllowance)")
@@ -144,12 +150,13 @@ struct WeeklyPolicySettingsView: View {
                             .fontWeight(.medium)
                     }
                 }
-                .accessibilityLabel("PTO days before the goal is reduced")
+                .accessibilityLabel("PTO or sick days allowed per week")
                 .accessibilityValue("\(unavailabilityAllowance)")
+                .accessibilityHint("Before the goal is reduced")
 
                 Stepper(value: $holidayAllowance, in: 0...selectableWeekdays.count) {
                     HStack {
-                        Text("Holidays before reducing")
+                        Text("Holidays allowed per week")
                             .font(.body)
                         Spacer()
                         Text("\(holidayAllowance)")
@@ -157,8 +164,9 @@ struct WeeklyPolicySettingsView: View {
                             .fontWeight(.medium)
                     }
                 }
-                .accessibilityLabel("Holidays before the goal is reduced")
+                .accessibilityLabel("Holidays allowed per week")
                 .accessibilityValue("\(holidayAllowance)")
+                .accessibilityHint("Before the goal is reduced")
 
                 if requireAnchorDay {
                     Toggle("Waive anchor day in holiday weeks", isOn: $waivesAnchorDaysOnHolidayWeeks)
@@ -188,6 +196,17 @@ struct WeeklyPolicySettingsView: View {
         }
     }
 
+    /// Describes the holiday-wide anchor-day waiver for the current toggle
+    /// state. Both states share the same underlying rule description, varying
+    /// only whether it's already in effect or would take effect if turned on.
+    private func anchorWaiverSentence(isOn: Bool) -> String {
+        let rule = "the anchor-day rule for the whole week whenever any holiday "
+                 + "falls in it, not just on an anchor day"
+        return isOn
+            ? "A company holiday anywhere in the week also waives \(rule)."
+            : "Turning on \"Waive anchor day in holiday weeks\" would drop \(rule)."
+    }
+
     private var timeAwayFooter: String {
         guard honorsHolidaysAndPTO else {
             return "Your weekly goal stays the same regardless of PTO, sick days, or company holidays."
@@ -212,12 +231,7 @@ struct WeeklyPolicySettingsView: View {
         if requireAnchorDay {
             lines.append("Anchor days you're away for are excused automatically.")
 
-            if waivesAnchorDaysOnHolidayWeeks {
-                lines.append(
-                    "A company holiday anywhere in the week waives the anchor-day rule, "
-                    + "even if the holiday isn't an anchor day."
-                )
-            }
+            lines.append(anchorWaiverSentence(isOn: waivesAnchorDaysOnHolidayWeeks))
         }
 
         return lines.joined(separator: "\n\n")
