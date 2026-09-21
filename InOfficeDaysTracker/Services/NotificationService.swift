@@ -133,6 +133,31 @@ class NotificationService: NSObject, ObservableObject {
         }
     }
     
+    /// Nudge for weekly-cadence users when the current week's compliance status
+    /// needs attention. `message` should come straight from
+    /// `WeeklyComplianceResult.guidanceMessage` so the notification never says
+    /// something different from what the dashboard's compliance card shows.
+    func sendWeeklyComplianceNotification(message: String) {
+        guard authorizationStatus == .authorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Weekly Office Goal"
+        content.body = message
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "weekly_compliance_reminder",
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                debugLog("❌", "Error sending weekly compliance reminder: \(error)")
+            }
+        }
+    }
+
     func scheduleWeeklyGoalReminder() {
         guard authorizationStatus == .authorized else { return }
         
