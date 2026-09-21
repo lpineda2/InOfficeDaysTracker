@@ -202,11 +202,17 @@ struct NotificationTests {
     @Test("Edge case - Notification respects settings toggle")
     @MainActor
     func testNotificationRespectsSettingsToggle() async throws {
-        // If user toggles notificationsEnabled off:
-        // - No new notifications should be sent/scheduled
-        // - Pending notifications should be cancelled
-        
-        #expect(true, "Notifications respect settings.notificationsEnabled")
+        // The unit-test host has no real app identity for the notification
+        // daemon, so UNUserNotificationCenter.add(_:) doesn't reliably persist
+        // requests here — scheduling can't be asserted in this environment.
+        // What's testable is the cancellation call itself: disabling
+        // notifications should always leave the center with no pending requests.
+        let center = UNUserNotificationCenter.current()
+
+        NotificationService.shared.cancelAllNotifications()
+
+        let pending = await center.pendingNotificationRequests()
+        #expect(pending.isEmpty, "Pending notifications should be cancelled when notifications are disabled")
     }
     
     @Test("Edge case - Background task prevents data loss")

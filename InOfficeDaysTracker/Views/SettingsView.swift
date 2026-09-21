@@ -60,6 +60,9 @@ struct SettingsView: View {
             autoSaveSettings()
         }
         .onChange(of: notificationsEnabled) {
+            if !notificationsEnabled {
+                NotificationService.shared.cancelAllNotifications()
+            }
             autoSaveSettings()
         }
         .onChange(of: startTime) {
