@@ -26,6 +26,14 @@ enum WeeklyComplianceStatus: String, Codable {
     case missed
     /// The policy is not in effect for this week.
     case notApplicable
+
+    /// Whether this status is urgent/actionable enough to justify pushing a
+    /// notification, as opposed to something the user can only see if they
+    /// open the app (`.onTrack`, `.complete`, `.needsOfficeDays` while slack
+    /// remains, `.notApplicable`).
+    var warrantsComplianceNotification: Bool {
+        self == .missed || self == .needsAnchorDay
+    }
 }
 
 /// The structured outcome of evaluating a week against a `WeeklyPolicy`.

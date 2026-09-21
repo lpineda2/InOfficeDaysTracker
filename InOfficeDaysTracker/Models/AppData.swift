@@ -436,6 +436,8 @@ class AppData: ObservableObject {
         } else {
             debugLog("[AppData] Completed session (\(visit.formattedDuration)), saved for record")
         }
+
+        notifyIfWeeklyComplianceNeedsAttention()
         
         // CRITICAL FIX: Await calendar update to ensure it completes before app suspension
         // This prevents calendar events from showing "Currently in office" after you've left
@@ -497,6 +499,17 @@ class AppData: ObservableObject {
             holidayDates: getHolidays(inWeekOf: date, calendar: calendar),
             calendar: calendar
         )
+    }
+
+    /// Sends a weekly-compliance nudge after a visit ends, but only when the
+    /// week's status is genuinely time-sensitive (`.missed` or
+    /// `.needsAnchorDay`) — comfortably-on-pace weeks don't need a push.
+    private func notifyIfWeeklyComplianceNeedsAttention() {
+        guard settings.notificationsEnabled else { return }
+        guard let result = getCurrentWeekCompliance() else { return }
+        guard result.status.warrantsComplianceNotification else { return }
+
+        NotificationService.shared.sendWeeklyComplianceNotification(message: result.guidanceMessage)
     }
 
     // MARK: - Auto-Calculate Goal Methods

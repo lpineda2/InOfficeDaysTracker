@@ -533,4 +533,53 @@ final class WeeklyPolicyTests: XCTestCase {
         let result = appData.getCurrentWeekCompliance(asOf: wednesday)
         XCTAssertEqual(result?.officeDaysCompleted, 2, "Only the completed valid visit and the active session should count")
     }
+
+    // MARK: - Compliance notification trigger
+
+    func testOnTrackStatusDoesNotWarrantNotification() {
+        // Monday visit satisfies the anchor day and leaves plenty of slack —
+        // the exact scenario where a nudge would be noise, not help.
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [monday],
+            reference: monday
+        )
+        XCTAssertEqual(result.status, .onTrack)
+        XCTAssertFalse(result.status.warrantsComplianceNotification)
+    }
+
+    func testNeedsAnchorDayStatusWarrantsNotification() {
+        // Same minimum/attendance shape as above, but the anchor group is
+        // Tuesday-or-Thursday, so Monday's visit doesn't satisfy it yet.
+        let policy = WeeklyPolicy(
+            weeklyMinimumDays: 3,
+            anchorDayGroups: [[.tuesday, .thursday]]
+        )
+        let result = evaluate(policy, inOffice: [monday], reference: monday)
+        XCTAssertEqual(result.status, .needsAnchorDay)
+        XCTAssertEqual(result.guidanceMessage, "You need an office day on Tuesday or Thursday to meet your anchor-day requirement.")
+        XCTAssertTrue(result.status.warrantsComplianceNotification)
+    }
+
+    func testMissedStatusWarrantsNotification() {
+        // Friday, only 1 of 3 required days completed, nothing left to attend.
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [monday],
+            reference: friday,
+            evaluationDate: friday
+        )
+        XCTAssertEqual(result.status, .missed)
+        XCTAssertTrue(result.status.warrantsComplianceNotification)
+    }
+
+    func testCompleteStatusDoesNotWarrantNotification() {
+        let result = evaluate(
+            standardPolicy(),
+            inOffice: [monday, tuesday, wednesday],
+            reference: wednesday
+        )
+        XCTAssertEqual(result.status, .complete)
+        XCTAssertFalse(result.status.warrantsComplianceNotification)
+    }
 }
