@@ -11,7 +11,8 @@ import SwiftUI
 struct MainProgressView: View {
     @ObservedObject var appData: AppData
     @Binding var selectedTab: MainTabView.Tab
-    
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var currentTime = Date()
     /// Keeps the time-away prompt visible through its confirmation state after
     /// the user enables the feature from it. Resets when the view reappears.
@@ -255,6 +256,16 @@ struct MainProgressView: View {
             }
             .onReceive(timer) { _ in
                 if appData.isCurrentlyInOffice {
+                    currentTime = Date()
+                }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                // The 1-second timer only ticks while in the office, so a day
+                // boundary crossed while the app sat open in the background
+                // (or foregrounded but idle) would otherwise leave "Today"/
+                // "Yesterday" on Recent Visits stuck on their pre-midnight
+                // values until something else forces a redraw.
+                if newPhase == .active {
                     currentTime = Date()
                 }
             }
