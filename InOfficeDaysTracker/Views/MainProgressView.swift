@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct MainProgressView: View {
     @ObservedObject var appData: AppData
