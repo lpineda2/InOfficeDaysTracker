@@ -40,6 +40,8 @@ struct SetupView: View {
     @State private var isLoading = false
     @State private var showingError = false
     @State private var errorMessage = ""
+    /// Adds an "Open Settings" button to the error alert (location problems only).
+    @State private var errorOffersSettings = false
     
     private let totalSteps = 7
 
@@ -126,9 +128,16 @@ struct SetupView: View {
             }
             .navigationBarHidden(true)
             .alert("Error", isPresented: $showingError) {
+                if errorOffersSettings {
+                    Button("Open Settings") { locationService.openAppSettings() }
+                }
                 Button("OK") { }
             } message: {
                 Text(errorMessage)
+            }
+            .onChange(of: showingError) { _, isShowing in
+                // The Settings shortcut only applies to the error that asked for it.
+                if !isShowing { errorOffersSettings = false }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active && currentStep == 5 {
@@ -780,6 +789,21 @@ struct SetupView: View {
     
     private func useCurrentLocation() {
         Task {
+            // This step comes before the Permissions step, so the user may not
+            // have been asked yet. Ask now instead of failing silently.
+            let status = await locationService.requestWhenInUseAuthorizationIfNeeded()
+            let state = locationService.accessState
+
+            guard status == .authorizedWhenInUse || status == .authorizedAlways,
+                  state.allowsPreciseCurrentLocation else {
+                await MainActor.run {
+                    errorMessage = state.currentLocationFailureMessage
+                    errorOffersSettings = state.action == .openSettings
+                    showingError = true
+                }
+                return
+            }
+
             do {
                 guard let currentLocation = try await locationService.getCurrentLocation() else {
                     await MainActor.run {
@@ -788,9 +812,9 @@ struct SetupView: View {
                     }
                     return
                 }
-                
+
                 let address = try await locationService.reverseGeocodeLocation(currentLocation)
-                
+
                 await MainActor.run {
                     officeAddress = address
                     officeCoordinate = currentLocation

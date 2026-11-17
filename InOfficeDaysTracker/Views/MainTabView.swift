@@ -61,4 +61,5 @@ struct MainTabView: View {
 #Preview {
     MainTabView()
         .environmentObject(AppData())
+        .environmentObject(LocationService())
 }

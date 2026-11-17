@@ -28,7 +28,8 @@ struct SettingsView: View {
         }
     }
     @ObservedObject var appData: AppData
-    
+    @EnvironmentObject var locationService: LocationService
+
     @State private var officeAddress: String = ""
     @State private var officeCoordinate: CLLocationCoordinate2D?
     @State private var detectionRadius: Double = 1609.34
@@ -46,6 +47,7 @@ struct SettingsView: View {
         Form {
             goalsSection
             officeLocationsSection
+            locationAccessSection
             trackingSection
             calendarSection
             notificationsSection
@@ -176,6 +178,48 @@ struct SettingsView: View {
         }
     }
     
+    // MARK: - Location Access Section
+
+    /// Shows whether automatic tracking has the location access it needs, with
+    /// the one action that can fix it.
+    private var locationAccessSection: some View {
+        let state = locationService.accessState
+        return Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: state.needsAttention ? "location.slash.fill" : "location.fill")
+                        .foregroundColor(state.needsAttention ? DesignTokens.orangeAccent : DesignTokens.successGreen)
+                        .frame(width: 24)
+                        .accessibilityHidden(true)
+
+                    Text(state.title)
+                        .font(.body)
+                }
+
+                Text(state.message)
+                    .font(.caption)
+                    .foregroundColor(DesignTokens.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let actionTitle = state.actionTitle {
+                    Button(actionTitle) {
+                        switch state.action {
+                        case .requestPermission: locationService.requestLocationPermission()
+                        case .openSettings: locationService.openAppSettings()
+                        case .none: break
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(DesignTokens.cyanAccent)
+                }
+            }
+            .padding(.vertical, 4)
+            .accessibilityElement(children: .contain)
+        } header: {
+            Text("Location Access")
+        }
+    }
+
     private var locationSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
@@ -687,4 +731,5 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 #Preview {
     SettingsView(appData: AppData())
+        .environmentObject(LocationService())
 }

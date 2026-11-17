@@ -20,8 +20,15 @@ class LocationService: NSObject, ObservableObject {
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published var isLocationEnabled = false
     @Published var locationError: String?
-    
+    /// What automatic tracking can currently do and what the user should do
+    /// next. Recomputed whenever authorization changes.
+    @Published private(set) var accessState: LocationAccessState = .needsPrompt
+
     weak var appData: AppData?
+
+    /// Pending caller of `requestWhenInUseAuthorizationIfNeeded()`, resumed
+    /// once the user answers the system prompt.
+    private var authorizationWaiter: (id: UUID, continuation: CheckedContinuation<CLAuthorizationStatus, Never>)?
     
     // Add verification service to handle intermittent status issues
     private let verificationService = LocationVerificationService()
@@ -76,8 +83,9 @@ class LocationService: NSObject, ObservableObject {
         
         authorizationStatus = locationManager.authorizationStatus
         updateLocationEnabled()
+        refreshAccessState()
     }
-    
+
     func setAppData(_ appData: AppData) {
         self.appData = appData
         // Connect verification service to handle intermittent status issues
@@ -90,9 +98,50 @@ class LocationService: NSObject, ObservableObject {
     func checkAuthorizationStatus() {
         authorizationStatus = locationManager.authorizationStatus
         updateLocationEnabled()
+        refreshAccessState()
         locationError = nil
     }
-    
+
+    /// Recompute `accessState` from the live manager values.
+    private func refreshAccessState() {
+        accessState = LocationAccessState(
+            authorizationStatus: authorizationStatus,
+            accuracyAuthorization: locationManager.accuracyAuthorization,
+            isRegionMonitoringAvailable: CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self)
+        )
+    }
+
+    /// Ask for "When in Use" access if the user hasn't been asked yet, and wait
+    /// for their answer. Returns the resulting status (unchanged if the user
+    /// was already asked, or still `.notDetermined` if the prompt went
+    /// unanswered for a minute).
+    func requestWhenInUseAuthorizationIfNeeded() async -> CLAuthorizationStatus {
+        let current = locationManager.authorizationStatus
+        guard current == .notDetermined else { return current }
+
+        return await withCheckedContinuation { continuation in
+            // Only one waiter at a time; release any earlier one unchanged.
+            resolveAuthorizationWaiter(with: current)
+
+            let id = UUID()
+            authorizationWaiter = (id, continuation)
+            locationManager.requestWhenInUseAuthorization()
+
+            // Safety net so a prompt that never appears can't hang the caller.
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                guard let self, self.authorizationWaiter?.id == id else { return }
+                self.resolveAuthorizationWaiter(with: self.locationManager.authorizationStatus)
+            }
+        }
+    }
+
+    private func resolveAuthorizationWaiter(with status: CLAuthorizationStatus) {
+        guard let waiter = authorizationWaiter else { return }
+        authorizationWaiter = nil
+        waiter.continuation.resume(returning: status)
+    }
+
     /// Request location permission following Apple's best practices
     /// Start with "When in Use" and only upgrade to "Always" when user has granted the first level
     func requestLocationPermission() {
@@ -146,10 +195,13 @@ class LocationService: NSObject, ObservableObject {
         
         // Check if background location updates are supported
         guard isBackgroundLocationSupported else {
-            locationError = "Background location is not supported on this device"
+            // Say why (Precise Location off vs. device can't monitor regions)
+            // rather than one generic message.
+            refreshAccessState()
+            locationError = accessState.message
             return
         }
-        
+
         hasRequestedAlwaysPermission = true
         
         // Use background task to avoid blocking main thread and check location services
@@ -211,9 +263,10 @@ class LocationService: NSObject, ObservableObject {
         
         // iOS 14+: Check for precise location authorization
         // Reduced accuracy breaks geofencing completely
+        // (This getter must stay free of side effects; callers report the
+        // reason via `accessState`.)
         if #available(iOS 14.0, *) {
             if locationManager.accuracyAuthorization == .reducedAccuracy {
-                locationError = "Precise Location is required for automatic office tracking. Please enable in Settings."
                 debugLog("⚠️", "[LocationService] Precise location is disabled - geofencing will not work")
                 return false
             }
@@ -232,7 +285,7 @@ class LocationService: NSObject, ObservableObject {
         }
     }
     
-    private func openAppSettings() {
+    func openAppSettings() {
         guard let settingsUrl = URL(string: UIApplication.openSettingsURLString) else {
             return
         }
@@ -287,7 +340,8 @@ class LocationService: NSObject, ObservableObject {
         
         guard isBackgroundLocationSupported else {
             debugLog("❌", "[LocationService] Background location not supported")
-            locationError = "Background location monitoring not supported on this device"
+            refreshAccessState()
+            locationError = accessState.message
             return
         }
         
@@ -473,21 +527,12 @@ class LocationService: NSObject, ObservableObject {
             throw NSError(domain: "LocationService", code: 3, userInfo: [NSLocalizedDescriptionKey: "Location permission not granted"])
         }
         
-        return try await withCheckedThrowingContinuation { continuation in
-            Task {
-                // Request a single location update
-                locationManager.requestLocation()
-                
-                // Wait for location or timeout
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-                
-                if let location = locationManager.location {
-                    continuation.resume(returning: location.coordinate)
-                } else {
-                    continuation.resume(throwing: NSError(domain: "LocationService", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unable to get current location"]))
-                }
-            }
+        // Wait for the delegate callback (or a timeout) rather than sleeping a
+        // fixed time and reading whatever the manager happens to have cached.
+        guard let location = await requestSingleLocation(timeout: 15.0) else {
+            throw NSError(domain: "LocationService", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unable to get current location"])
         }
+        return location.coordinate
     }
     
     /// Request a single location update with proper delegate callback handling.
@@ -594,8 +639,15 @@ extension LocationService: CLLocationManagerDelegate {
         Task { @MainActor in
             authorizationStatus = status
             updateLocationEnabled()
+            refreshAccessState()
             locationError = nil
-            
+
+            // Release anyone waiting on the system prompt. The callback also
+            // fires at start-up with .notDetermined, which isn't an answer.
+            if status != .notDetermined {
+                resolveAuthorizationWaiter(with: status)
+            }
+
             switch status {
             case .authorizedAlways:
                 // Enable background location updates only when we have "Always" permission

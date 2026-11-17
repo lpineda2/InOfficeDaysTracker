@@ -10,6 +10,7 @@ import SwiftUI
 
 struct MainProgressView: View {
     @ObservedObject var appData: AppData
+    @EnvironmentObject var locationService: LocationService
     @Binding var selectedTab: MainTabView.Tab
     @Environment(\.scenePhase) private var scenePhase
 
@@ -126,7 +127,19 @@ struct MainProgressView: View {
             VStack(spacing: DesignTokens.gridSpacing) {
                 // Header with month
                 headerSection
-                
+
+                // Automatic tracking can't run without location access, and
+                // nothing else in the app says so once setup is finished.
+                if locationService.accessState.needsAttention {
+                    LocationAccessCard(state: locationService.accessState) {
+                        switch locationService.accessState.action {
+                        case .requestPermission: locationService.requestLocationPermission()
+                        case .openSettings: locationService.openAppSettings()
+                        case .none: break
+                        }
+                    }
+                }
+
                 // In Weekly mode, the weekly card is primary (shown first) and
                 // the monthly card is clearly labelled as a secondary summary.
                 if let weeklyCompliance = weeklyCompliance {
@@ -899,4 +912,5 @@ struct CalculationDetailRow: View {
 #Preview {
     @Previewable @State var selectedTab: MainTabView.Tab = .home
     MainProgressView(appData: AppData(), selectedTab: $selectedTab)
+        .environmentObject(LocationService())
 }
